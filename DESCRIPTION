@@ -17,6 +17,6 @@ Description: Provides a bundled, static HDF5 C library (version 1.14.6)
     'LinkingTo' field of other packages.
 URL: https://github.com/cmmr/hdf5lib
 BugReports: https://github.com/cmmr/hdf5lib/issues
-License: BSD-3
+License: BSD_3_clause + file LICENSE
 Encoding: UTF-8
 RoxygenNote: 7.3.3

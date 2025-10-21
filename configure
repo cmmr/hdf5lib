@@ -35,10 +35,12 @@ echo "--- [hdf5lib] Configuring bundled HDF5 library..."
   --disable-fortran \
   --disable-cxx \
   --disable-parallel \
+  --enable-zlib \
   --disable-subfiling-vfd \
   --disable-direct-vfd \
   --disable-tests \
-  --disable-tools
+  --disable-tools \
+  --disable-dependency-tracking
 
 # Compile HDF5 with warning suppressions
 echo "--- [hdf5lib] Compiling HDF5 static library..."

@@ -8,11 +8,23 @@
 # Ignore the obsolete libtool file with a non-portable name
 ^src/hdf5-1.14.6/m4/lt~obsolete\.m4$
 
-# Ignore the HDF5 examples, which are not needed
+# Ignore the bundled citation file
+^src/hdf5-1.14.6/CITATION\.cff$
+
+# Ignore directories for components we are definitely not building
+# (C++, Fortran, Java bindings, Examples)
+^src/hdf5-1.14.6/c++/
+^src/hdf5-1.14.6/fortran/
+^src/hdf5-1.14.6/java/
 ^src/hdf5-1.14.6/HDF5Examples/
 
-# Ignore the specific subdirectories inside tools/test that
-# contain non-portable, long file names.
-# This preserves the Makefile.in files in their parent directories.
+# Ignore specific subdirectories within tools/test known to contain
+# non-portable, long file names, preserving needed Makefiles above them.
 ^src/hdf5-1.14.6/tools/test/h5dump/testfiles/
 ^src/hdf5-1.14.6/tools/test/h5repack/expected/
+
+# Ignore directories from zlib we are not building/using
+^src/zlib-1.3.1/contrib/
+^src/zlib-1.3.1/examples/
+^src/zlib-1.3.1/nintendods/
+^src/zlib-1.3.1/test/
