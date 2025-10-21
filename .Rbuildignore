@@ -11,58 +11,57 @@
 # Ignore the bundled citation file
 ^src/hdf5-1.14.6/CITATION\.cff$
 
-# Ignore Java contents (keeping java/Makefile.in and java/test/Makefile.in)
+# --- Ignore contents BUT keep *.in files ---
+
+# Java contents (keeping java/Makefile.in, java/test/Makefile.in, etc.)
 ^src/hdf5-1.14.6/java/.*\.(java|jar|class|h|c|cpp|sh|bat|txt|docbook|pdf|png|css|html|xml|xsl|ipynb)$
-# Ignore Java test contents (keeping java/test/Makefile.in)
 ^src/hdf5-1.14.6/java/test/.*\.(java|h|c|sh|h5|txt)$
 
-# Ignore Examples directory (keeping HDF5Examples/Makefile.in)
+# HDF5Examples contents (keeping HDF5Examples/Makefile.in)
 ^src/hdf5-1.14.6/HDF5Examples/.*\.(c|h|f90|cpp|h5|txt|out|out\.txt|ddl|jpg)$
 
-# --- Ignore contents of other directories BUT keep *.in files ---
-
-# Ignore C++ contents (keeping c++/Makefile.in)
-^src/hdf5-1.14.6/c++/examples
+# C++ contents (keeping c++/Makefile.in, c++/examples/Makefile.in, c++/test/Makefile.in)
+^src/hdf5-1.14.6/c++/examples/.*\.(cpp|h|h5|txt|sh)$
 ^src/hdf5-1.14.6/c++/src/.*\.(cpp|h)$
 ^src/hdf5-1.14.6/c++/test/.*\.(cpp|h|sh|ddl|txt)$
 
-# Ignore Fortran contents (keeping fortran/Makefile.in and fortran/src/h5fc.in)
-^src/hdf5-1.14.6/fortran/examples
+# Fortran contents (keeping fortran/Makefile.in, fortran/examples/Makefile.in, etc.)
+^src/hdf5-1.14.6/fortran/examples/.*\.(f90|h5|txt|sh)$
 ^src/hdf5-1.14.6/fortran/src/.*\.(f90|inc|h)$
 ^src/hdf5-1.14.6/fortran/test/.*\.(f90|h5|sh|txt|dat)$
 ^src/hdf5-1.14.6/fortran/testpar/.*\.(f90|h5|sh|txt|dat)$
 
-# Ignore HL C++ contents (keeping hl/c++/Makefile.in)
-^src/hdf5-1.14.6/hl/c++/examples
+# HL C++ contents (keeping hl/c++/Makefile.in, etc.)
+^src/hdf5-1.14.6/hl/c++/examples/.*\.(cpp|h5|sh)$
 ^src/hdf5-1.14.6/hl/c++/src/.*\.(cpp|h)$
 ^src/hdf5-1.14.6/hl/c++/test/.*\.(cpp|h5|sh)$
 
-# Ignore HL Fortran contents (keeping hl/fortran/Makefile.in)
-^src/hdf5-1.14.6/hl/fortran/examples
+# HL Fortran contents (keeping hl/fortran/Makefile.in, etc.)
+^src/hdf5-1.14.6/hl/fortran/examples/.*\.(f90|c|h|sh|h5|txt)$
 ^src/hdf5-1.14.6/hl/fortran/src/.*\.(f90|inc)$
 ^src/hdf5-1.14.6/hl/fortran/test/.*\.(f90|h5|sh)$
 
-# Ignore HL examples contents (keeping hl/examples/Makefile.in)
+# HL examples contents (keeping hl/examples/Makefile.in)
 ^src/hdf5-1.14.6/hl/examples/.*\.(c|h|f90|h5|py|ipynb)$
 
-# Ignore HL test contents (keeping hl/test/Makefile.in)
+# HL test contents (keeping hl/test/Makefile.in)
 ^src/hdf5-1.14.6/hl/test/.*\.(c|h|sh|h5|txt|dat|gif)$
 
-# Ignore HL tool contents (keeping hl/tools/Makefile.in and sub-Makefiles)
+# HL tool contents (keeping hl/tools/Makefile.in and sub-Makefiles)
 ^src/hdf5-1.14.6/hl/tools/gif2h5/.*\.(c|h|gif)$
 ^src/hdf5-1.14.6/hl/tools/h5watch/.*\.(c|h)$
 
-# Ignore Test contents (keeping test/Makefile.in)
+# Test contents (keeping test/Makefile.in)
 ^src/hdf5-1.14.6/test/.*\.(c|h|h5|txt|inc|ddl|dat|sh|out|jpg|jpeg|raw|ascii|err|py|ipynb)$
 ^src/hdf5-1.14.6/test/test H5T VLEN\.h5$
 ^src/hdf5-1.14.6/test/vds_data
 
-# Ignore Test Parallel contents (keeping testpar/Makefile.in)
+# Test Parallel contents (keeping testpar/Makefile.in)
 ^src/hdf5-1.14.6/testpar/.*\.(c|h5|txt|sh|out)$
 ^src/hdf5-1.14.6/testpar/cache
 ^src/hdf5-1.14.6/testpar/tcio
 
-# Ignore Tools contents (keeping Makefiles and *.in files)
+# Tools contents (keeping Makefiles and *.in files)
 ^src/hdf5-1.14.6/tools/lib/.*\.(c|h)$
 ^src/hdf5-1.14.6/tools/libtest/.*\.(c|h)$
 ^src/hdf5-1.14.6/tools/src/.*\.(c|h)$
@@ -72,7 +71,7 @@
 ^src/hdf5-1.14.6/tools/test/h5dump/testfiles
 ^src/hdf5-1.14.6/tools/test/h5repack/expected
 
-# Ignore Utils contents (keeping Makefiles and *.in files)
+# Utils contents (keeping Makefiles and *.in files)
 ^src/hdf5-1.14.6/utils/mirror_vfd/.*\.(c|h)$
 ^src/hdf5-1.14.6/utils/test/.*\.(c|h|sh|py)$
 ^src/hdf5-1.14.6/utils/tools/.*\.(c|h)$
