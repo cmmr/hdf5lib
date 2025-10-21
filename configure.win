@@ -4,7 +4,7 @@ set -e
 echo "--- [hdf5lib] Starting Windows configuration ---"
 
 # --- 1. Build static zlib ---
-echo "--- [hdf5lib] Compiling static zlib (This may take a moment)..."
+echo "--- [hdf5lib] Compiling static zlib..."
 cd src/zlib-1.3.1
 make -f win32/Makefile.gcc libz.a
 cd ../..
@@ -13,15 +13,15 @@ cd ../..
 ZLIB_PATH="$(pwd)/src/zlib-1.3.1"
 echo "--- [hdf5lib] zlib path set to: ${ZLIB_PATH} ---"
 
-# --- 2. Build static HDF5, linked to our zlib ---
+# --- 2. Build static HDF5 ---
 echo "--- [hdf5lib] Starting HDF5 build..."
 cd src/hdf5-1.14.6
 
 # Apply patches
 echo "--- [hdf5lib] Applying R/MinGW patches..."
-patch -p2 < ../hdf5.patch
+patch -p1 < ../hdf5.patch
 
-# Configure HDF5, passing zlib paths via CPPFLAGS and LDFLAGS
+# Configure HDF5
 echo "--- [hdf5lib] Configuring bundled HDF5 library..."
 CPPFLAGS="-I${ZLIB_PATH}" LDFLAGS="-L${ZLIB_PATH}" ./configure \
   --disable-shared \
@@ -32,18 +32,19 @@ CPPFLAGS="-I${ZLIB_PATH}" LDFLAGS="-L${ZLIB_PATH}" ./configure \
   --disable-subfiling-vfd \
   --disable-direct-vfd \
   --disable-tests \
-  --disable-tools
+  --disable-tools \
+  --disable-dependency-tracking
 
-# Compile HDF5 with warning suppressions
+# Compile HDF5 with specific warning suppressions
 echo "--- [hdf5lib] Compiling HDF5 static library..."
-make CFLAGS="$CFLAGS -Wno-deprecated-declarations -Wno-format -Wno-format-extra-args"
+make CFLAGS="$CFLAGS -Wno-deprecated-declarations -Wno-format -Wno-format-extra-args -Wno-implicit-fallthrough -Wno-unused-parameter -Wno-strict-prototypes -Wno-unused-function -Wno-unneeded-internal-declaration -Wno-sign-conversion"
 cd ../..
 
 # --- 3. Finalize R package ---
 echo "--- [hdf5lib] Creating Makevars.win..."
 cp src/Makevars.in src/Makevars.win
 
-echo "--- [hdf5lib] Exposing HDF5 headers for other packages..."
+echo "--- [hdf5lib] Exposing HDF5 headers..."
 mkdir -p inst/include
 cp src/hdf5-1.14.6/src/*.h inst/include/
 
