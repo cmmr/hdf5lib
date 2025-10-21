@@ -35,7 +35,6 @@ echo "--- [hdf5lib] Configuring bundled HDF5 library..."
   --disable-fortran \
   --disable-cxx \
   --disable-parallel \
-  --enable-zlib \
   --disable-subfiling-vfd \
   --disable-direct-vfd \
   --disable-tests \

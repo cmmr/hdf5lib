@@ -13,6 +13,6 @@
 
 # Ignore the specific subdirectories inside tools/test that
 # contain non-portable, long file names.
-# This preserves src/hdf5-1.14.6/tools/test/Makefile.in
-^src/hdf5-1.14.6/tools/test/h5dump/
-^src/hdf5-1.14.6/tools/test/h5repack/
+# This preserves the Makefile.in files in their parent directories.
+^src/hdf5-1.14.6/tools/test/h5dump/testfiles/
+^src/hdf5-1.14.6/tools/test/h5repack/expected/

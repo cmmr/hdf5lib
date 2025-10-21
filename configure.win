@@ -29,7 +29,6 @@ CPPFLAGS="-I${ZLIB_PATH}" LDFLAGS="-L${ZLIB_PATH}" ./configure \
   --disable-fortran \
   --disable-cxx \
   --disable-parallel \
-  --enable-zlib \
   --disable-subfiling-vfd \
   --disable-direct-vfd \
   --disable-tests \
