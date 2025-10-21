@@ -10,3 +10,126 @@
 
 # Ignore the bundled citation file
 ^src/hdf5-1.14.6/CITATION\.cff$
+
+# Ignore Java components (no Makefile.in found inside)
+^src/hdf5-1.14.6/java
+
+# Ignore Examples (no Makefile.in found inside HDF5Examples)
+^src/hdf5-1.14.6/HDF5Examples
+
+# --- Ignore contents of directories BUT keep Makefile.in ---
+
+# Ignore C++ contents (keeping c++/Makefile.in)
+^src/hdf5-1.14.6/c++/examples
+^src/hdf5-1.14.6/c++/src
+^src/hdf5-1.14.6/c++/test
+
+# Ignore Fortran contents (keeping fortran/Makefile.in)
+^src/hdf5-1.14.6/fortran/examples
+^src/hdf5-1.14.6/fortran/src
+^src/hdf5-1.14.6/fortran/test
+^src/hdf5-1.14.6/fortran/testpar
+
+# Ignore HL contents (keeping hl/Makefile.in, hl/c++/Makefile.in, hl/fortran/Makefile.in, hl/src/Makefile.in, hl/tools/Makefile.in, hl/tools/gif2h5/Makefile.in, hl/tools/h5watch/Makefile.in)
+^src/hdf5-1.14.6/hl/c++/examples
+^src/hdf5-1.14.6/hl/c++/src
+^src/hdf5-1.14.6/hl/c++/test
+^src/hdf5-1.14.6/hl/examples
+^src/hdf5-1.14.6/hl/fortran/examples
+^src/hdf5-1.14.6/hl/fortran/src
+^src/hdf5-1.14.6/hl/fortran/test
+^src/hdf5-1.14.6/hl/src/.*\.c$ # Keep hl/src/Makefile.in
+^src/hdf5-1.14.6/hl/src/.*\.h$
+^src/hdf5-1.14.6/hl/test
+^src/hdf5-1.14.6/hl/tools/.*\.c$ # Keep hl/tools/Makefile.in
+^src/hdf5-1.14.6/hl/tools/.*\.h$
+^src/hdf5-1.14.6/hl/tools/gif2h5/.*\.c$ # Keep hl/tools/gif2h5/Makefile.in
+^src/hdf5-1.14.6/hl/tools/h5watch/.*\.c$ # Keep hl/tools/h5watch/Makefile.in
+
+# Ignore Test contents (keeping test/Makefile.in)
+^src/hdf5-1.14.6/test/.*\.c$
+^src/hdf5-1.14.6/test/.*\.h$
+^src/hdf5-1.14.6/test/.*\.h5$
+^src/hdf5-1.14.6/test/.*\.txt$
+^src/hdf5-1.14.6/test/.*\.inc$
+^src/hdf5-1.14.6/test/.*\.ddl$
+^src/hdf5-1.14.6/test/.*\.dat$
+^src/hdf5-1.14.6/test/.*\.sh$
+^src/hdf5-1.14.6/test/test H5T VLEN\.h5$
+^src/hdf5-1.14.6/test/vds_data/
+
+# Ignore Test Parallel contents (keeping testpar/Makefile.in)
+^src/hdf5-1.14.6/testpar/.*\.c$
+^src/hdf5-1.14.6/testpar/.*\.h5$
+^src/hdf5-1.14.6/testpar/.*\.txt$
+^src/hdf5-1.14.6/testpar/cache
+^src/hdf5-1.14.6/testpar/tcio
+
+# Ignore Tools contents (keeping Makefiles in tools/ and its subdirs)
+^src/hdf5-1.14.6/tools/lib/.*\.c$ # Keep tools/lib/Makefile.in
+^src/hdf5-1.14.6/tools/libtest/.*\.c$ # Keep tools/libtest/Makefile.in
+^src/hdf5-1.14.6/tools/src/.*\.c$ # Keep tools/src/Makefile.in
+^src/hdf5-1.14.6/tools/src/.*\.h$
+^src/hdf5-1.14.6/tools/src/h5copy/.*\.c$ # Keep tools/src/h5copy/Makefile.in
+^src/hdf5-1.14.6/tools/src/h5diff/.*\.c$ # Keep tools/src/h5diff/Makefile.in
+^src/hdf5-1.14.6/tools/src/h5dump/.*\.c$ # Keep tools/src/h5dump/Makefile.in
+^src/hdf5-1.14.6/tools/src/h5format_convert/.*\.c$ # Keep tools/src/h5format_convert/Makefile.in
+^src/hdf5-1.14.6/tools/src/h5import/.*\.c$ # Keep tools/src/h5import/Makefile.in
+^src/hdf5-1.14.6/tools/src/h5jam/.*\.c$ # Keep tools/src/h5jam/Makefile.in
+^src/hdf5-1.14.6/tools/src/h5ls/.*\.c$ # Keep tools/src/h5ls/Makefile.in
+^src/hdf5-1.14.6/tools/src/h5perf/.*\.c$ # Keep tools/src/h5perf/Makefile.in
+^src/hdf5-1.14.6/tools/src/h5repack/.*\.c$ # Keep tools/src/h5repack/Makefile.in
+^src/hdf5-1.14.6/tools/src/h5stat/.*\.c$ # Keep tools/src/h5stat/Makefile.in
+^src/hdf5-1.14.6/tools/src/misc/.*\.c$ # Keep tools/src/misc/Makefile.in
+^src/hdf5-1.14.6/tools/test/.*\.c$ # Keep tools/test/Makefile.in
+^src/hdf5-1.14.6/tools/test/.*\.h$
+^src/hdf5-1.14.6/tools/test/.*\.sh$
+^src/hdf5-1.14.6/tools/test/h5copy/.*\.c$ # Keep tools/test/h5copy/Makefile.in
+^src/hdf5-1.14.6/tools/test/h5diff/.*\.c$ # Keep tools/test/h5diff/Makefile.in
+^src/hdf5-1.14.6/tools/test/h5dump/.*\.c$ # Keep tools/test/h5dump/Makefile.in
+^src/hdf5-1.14.6/tools/test/h5dump/testfiles # Specific dir with long names
+^src/hdf5-1.14.6/tools/test/h5format_convert/.*\.c$ # Keep tools/test/h5format_convert/Makefile.in
+^src/hdf5-1.14.6/tools/test/h5import/.*\.c$ # Keep tools/test/h5import/Makefile.in
+^src/hdf5-1.14.6/tools/test/h5jam/.*\.c$ # Keep tools/test/h5jam/Makefile.in
+^src/hdf5-1.14.6/tools/test/h5ls/.*\.c$ # Keep tools/test/h5ls/Makefile.in
+^src/hdf5-1.14.6/tools/test/h5repack/.*\.c$ # Keep tools/test/h5repack/Makefile.in
+^src/hdf5-1.14.6/tools/test/h5repack/expected # Specific dir with long names
+^src/hdf5-1.14.6/tools/test/h5stat/.*\.c$ # Keep tools/test/h5stat/Makefile.in
+^src/hdf5-1.14.6/tools/test/misc/.*\.c$ # Keep tools/test/misc/Makefile.in
+^src/hdf5-1.14.6/tools/test/misc/vds/.*\.c$ # Keep tools/test/misc/vds/Makefile.in
+^src/hdf5-1.14.6/tools/test/perform/.*\.c$ # Keep tools/test/perform/Makefile.in
+
+# Ignore Utils contents (keeping Makefiles in utils/ and subdirs)
+^src/hdf5-1.14.6/utils/mirror_vfd/.*\.c$ # Keep utils/mirror_vfd/Makefile.in
+^src/hdf5-1.14.6/utils/test/.*\.c$ # Keep utils/test/Makefile.in
+^src/hdf5-1.14.6/utils/tools/.*\.c$ # Keep utils/tools/Makefile.in
+^src/hdf5-1.14.6/utils/tools/h5dwalk/.*\.c$ # Keep utils/tools/h5dwalk/Makefile.in
+^src/hdf5-1.14.6/utils/tools/h5dwalk/.*\.h$
+^src/hdf5-1.14.6/utils/tools/test/.*\.c$ # Keep utils/tools/test/Makefile.in
+^src/hdf5-1.14.6/utils/tools/test/h5dwalk/.*\.c$ # Keep utils/tools/test/h5dwalk/Makefile.in
+^src/hdf5-1.14.6/utils/tools/test/h5dwalk/.*\.h$
+^src/hdf5-1.14.6/utils/tools/test/h5dwalk/.*\.sh$
+^src/hdf5-1.14.6/utils/tools/test/h5dwalk/testfiles/
+
+# --- Ignore directories from zlib we are not building/using ---
+# (Keeping zlib-1.3.1/Makefile.in and zlib-1.3.1/win32/Makefile.gcc)
+^src/zlib-1.3.1/contrib
+^src/zlib-1.3.1/examples
+^src/zlib-1.3.1/nintendods
+^src/zlib-1.3.1/test
+^src/zlib-1.3.1/amiga
+^src/zlib-1.3.1/msdos
+^src/zlib-1.3.1/old
+^src/zlib-1.3.1/os400
+^src/zlib-1.3.1/qnx
+^src/zlib-1.3.1/vms
+^src/zlib-1.3.1/win32/.*\.c$
+^src/zlib-1.3.1/win32/.*\.def$
+^src/zlib-1.3.1/win32/.*\.rc$
+^src/zlib-1.3.1/CMakeLists\.txt$
+# ^src/zlib-1.3.1/configure$ # Keep this
+# ^src/zlib-1.3.1/Makefile\.in$ # Keep this
+^src/zlib-1.3.1/zconf\.h\.cmakein$
+^src/zlib-1.3.1/zconf\.h\.in$
+^src/zlib-1.3.1/zlib\.pc\.cmakein$
+^src/zlib-1.3.1/zlib\.pc\.in$
