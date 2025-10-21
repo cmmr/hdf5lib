@@ -1,0 +1,73 @@
+#!/bin/sh
+set -e
+
+echo "--- [hdf5lib] Starting Unix configuration ---"
+
+# --- 1. Build static zlib ---
+echo "--- [hdf5lib] Configuring and compiling static zlib..."
+cd src/zlib-1.3.1
+make clean
+./configure --static CC="$CC" CFLAGS="$CFLAGS"
+make
+cd ../..
+
+# --- Store the absolute path to zlib ---
+ZLIB_PATH="$(pwd)/src/zlib-1.3.1"
+echo "--- [hdf5lib] zlib path set to: ${ZLIB_PATH} ---"
+
+# --- 2. Build static HDF5, linked to our zlib ---
+echo "--- [hdf5lib] Starting HDF5 build..."
+cd src/hdf5-1.14.6
+
+# Define HDF5 config args
+HDF5_CONFIG_ARGS="CC=$CC \
+CFLAGS='$CFLAGS -I${ZLIB_PATH}' \
+LDFLAGS='$LDFLAGS -L${ZLIB_PATH}'"
+
+# Clean
+echo "--- [hdf5lib] Cleaning previous HDF5 build..."
+make clean
+
+# === NEW: Check if patch is needed before applying ===
+echo "--- [hdf5lib] Checking if patch is needed..."
+# Run 'patch --check' and silence all its output
+if patch --check -p1 < ../hdf5.patch > /dev/null 2>&1; then
+  # Exit code was 0, so patch is needed
+  echo "--- [hdf5lib] Applying R/MinGW patches..."
+  patch -p1 < ../hdf5.patch
+else
+  # Exit code was non-zero, patch is already applied
+  echo "--- [hdf5lib] Patches already applied, skipping."
+fi
+# === End of new block ===
+
+# Configure HDF5, passing zlib paths via HDF5_CONFIG_ARGS
+echo "--- [hdf5lib] Configuring bundled HDF5 library..."
+eval ./configure \
+  --disable-shared \
+  --enable-static \
+  --disable-fortran \
+  --disable-cxx \
+  --disable-parallel \
+  --enable-zlib \
+  --disable-subfiling-vfd \
+  --disable-direct-vfd \
+  --disable-tests \
+  --disable-tools \
+  $HDF5_CONFIG_ARGS
+
+# Compile HDF5 with warning suppressions
+echo "--- [hdf5lib] Compiling HDF5 static library..."
+make CFLAGS="$CFLAGS -Wno-deprecated-declarations -Wno-format -Wno-format-extra-args"
+cd ../..
+
+# --- 3. Finalize R package ---
+echo "--- [hdf5lib] Creating Makevars..."
+cp src/Makevars.in src/Makevars
+
+echo "--- [hdf5lib] Exposing HDF5 headers for other packages..."
+mkdir -p inst/include
+cp src/hdf5-1.14.6/src/*.h inst/include/
+
+echo "--- [hdf5lib] Unix configuration complete. ---"
+exit 0

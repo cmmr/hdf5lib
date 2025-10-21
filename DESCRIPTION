@@ -1,0 +1,21 @@
+Package: hdf5lib
+Title: A Standalone HDF5 C Library for R
+Version: 1.14.6
+Description: Provides a bundled, static HDF5 C library (version 1.14.6)
+    and exposes the necessary C headers for other R packages to link against.
+    This package contains no R functions and is intended for use in the
+    'LinkingTo' field of other packages.
+Type: Package
+Authors@R: c(
+    person(
+      "Daniel P.", "Smith",
+      email   = "dansmith01@gmail.com",
+      role    = c("aut", "cre"),
+      comment = c(ORCID = "0000-0002-2479-2044")),
+    person(
+      "Alkek Center for Metagenomics and Microbiome Research", 
+      role = c("cph", "fnd") ))
+License: What license is it under?
+Encoding: UTF-8
+LazyData: true
+RoxygenNote: 7.3.3
