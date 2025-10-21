@@ -19,7 +19,7 @@ cd src/hdf5-1.14.6
 
 # Apply patches
 echo "--- [hdf5lib] Applying R/MinGW patches..."
-patch -p1 < ../hdf5.patch
+patch -p2 < ../hdf5.patch
 
 # Configure HDF5, passing zlib paths via CPPFLAGS and LDFLAGS
 echo "--- [hdf5lib] Configuring bundled HDF5 library..."
