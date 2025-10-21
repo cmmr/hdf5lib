@@ -12,19 +12,40 @@
 ^src/hdf5-1.14.6/CITATION\.cff$
 
 # Ignore directories for components we are definitely not building
-# (C++, Fortran, Java bindings, Examples)
-^src/hdf5-1.14.6/c++/
-^src/hdf5-1.14.6/fortran/
-^src/hdf5-1.14.6/java/
-^src/hdf5-1.14.6/HDF5Examples/
+# (Java bindings, Examples)
+^src/hdf5-1.14.6/java
+^src/hdf5-1.14.6/HDF5Examples
 
-# Ignore specific subdirectories within tools/test known to contain
-# non-portable, long file names, preserving needed Makefiles above them.
-^src/hdf5-1.14.6/tools/test/h5dump/testfiles/
-^src/hdf5-1.14.6/tools/test/h5repack/expected/
+# Ignore source/test/example directories WITHIN C++, Fortran, Tools, Utils, HL
+# This preserves the top-level Makefile.in files needed by configure,
+# while removing most files flagged for GNU extensions or long paths.
+^src/hdf5-1.14.6/c++/examples
+^src/hdf5-1.14.6/c++/src
+^src/hdf5-1.14.6/c++/test
+^src/hdf5-1.14.6/fortran/examples
+^src/hdf5-1.14.6/fortran/src
+^src/hdf5-1.14.6/fortran/test
+^src/hdf5-1.14.6/hl/c++/examples
+^src/hdf5-1.14.6/hl/c++/src
+^src/hdf5-1.14.6/hl/c++/test
+^src/hdf5-1.14.6/hl/examples
+^src/hdf5-1.14.6/hl/fortran/examples
+^src/hdf5-1.14.6/hl/fortran/src
+^src/hdf5-1.14.6/hl/fortran/test
+^src/hdf5-1.14.6/hl/test
+^src/hdf5-1.14.6/hl/tools
+^src/hdf5-1.14.6/test
+^src/hdf5-1.14.6/testpar
+^src/hdf5-1.14.6/tools/lib
+^src/hdf5-1.14.6/tools/libtest
+^src/hdf5-1.14.6/tools/src
+^src/hdf5-1.14.6/tools/test
+^src/hdf5-1.14.6/utils/mirror_vfd
+^src/hdf5-1.14.6/utils/test
+^src/hdf5-1.14.6/utils/tools
 
 # Ignore directories from zlib we are not building/using
-^src/zlib-1.3.1/contrib/
-^src/zlib-1.3.1/examples/
-^src/zlib-1.3.1/nintendods/
-^src/zlib-1.3.1/test/
+^src/zlib-1.3.1/contrib
+^src/zlib-1.3.1/examples
+^src/zlib-1.3.1/nintendods
+^src/zlib-1.3.1/test
