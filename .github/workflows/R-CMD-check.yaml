@@ -11,6 +11,7 @@ on:
       - src/**
       - configure
       - configure.win
+      - .Rbuildignore
       - .github/workflows/R-CMD-check.yaml
 
 permissions: read-all
