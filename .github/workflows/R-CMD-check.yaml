@@ -1,0 +1,76 @@
+# Workflow derived from https://github.com/r-lib/actions/tree/v2/examples
+# Need help debugging build failures? Start at https://github.com/r-lib/actions#where-to-find-help
+
+name: R CMD check
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - src/**
+      - configure
+      - configure.win
+      - .github/workflows/R-CMD-check.yaml
+
+permissions: read-all
+
+jobs:
+  R-CMD-check:
+    
+    timeout-minutes: 120
+    
+    runs-on: ${{ matrix.config.os }}
+
+    name: ${{ matrix.config.os }} (${{ matrix.config.r }})
+
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+          - {os: macos-latest,     r: 'devel'}
+          - {os: macos-latest,     r: 'release'}
+          - {os: macos-latest,     r: 'oldrel-1'}
+          - {os: macos-latest,     r: 'oldrel-4'}
+          - {os: macos-13,         r: 'release'}
+          - {os: macos-15,         r: 'release'}
+
+          - {os: windows-latest,   r: 'devel'}
+          - {os: windows-latest,   r: 'release'}
+          - {os: windows-latest,   r: 'oldrel-1'}
+          - {os: windows-latest,   r: '3.6.3'}
+          - {os: windows-2025,     r: 'release'}
+          - {os: windows-2022,     r: 'release'}
+
+          - {os: ubuntu-latest,    r: 'devel' }
+          - {os: ubuntu-latest,    r: 'release'}
+          - {os: ubuntu-latest,    r: 'oldrel-1'}
+          - {os: ubuntu-latest,    r: '3.6.3'}
+          - {os: ubuntu-22.04,     r: 'release'}
+          - {os: ubuntu-22.04-arm, r: 'release' }
+          - {os: ubuntu-24.04-arm, r: 'release' }
+
+    env:
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+      R_KEEP_PKG_SOURCE: yes
+      NOT_CRAN: true
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: r-lib/actions/setup-pandoc@v2
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: ${{ matrix.config.r }}
+          http-user-agent: ${{ matrix.config.http-user-agent }}
+          use-public-rspm: true
+
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          extra-packages: any::rcmdcheck
+          needs: check
+
+      - uses: r-lib/actions/check-r-package@v2
+        with:
+          upload-snapshots: true
+          build_args: 'c("--no-manual","--compact-vignettes=gs+qpdf")'
