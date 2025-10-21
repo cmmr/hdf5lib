@@ -1,0 +1,14 @@
+# Set default behavior
+* text=auto
+
+# Enforce Unix (LF) line endings for all scripts
+*.sh      text eol=lf
+configure text eol=lf
+missing   text eol=lf
+
+# Enforce Unix (LF) for patch files
+*.patch   text eol=lf
+
+# Make sure Makefiles are also Unix-style
+Makefile  text eol=lf
+Makefile.in text eol=lf
