@@ -24,7 +24,7 @@ export LDFLAGS="$LDFLAGS -L${ZLIB_PATH}"
 
 # Patch
 echo "--- [hdf5lib] Applying R/MinGW patches..."
-patch -p0 < ../hdf5.patch
+patch --ignore-whitespace -p0 < ../hdf5.patch
 
 # Configure HDF5
 echo "--- [hdf5lib] Configuring bundled HDF5 library..."
