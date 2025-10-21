@@ -1,0 +1,59 @@
+diff -ruN hdf5-1.14.6/src/H5Shyper.c hdf5/src/H5Shyper.c
+--- hdf5-1.14.6/src/H5Shyper.c	2025-10-20 23:39:20.513693500 +0000
++++ hdf5/src/H5Shyper.c	2025-10-20 23:47:55.742935400 +0000
+@@ -12329,8 +12329,9 @@
+     /* Check for selection outside of clip_size */
+     if (diminfo->start >= clip_size) {
+         ret_value = 0;
++        
+         if (partial)
+-            partial = false;
++            *partial = false; /* Corrected assignment to pointer. */
+     } /* end if */
+     else {
+         /* Calculate index of first incomplete block */
+diff -ruN hdf5-1.14.6/src/H5private.h hdf5/src/H5private.h
+--- hdf5-1.14.6/src/H5private.h	2025-10-20 23:39:18.514755000 +0000
++++ hdf5/src/H5private.h	2025-10-20 23:49:32.264646000 +0000
+@@ -865,9 +865,14 @@
+ #ifndef HDstrcasecmp
+ #define HDstrcasecmp(X, Y) strcasecmp(X, Y)
+ #endif
+-#ifndef HDstrndup
+-#define HDstrndup(S, N) strndup(S, N)
+-#endif
++/*
++ * A safe string duplication routine.
++ * The R build environment on Windows (MinGW) incorrectly reports that it has a
++ * working strndup, but the declaration is hidden during compilation by strict
++ * C flags. To fix this, we unconditionally use HDF5's internal implementation.
++ */
++H5_DLL char *H5_strndup_win(const char *s, size_t n);
++#define HDstrndup(S, N) H5_strndup_win(S, N)
+ #ifndef HDstrtok_r
+ #define HDstrtok_r(X, Y, Z) strtok_r(X, Y, Z)
+ #endif
+@@ -877,15 +882,14 @@
+ #ifndef HDunsetenv
+ #define HDunsetenv(S) unsetenv(S)
+ #endif
+-
+-#ifndef HDvasprintf
+-#ifdef H5_HAVE_VASPRINTF
+-#define HDvasprintf(RET, FMT, A) vasprintf(RET, FMT, A)
+-#else
+-H5_DLL int HDvasprintf(char **bufp, const char *fmt, va_list _ap);
+-#endif
+-#endif
+-
++/*
++ * A routine to format a string and return it (free'd by caller)
++ * Patched for hdf5lib R package: The R/MinGW build environment
++ * incorrectly defines H5_HAVE_VASPRINTF but then hides the declaration.
++ * We unconditionally use the internal Windows implementation.
++ */
++H5_DLL int H5_vasprintf_win(char **ret, const char *fmt, va_list ap);
++#define HDvasprintf(RET, FMT, A) H5_vasprintf_win(RET, FMT, A)
+ #ifndef HDwrite
+ #define HDwrite(F, M, Z) write(F, M, Z)
+ #endif

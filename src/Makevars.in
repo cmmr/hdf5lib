@@ -1,0 +1,9 @@
+# Define paths to our compiled static libraries
+HDF5_LIB = ./hdf5-1.14.6/src/libhdf5.a
+ZLIB_LIB = ./zlib-1.3.1/libz.a
+
+# Tell the R linker to link against both libraries
+PKG_LIBS = $(HDF5_LIB) $(ZLIB_LIB)
+
+# Tell the R compiler where to find HDF5 headers
+PKG_CPPFLAGS = -I./hdf5-1.14.6/src
