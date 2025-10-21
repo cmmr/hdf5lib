@@ -3,6 +3,7 @@
 ^\.git$
 ^\.github$
 ^\.gitignore$
+^\.gitattributes$
 
 # Ignore the obsolete libtool file with a non-portable name
 ^src/hdf5-1.14.6/m4/lt~obsolete\.m4$
