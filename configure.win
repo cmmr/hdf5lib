@@ -17,28 +17,19 @@ echo "--- [hdf5lib] zlib path set to: ${ZLIB_PATH} ---"
 echo "--- [hdf5lib] Starting HDF5 build..."
 cd src/hdf5-1.14.6
 
-# === NEW: Check if patch is needed before applying ===
-echo "--- [hdf5lib] Checking if patch is needed..."
-# Run 'patch --check' and silence all its output (we only care about the exit code)
-if patch --check -p1 < ../hdf5.patch > /dev/null 2>&1; then
-  # Exit code was 0, so patch is needed
-  echo "--- [hdf5lib] Applying R/MinGW patches..."
-  patch -p1 < ../hdf5.patch
-else
-  # Exit code was non-zero, patch is already applied
-  echo "--- [hdf5lib] Patches already applied, skipping."
-fi
-# === End of new block ===
+# Apply patches
+echo "--- [hdf5lib] Applying R/MinGW patches..."
+patch -p1 < ../hdf5.patch
 
 # Configure HDF5, passing zlib paths via CPPFLAGS and LDFLAGS
 echo "--- [hdf5lib] Configuring bundled HDF5 library..."
 CPPFLAGS="-I${ZLIB_PATH}" LDFLAGS="-L${ZLIB_PATH}" ./configure \
-  --enable-static \
-  --enable-zlib \
   --disable-shared \
+  --enable-static \
   --disable-fortran \
   --disable-cxx \
   --disable-parallel \
+  --enable-zlib \
   --disable-subfiling-vfd \
   --disable-direct-vfd \
   --disable-tests \
