@@ -11,14 +11,15 @@
 # Ignore the bundled citation file
 ^src/hdf5-1.14.6/CITATION\.cff$
 
-# --- Ignore contents of directories BUT keep *.in files ---
-
-# Ignore Java contents (keeping java/Makefile.in and other *.in)
+# Ignore Java contents (keeping java/Makefile.in and java/test/Makefile.in)
 ^src/hdf5-1.14.6/java/.*\.(java|jar|class|h|c|cpp|sh|bat|txt|docbook|pdf|png|css|html|xml|xsl|ipynb)$
-^src/hdf5-1.14.6/java/test
+# Ignore Java test contents (keeping java/test/Makefile.in)
+^src/hdf5-1.14.6/java/test/.*\.(java|h|c|sh|h5|txt)$
 
-# Ignore HDF5Examples contents (keeping HDF5Examples/Makefile.in)
+# Ignore Examples directory (keeping HDF5Examples/Makefile.in)
 ^src/hdf5-1.14.6/HDF5Examples/.*\.(c|h|f90|cpp|h5|txt|out|out\.txt|ddl|jpg)$
+
+# --- Ignore contents of other directories BUT keep *.in files ---
 
 # Ignore C++ contents (keeping c++/Makefile.in)
 ^src/hdf5-1.14.6/c++/examples
@@ -81,7 +82,6 @@
 ^src/hdf5-1.14.6/utils/tools/test/h5dwalk/testfiles
 
 # --- Ignore zlib files we don't need ---
-# (Keeping zlib-1.3.1/Makefile.in, zconf.h.in, configure, win32/Makefile.gcc)
 ^src/zlib-1.3.1/contrib
 ^src/zlib-1.3.1/examples
 ^src/zlib-1.3.1/nintendods
