@@ -10,4 +10,4 @@
 # Ignore the test directory *within* the tools directory.
 # This is the source of all the long file path warnings
 # and is not needed by the configure script.
-^src/hdf5-1.14.6/tools/test/
+^src/hdf5-1.14.6/tools/test
