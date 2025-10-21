@@ -106,7 +106,6 @@
 ^src/zlib-1.3.1/win32/.*\.def$
 ^src/zlib-1.3.1/win32/.*\.rc$
 ^src/zlib-1.3.1/CMakeLists\.txt$
-^src/zlib-1.3.1/configure$
 ^src/zlib-1.3.1/zconf\.h\.cmakein$
 ^src/zlib-1.3.1/zconf\.h\.in$
 ^src/zlib-1.3.1/zlib\.pc\.cmakein$
