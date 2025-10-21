@@ -37,7 +37,7 @@ CPPFLAGS="-I${ZLIB_PATH}" LDFLAGS="-L${ZLIB_PATH}" ./configure \
 
 # Compile HDF5 with specific warning suppressions
 echo "--- [hdf5lib] Compiling HDF5 static library..."
-make CFLAGS="$CFLAGS -Wno-deprecated-declarations -Wno-format -Wno-format-extra-args -Wno-implicit-fallthrough -Wno-unused-parameter -Wno-strict-prototypes -Wno-unused-function -Wno-unneeded-internal-declaration -Wno-sign-conversion"
+make CFLAGS="$CFLAGS -Wno-deprecated-declarations -Wno-format -Wno-format-extra-args -Wno-implicit-fallthrough -Wno-unused-parameter -Wno-strict-prototypes -Wno-unused-function -Wno-sign-conversion"
 cd ../..
 
 # --- 3. Finalize R package ---
