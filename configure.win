@@ -6,7 +6,6 @@ echo "--- [hdf5lib] Starting Windows configuration ---"
 # --- 1. Build static zlib ---
 echo "--- [hdf5lib] Compiling static zlib (This may take a moment)..."
 cd src/zlib-1.3.1
-make clean -f win32/Makefile.gcc
 make -f win32/Makefile.gcc libz.a
 cd ../..
 
@@ -17,10 +16,6 @@ echo "--- [hdf5lib] zlib path set to: ${ZLIB_PATH} ---"
 # --- 2. Build static HDF5, linked to our zlib ---
 echo "--- [hdf5lib] Starting HDF5 build..."
 cd src/hdf5-1.14.6
-
-# Clean any previous build
-echo "--- [hdf5lib] Cleaning previous HDF5 build..."
-make clean
 
 # === NEW: Check if patch is needed before applying ===
 echo "--- [hdf5lib] Checking if patch is needed..."
@@ -38,12 +33,12 @@ fi
 # Configure HDF5, passing zlib paths via CPPFLAGS and LDFLAGS
 echo "--- [hdf5lib] Configuring bundled HDF5 library..."
 CPPFLAGS="-I${ZLIB_PATH}" LDFLAGS="-L${ZLIB_PATH}" ./configure \
-  --disable-shared \
   --enable-static \
+  --enable-zlib \
+  --disable-shared \
   --disable-fortran \
   --disable-cxx \
   --disable-parallel \
-  --enable-zlib \
   --disable-subfiling-vfd \
   --disable-direct-vfd \
   --disable-tests \
