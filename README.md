@@ -111,15 +111,15 @@ For complete documentation, see the official HDF5 Reference Manual:
 
 ## **Relationship to `Rhdf5lib`**
 
-The [`Rhdf5lib`](https://doi.org/doi:10.18129/B9.bioc.Rhdf5lib) package on Bioconductor serves a similar purpose within the Bioconductor ecosystem. `hdf5lib` was created with several key distinctions to best serve the CRAN community:
+The [`Rhdf5lib`](https://doi.org/doi:10.18129/B9.bioc.Rhdf5lib) package on Bioconductor serves a similar purpose within the Bioconductor ecosystem. `hdf5lib` was created to provide a general-purpose, standalone HDF5 library provider native to CRAN, offering several key distinctions:
 
-* CRAN-Native: `hdf5lib` is designed to be fully compliant with CRAN policies. It bundles all source code and does not require internet access during installation, making it suitable for a CRAN release.
+Zero Configuration Installation: `hdf5lib` is designed for ease of use. Installation via `install.packages()` requires no user configuration and reliably provides a modern HDF5 build with important features enabled by default. In contrast, `Rhdf5lib` offers flexibility through numerous configuration options but requires users to potentially manage the build process if customization is needed.
 
-* Modern HDF5 Version: This package bundles a more recent version of the HDF5 library (v1.14.6), providing access to the latest features and bug fixes from the HDF5 developers.
+Modern HDF5 Version: `hdf5lib` bundles HDF5 v1.14.6, providing access to more recent features and fixes compared to the version bundled in `Rhdf5lib` (v1.12.2 as of Bioconductor 3.19).
 
-* Focused Design: The build process is streamlined specifically for creating a self-contained static library for use within R, without attempting to detect or link against potentially conflicting external system libraries.
+Advanced Features Enabled: `hdf5lib` builds HDF5 with thread-safety (`--enable-threadsafe`) and dynamic filter loading (`--enable-dynamic-loading`) enabled by default. This ensures safe use with parallel R packages (like `RcppParallel`) and allows runtime loading of external compression filters (like Blosc, LZ4). `Rhdf5lib` does not enable these features in its default build configuration.
 
-While both packages provide HDF5, `hdf5lib` aims to be the standard, easy-to-install provider for R packages on CRAN.
+`hdf5lib` aims to be the standard, straightforward provider of the HDF5 C library for R packages on CRAN, offering a modern HDF5 build with zero configuration required for a standard installation.
 
 
 ## **License**
