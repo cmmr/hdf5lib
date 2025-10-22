@@ -1,6 +1,6 @@
 diff -ruNw ./hl/src/H5LTanalyze.c /d/Dropbox/Baylor/GitHub/hdf5lib/src/hdf5-1.14.6/hl/src/H5LTanalyze.c
---- ./hl/src/H5LTanalyze.c	2025-10-21 01:49:11.255574600 +0000
-+++ /d/Dropbox/Baylor/GitHub/hdf5lib/src/hdf5-1.14.6/hl/src/H5LTanalyze.c	2025-10-21 23:28:14.191806000 +0000
+--- ./hl/src/H5LTanalyze.c	2025-10-21 23:54:41.468947000 +0000
++++ /d/Dropbox/Baylor/GitHub/hdf5lib/src/hdf5-1.14.6/hl/src/H5LTanalyze.c	2025-10-21 23:57:33.796727500 +0000
 @@ -1,34 +1,6 @@
 -#if defined (__GNUC__)                                            
 -#if ((__GNUC__ * 100) + __GNUC_MINOR__) >= 402                    
@@ -40,8 +40,8 @@ diff -ruNw ./hl/src/H5LTanalyze.c /d/Dropbox/Baylor/GitHub/hdf5lib/src/hdf5-1.14
  /* Quiet warnings about integer type macro redefinitions on Visual Studio
   * (MSVC doesn't define STDC_VERSION, but has inttypes.h). This is an
 diff -ruNw ./hl/src/H5LTparse.c /d/Dropbox/Baylor/GitHub/hdf5lib/src/hdf5-1.14.6/hl/src/H5LTparse.c
---- ./hl/src/H5LTparse.c	2025-10-21 01:49:11.307945500 +0000
-+++ /d/Dropbox/Baylor/GitHub/hdf5lib/src/hdf5-1.14.6/hl/src/H5LTparse.c	2025-10-21 23:28:14.213609300 +0000
+--- ./hl/src/H5LTparse.c	2025-10-21 23:54:41.482992000 +0000
++++ /d/Dropbox/Baylor/GitHub/hdf5lib/src/hdf5-1.14.6/hl/src/H5LTparse.c	2025-10-21 23:57:50.502667900 +0000
 @@ -1,34 +1,6 @@
 -#if defined (__GNUC__)                                            
 -#if ((__GNUC__ * 100) + __GNUC_MINOR__) >= 402                    
@@ -76,13 +76,13 @@ diff -ruNw ./hl/src/H5LTparse.c /d/Dropbox/Baylor/GitHub/hdf5lib/src/hdf5-1.14.6
 -#endif                                                            
 +/*
 + * Non-portable pragmas removed to comply with R CMD check.
-+*/
++*/                                                           
  /* A Bison parser, made by GNU Bison 3.8.2.  */
  
  /* Bison implementation for Yacc-like parsers in C
 diff -ruNw ./src/H5private.h /d/Dropbox/Baylor/GitHub/hdf5lib/src/hdf5-1.14.6/src/H5private.h
---- ./src/H5private.h	2025-10-21 01:48:48.644697300 +0000
-+++ /d/Dropbox/Baylor/GitHub/hdf5lib/src/hdf5-1.14.6/src/H5private.h	2025-10-21 23:29:38.046108800 +0000
+--- ./src/H5private.h	2025-10-21 23:54:54.491694000 +0000
++++ /d/Dropbox/Baylor/GitHub/hdf5lib/src/hdf5-1.14.6/src/H5private.h	2025-10-21 23:59:43.736090600 +0000
 @@ -865,9 +865,15 @@
  #ifndef HDstrcasecmp
  #define HDstrcasecmp(X, Y) strcasecmp(X, Y)
@@ -126,8 +126,8 @@ diff -ruNw ./src/H5private.h /d/Dropbox/Baylor/GitHub/hdf5lib/src/hdf5-1.14.6/sr
  #ifndef HDwrite
  #define HDwrite(F, M, Z) write(F, M, Z)
 diff -ruNw ./src/H5Shyper.c /d/Dropbox/Baylor/GitHub/hdf5lib/src/hdf5-1.14.6/src/H5Shyper.c
---- ./src/H5Shyper.c	2025-10-21 01:48:50.531942100 +0000
-+++ /d/Dropbox/Baylor/GitHub/hdf5lib/src/hdf5-1.14.6/src/H5Shyper.c	2025-10-21 23:28:14.251638100 +0000
+--- ./src/H5Shyper.c	2025-10-21 23:54:54.840950900 +0000
++++ /d/Dropbox/Baylor/GitHub/hdf5lib/src/hdf5-1.14.6/src/H5Shyper.c	2025-10-22 00:00:24.014708200 +0000
 @@ -12330,7 +12330,7 @@
      if (diminfo->start >= clip_size) {
          ret_value = 0;
