@@ -17,9 +17,12 @@ echo "--- [hdf5lib] zlib path set to: ${ZLIB_PATH} ---"
 echo "--- [hdf5lib] Starting HDF5 build..."
 cd src/hdf5-1.14.6
 
-# Apply patches
-echo "--- [hdf5lib] Applying R/MinGW patches..."
-patch -p0 < ../hdf5.patch
+# Apply all patches from the patches directory
+echo "--- [hdf5lib] Applying patches..."
+for patchfile in ../../patches/*.patch; do
+  echo "Applying patch: $(basename "$patchfile")"
+  patch -p0 < "$patchfile"
+done
 
 # Configure HDF5 with thread-safety and dynamic loading enabled
 echo "--- [hdf5lib] Configuring bundled HDF5 library..."

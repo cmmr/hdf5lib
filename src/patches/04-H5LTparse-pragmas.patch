@@ -1,0 +1,41 @@
+diff -ruNw ./hl/src/H5LTparse.c /d/Dropbox/Baylor/GitHub/hdf5lib/src/hdf5-1.14.6/hl/src/H5LTparse.c
+--- ./hl/src/H5LTparse.c	2025-10-21 23:54:41.482992000 +0000
++++ /d/Dropbox/Baylor/GitHub/hdf5lib/src/hdf5-1.14.6/hl/src/H5LTparse.c	2025-10-22 21:32:32.405937400 +0000
+@@ -1,34 +1,6 @@
+-#if defined (__GNUC__)                                            
+-#if ((__GNUC__ * 100) + __GNUC_MINOR__) >= 402                    
+-#pragma GCC diagnostic ignored "-Wconversion"                     
+-#pragma GCC diagnostic ignored "-Wimplicit-function-declaration"  
+-#pragma GCC diagnostic ignored "-Wmissing-prototypes"             
+-#pragma GCC diagnostic ignored "-Wnested-externs"                 
+-#pragma GCC diagnostic ignored "-Wold-style-definition"           
+-#pragma GCC diagnostic ignored "-Wredundant-decls"                
+-#pragma GCC diagnostic ignored "-Wsign-compare"                   
+-#pragma GCC diagnostic ignored "-Wsign-conversion"                
+-#pragma GCC diagnostic ignored "-Wstrict-overflow"                
+-#pragma GCC diagnostic ignored "-Wstrict-prototypes"              
+-#pragma GCC diagnostic ignored "-Wimplicit-fallthrough"           
+-#if !defined (__clang__)                                          
+-#pragma GCC diagnostic ignored "-Wlarger-than="                   
+-#pragma GCC diagnostic ignored "-Wsuggest-attribute=const"        
+-#pragma GCC diagnostic ignored "-Wsuggest-attribute=pure"         
+-#endif                                                            
+-#pragma GCC diagnostic ignored "-Wswitch-default"                 
+-#pragma GCC diagnostic ignored "-Wunused-function"                
+-#pragma GCC diagnostic ignored "-Wunused-macros"                  
+-#pragma GCC diagnostic ignored "-Wunused-parameter"               
+-#endif                                                            
+-#if ((__GNUC__ * 100) + __GNUC_MINOR__) >= 600                    
+-#pragma GCC diagnostic ignored "-Wnull-dereference"               
+-#endif                                                            
+-#elif defined __SUNPRO_CC                                         
+-#pragma disable_warn                                              
+-#elif defined _MSC_VER                                            
+-#pragma warning(push, 1)                                          
+-#endif                                                            
++/*
++ * Non-portable pragmas removed to comply with R CMD check.
++*/                                                     
+ /* A Bison parser, made by GNU Bison 3.8.2.  */
+ 
+ /* Bison implementation for Yacc-like parsers in C

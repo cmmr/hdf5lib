@@ -1,0 +1,33 @@
+diff -ruNw ./src/hdf5.h /d/Dropbox/Baylor/GitHub/hdf5lib/src/hdf5-1.14.6/src/hdf5.h
+--- ./src/hdf5.h	2025-10-21 23:54:56.885182800 +0000
++++ /d/Dropbox/Baylor/GitHub/hdf5lib/src/hdf5-1.14.6/src/hdf5.h	2025-10-22 21:43:48.335487400 +0000
+@@ -56,23 +56,23 @@
+ 
+ /* Predefined file drivers */
+ #include "H5FDcore.h"     /* Files stored entirely in memory          */
+-#include "H5FDdirect.h"   /* Linux direct I/O                         */
++/* #include "H5FDdirect.h"   disabled by --disable-direct-vfd         */
+ #include "H5FDfamily.h"   /* File families                            */
+-#include "H5FDhdfs.h"     /* Hadoop HDFS                              */
++/* #include "H5FDhdfs.h"     not enabled with --enable-hdfs           */
+ #include "H5FDlog.h"      /* sec2 driver with I/O logging (for debugging) */
+ #include "H5FDmirror.h"   /* Mirror VFD and IPC definitions           */
+-#include "H5FDmpi.h"      /* MPI-based file drivers                   */
++/* #include "H5FDmpi.h"   disabled by --disable-parallel              */
+ #include "H5FDmulti.h"    /* Usage-partitioned file family            */
+ #include "H5FDonion.h"    /* Onion file I/O                           */
+-#include "H5FDros3.h"     /* R/O S3 "file" I/O                        */
++/* #include "H5FDros3.h"     not enabled with --enable-ros3-vfd       */
+ #include "H5FDsec2.h"     /* POSIX unbuffered file I/O                */
+ #include "H5FDsplitter.h" /* Twin-channel (R/W & R/O) I/O passthrough */
+ #include "H5FDstdio.h"    /* Standard C buffered I/O                  */
+ #ifdef H5_HAVE_WINDOWS
+ #include "H5FDwindows.h" /* Win32 I/O                                */
+ #endif
+-#include "H5FDsubfiling.h" /* Subfiling VFD                            */
+-#include "H5FDioc.h"       /* I/O Concentrator VFD                     */
++/* #include "H5FDsubfiling.h" disabled by --disable-subfiling-vfd     */
++/* #include "H5FDioc.h"       disabled by --disable-direct-vfd        */
+ 
+ /* Virtual object layer (VOL) connectors */
+ #include "H5VLnative.h"   /* Native VOL connector                     */

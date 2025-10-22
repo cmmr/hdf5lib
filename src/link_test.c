@@ -1,8 +1,3 @@
-// Explicitly undefine disabled HDF5 features before including the header
-// to prevent R CMD INSTALL compilation errors.
-#undef H5_HAVE_SUBFILING_VFD
-#undef H5_HAVE_DIRECT_VFD
-
 #include <hdf5.h>
 
 /* Simple function just to test linking */

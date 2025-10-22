@@ -22,9 +22,12 @@ cd src/hdf5-1.14.6
 export CFLAGS="$CFLAGS -I${ZLIB_PATH}"
 export LDFLAGS="$LDFLAGS -L${ZLIB_PATH}"
 
-# Patch
-echo "--- [hdf5lib] Applying R/MinGW patches..."
-patch -p0 < ../hdf5.patch
+# Apply all patches from the patches directory
+echo "--- [hdf5lib] Applying patches..."
+for patchfile in ../../patches/*.patch; do
+  echo "Applying patch: $(basename "$patchfile")"
+  patch -p0 < "$patchfile"
+done
 
 # Configure HDF5 with thread-safety and dynamic loading enabled
 echo "--- [hdf5lib] Configuring bundled HDF5 library..."
