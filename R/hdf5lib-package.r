@@ -10,7 +10,11 @@
 #' It allows other R packages to easily link against HDF5 without
 #' requiring users to install any system-level dependencies.
 #'
-#' @docType package
-#' @name hdf5lib-package
-#' @_PACKAGE
+#' @keywords internal
+"_PACKAGE"
+
+# The following block is used by usethis to automatically manage
+# roxygen namespace tags. Modify with care!
+## usethis namespace: start
+## usethis namespace: end
 NULL
