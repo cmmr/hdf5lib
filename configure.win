@@ -17,16 +17,14 @@ echo "--- [hdf5lib] zlib path set to: ${ZLIB_PATH} ---"
 echo "--- [hdf5lib] Starting HDF5 build..."
 cd src/hdf5-1.14.6
 
-# Apply all patches from the patches directory
-echo "--- [hdf5lib] Applying patches..."
-for patchfile in ../patches/*.patch; do
-  echo "Applying patch: $(basename "$patchfile")"
-  patch -p0 < "$patchfile"
-done
+# Apply patches
+echo "--- [hdf5lib] Applying R/MinGW patches..."
+patch --ignore-whitespace -p0 < ../hdf5.patch
 
-# Configure HDF5 with thread-safety and dynamic loading enabled
+# Configure HDF5 with explicit host and szlib disabled
 echo "--- [hdf5lib] Configuring bundled HDF5 library..."
 CPPFLAGS="-I${ZLIB_PATH}" LDFLAGS="-L${ZLIB_PATH}" ./configure \
+  --host=x86_64-w64-mingw32 \
   --disable-shared \
   --enable-static \
   --enable-threadsafe \
@@ -39,11 +37,12 @@ CPPFLAGS="-I${ZLIB_PATH}" LDFLAGS="-L${ZLIB_PATH}" ./configure \
   --disable-direct-vfd \
   --disable-tests \
   --disable-tools \
-  --disable-dependency-tracking
+  --disable-dependency-tracking \
+  --without-szlib
 
 # Compile HDF5 with warning suppressions
 echo "--- [hdf5lib] Compiling HDF5 static library..."
-make CFLAGS="$CFLAGS -Wno-deprecated-declarations -Wno-format -Wno-format-extra-args -Wno-implicit-fallthrough -Wno-unused-parameter -Wno-strict-prototypes -Wno-unused-function -Wno-unneeded-internal-declaration -Wno-sign-conversion"
+make CFLAGS="$CFLAGS -Wno-deprecated-declarations -Wno-format -Wno-format-extra-args -Wno-implicit-fallthrough -Wno-unused-parameter -Wno-strict-prototypes -Wno-unused-function -Wno-sign-conversion"
 cd ../..
 
 # --- 3. Finalize R package ---
