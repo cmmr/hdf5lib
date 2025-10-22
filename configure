@@ -66,10 +66,10 @@ cd ../..
 # --- 3. Finalize R package ---
 echo "--- [hdf5lib] Creating Makevars..."
 # Add -lpthread (threadsafe) AND -ldl (dynamic loading) linker flags
+# This modifies Makevars.in only in the temporary build directory
 sed 's|$(ZLIB_LIB)|$(ZLIB_LIB) -lpthread -ldl|' src/Makevars.in > src/Makevars.in.tmp && mv src/Makevars.in.tmp src/Makevars.in
 cp src/Makevars.in src/Makevars
-# Restore Makevars.in in case this script is run again
-git checkout -- src/Makevars.in
+# Removed the incorrect 'git checkout' line
 
 echo "--- [hdf5lib] Exposing HDF5 headers..."
 mkdir -p inst/include
