@@ -10,4 +10,4 @@ PKG_LIBS = $(HDF5_LIB) $(ZLIB_LIB)
 # Tell the R compiler where to find HDF5 headers AND undefine macros
 # for features disabled during HDF5 configure.
 PKG_CPPFLAGS = -I./hdf5-1.14.6/src -I./hdf5-1.14.6/hl/src \
-               -UH5_HAVE_SUBFILING_VFD -UH5_HAVE_DIRECT_VFD
+               -DH5_HAVE_SUBFILING_VFD=0 -DH5_HAVE_DIRECT_VFD=0
