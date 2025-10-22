@@ -19,7 +19,7 @@ cd src/hdf5-1.14.6
 
 # Apply all patches from the patches directory
 echo "--- [hdf5lib] Applying patches..."
-for patchfile in ../../patches/*.patch; do
+for patchfile in ../patches/*.patch; do
   echo "Applying patch: $(basename "$patchfile")"
   patch -p0 < "$patchfile"
 done

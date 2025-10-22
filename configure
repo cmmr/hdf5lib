@@ -24,7 +24,7 @@ export LDFLAGS="$LDFLAGS -L${ZLIB_PATH}"
 
 # Apply all patches from the patches directory
 echo "--- [hdf5lib] Applying patches..."
-for patchfile in ../../patches/*.patch; do
+for patchfile in ../patches/*.patch; do
   echo "Applying patch: $(basename "$patchfile")"
   patch -p0 < "$patchfile"
 done
