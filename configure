@@ -24,9 +24,20 @@ cd src/hdf5-1.14.6
 export CFLAGS="$CFLAGS -fPIC -I${ZLIB_PATH}"
 export LDFLAGS="$LDFLAGS -L${ZLIB_PATH}"
 
-# Patch
-echo "--- [hdf5lib] Applying R/MinGW patches..."
-patch -p0 < ../hdf5.patch
+# Apply patches from the patches directory if they exist
+echo "--- [hdf5lib] Applying patches..."
+PATCH_DIR=../patches # Path relative to src/hdf5-1.14.6
+if [ -d "$PATCH_DIR" ]; then
+  for patchfile in "$PATCH_DIR"/*.patch; do
+    # Check if the glob found an actual file
+    if [ -f "$patchfile" ]; then
+      echo "Applying patch: $(basename "$patchfile")"
+      patch -p1 < "$patchfile" # Assuming patches generated relative to hdf5-1.14.6 root
+    fi
+  done
+else
+  echo "--- [hdf5lib] No patches directory found, skipping patching. ---"
+fi
 
 # Configure HDF5 with thread-safety and dynamic loading enabled
 echo "--- [hdf5lib] Configuring bundled HDF5 library..."
@@ -44,7 +55,7 @@ echo "--- [hdf5lib] Configuring bundled HDF5 library..."
   --disable-tests \
   --disable-tools \
   --disable-dependency-tracking \
-  --without-szlib # Added for consistency
+  --without-szlib
 
 # Compile HDF5 with warning suppressions
 # Make sure make uses -fPIC if needed (configure should handle this via CFLAGS export)

@@ -17,9 +17,21 @@ echo "--- [hdf5lib] zlib path set to: ${ZLIB_PATH} ---"
 echo "--- [hdf5lib] Starting HDF5 build..."
 cd src/hdf5-1.14.6
 
-# Apply patches
-echo "--- [hdf5lib] Applying R/MinGW patches..."
-patch --ignore-whitespace -p0 < ../hdf5.patch
+# Apply patches from the patches directory if they exist
+echo "--- [hdf5lib] Applying patches..."
+PATCH_DIR=../patches # Path relative to src/hdf5-1.14.6
+if [ -d "$PATCH_DIR" ]; then
+  for patchfile in "$PATCH_DIR"/*.patch; do
+    # Check if the glob found an actual file
+    if [ -f "$patchfile" ]; then
+      echo "Applying patch: $(basename "$patchfile")"
+      # Assuming patches generated relative to hdf5-1.14.6 root
+      patch --ignore-whitespace -p1 < "$patchfile"
+    fi
+  done
+else
+  echo "--- [hdf5lib] No patches directory found, skipping patching. ---"
+fi
 
 # Configure HDF5 with explicit host and szlib disabled
 echo "--- [hdf5lib] Configuring bundled HDF5 library..."
