@@ -35,7 +35,7 @@ fi
 
 # Configure HDF5 with explicit host and szlib disabled
 echo "--- [hdf5lib] Configuring bundled HDF5 library..."
-ac_cv_header_dlfcn_h=no CPPFLAGS="-I${ZLIB_PATH}" LDFLAGS="-L${ZLIB_PATH}" ./configure \
+ac_cv_header_dlfcn_h=no ac_cv_lib_dl_dlopen=no CPPFLAGS="-I${ZLIB_PATH}" LDFLAGS="-L${ZLIB_PATH}" ./configure \
   --host=x86_64-w64-mingw32 \
   --disable-shared \
   --enable-static \
