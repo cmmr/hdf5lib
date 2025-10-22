@@ -79,7 +79,7 @@ SEXP read_my_hdf5_data(SEXP filename) {
 
 ## License
 
-The `hdf5lib` package itself is available under the BSD-3 license.
+The `hdf5lib` package itself is available under the MIT license.
 
 The bundled libraries are available under their own permissive licenses:
 * **HDF5:** [HDF5 License](https://github.com/HDFGroup/hdf5/blob/develop/COPYING)
