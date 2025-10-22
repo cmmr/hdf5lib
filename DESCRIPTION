@@ -1,6 +1,6 @@
 Package: hdf5lib
 Type: Package
-Title: A Standalone HDF5 C Library
+Title: Standalone HDF5 C Library
 Version: 1.14.6
 Authors@R: c(
     person(
@@ -11,12 +11,13 @@ Authors@R: c(
     person(
       "Alkek Center for Metagenomics and Microbiome Research", 
       role = c("cph", "fnd") ))
-Description: Provides a bundled, static HDF5 C library (version 1.14.6)
-    and exposes the necessary C headers for other R packages to link against.
-    This package contains no R functions and is intended for use in the
-    'LinkingTo' field of other packages.
+Description: Provides headers and static libraries for the HDF5 C library 
+    (release 1.14.6). Enables other R packages to link to HDF5 via the 
+    'LinkingTo' field without requiring system-level installations.
 URL: https://github.com/cmmr/hdf5lib
 BugReports: https://github.com/cmmr/hdf5lib/issues
 License: MIT + file LICENSE
 Encoding: UTF-8
 RoxygenNote: 7.3.3
+NeedsCompilation: yes
+Depends: R (>= 4.1.0)

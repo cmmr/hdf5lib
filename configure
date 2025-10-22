@@ -51,7 +51,8 @@ cp src/Makevars.in src/Makevars
 
 echo "--- [hdf5lib] Exposing HDF5 headers..."
 mkdir -p inst/include
-cp src/hdf5-1.14.6/src/*.h inst/include/
+cp src/hdf5-1.14.6/src/*.h    inst/include/
+cp src/hdf5-1.14.6/hl/src/*.h inst/include/
 
 echo "--- [hdf5lib] Unix configuration complete. ---"
 exit 0
