@@ -108,6 +108,20 @@ For complete documentation, see the official HDF5 Reference Manual:
 <https://support.hdfgroup.org/documentation/hdf5/latest/_r_m.html>
 
 
+
+## **Relationship to `Rhdf5lib`**
+
+The [`Rhdf5lib`](https://doi.org/doi:10.18129/B9.bioc.Rhdf5lib) package on Bioconductor serves a similar purpose within the Bioconductor ecosystem. `hdf5lib` was created with several key distinctions to best serve the CRAN community:
+
+* CRAN-Native: `hdf5lib` is designed to be fully compliant with CRAN policies. It bundles all source code and does not require internet access during installation, making it suitable for a CRAN release.
+
+* Modern HDF5 Version: This package bundles a more recent version of the HDF5 library (v1.14.6), providing access to the latest features and bug fixes from the HDF5 developers.
+
+* Focused Design: The build process is streamlined specifically for creating a self-contained static library for use within R, without attempting to detect or link against potentially conflicting external system libraries.
+
+While both packages provide HDF5, `hdf5lib` aims to be the standard, easy-to-install provider for R packages on CRAN.
+
+
 ## **License**
 
 The `hdf5lib` package itself is available under the MIT license.
