@@ -32,6 +32,7 @@ echo "--- [hdf5lib] Configuring bundled HDF5 library..."
   --disable-shared \
   --enable-static \
   --enable-threadsafe \
+  --enable-unsupported \
   --disable-fortran \
   --disable-cxx \
   --disable-parallel \
