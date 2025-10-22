@@ -1,10 +1,9 @@
-# **hdf5lib: Standalone HDF5 C Library**
+# **hdf5lib: Standalone HDF5 C Library for R**
 
-`hdf5lib` is an R package that provides a self-contained, static build of the [HDF5 C library](https://www.hdfgroup.org/solutions/hdf5/) ([release 1.14.6](https://github.com/HDFGroup/hdf5)). Its **sole purpose** is to allow other R packages to easily link against HDF5 without requiring users to install any system-level dependencies.
+`hdf5lib` is an R package that provides a self-contained, static build of the [HDF5 C library](https://www.hdfgroup.org/solutions/hdf5/) ([release 1.14.6](https://github.com/HDFGroup/hdf5)). Its **sole purpose** is to allow other R packages to easily link against HDF5 without requiring users to install system-level dependencies, thereby ensuring a consistent and reliable build process across all major platforms.
 
 This package provides **no R functions** and is intended for R package developers to use in the `LinkingTo` field of their `DESCRIPTION` file.
 
-It solves the common and frustrating problem of installation failures on Windows, macOS, and Linux by bundling the required HDF5 C library directly into the package.
 
 ## Features
 
@@ -16,9 +15,6 @@ It solves the common and frustrating problem of installation failures on Windows
 
 * **Compression Support:** The bundled HDF5 library is built with zlib support enabled, allowing linked packages to read and write HDF5 files using standard `gzip/deflate` compression.
 
-### Bundled Library
-
-* **HDF5** [release 1.14.6](https://github.com/HDFGroup/hdf5) (including HL APIs)
 
 ## **Installation**
 
@@ -36,6 +32,7 @@ devtools::install_github("cmmr/hdf5lib")
 ```
 
 **Note:** As this package builds the HDF5 library from source, the one-time installation may take several minutes. ⏳
+
 
 ## **Usage (For Developers)**
 
@@ -80,6 +77,7 @@ SEXP read_my_hdf5_data(SEXP filename) {
 }
 ```
 
+
 ## **Included HDF5 APIs**
 
 This package provides access to the HDF5 C API, including:
@@ -108,6 +106,7 @@ This package provides access to the HDF5 C API, including:
 
 For complete documentation, see the official HDF5 Reference Manual:  
 <https://support.hdfgroup.org/documentation/hdf5/latest/_r_m.html>
+
 
 ## **License**
 
