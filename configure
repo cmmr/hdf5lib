@@ -26,12 +26,13 @@ export LDFLAGS="$LDFLAGS -L${ZLIB_PATH}"
 echo "--- [hdf5lib] Applying R/MinGW patches..."
 patch -p0 < ../hdf5.patch
 
-# Configure HDF5 with thread-safety enabled
+# Configure HDF5 with thread-safety and dynamic loading enabled
 echo "--- [hdf5lib] Configuring bundled HDF5 library..."
 ./configure \
   --disable-shared \
   --enable-static \
   --enable-threadsafe \
+  --enable-dynamic-loading \
   --enable-unsupported \
   --disable-fortran \
   --disable-cxx \
@@ -49,9 +50,11 @@ cd ../..
 
 # --- 3. Finalize R package ---
 echo "--- [hdf5lib] Creating Makevars..."
-# Add -lpthread linker flag needed for thread-safe HDF5 on Unix
-sed 's|$(ZLIB_LIB)|$(ZLIB_LIB) -lpthread|' src/Makevars.in > src/Makevars.in.tmp && mv src/Makevars.in.tmp src/Makevars.in
+# Add -lpthread (threadsafe) AND -ldl (dynamic loading) linker flags
+sed 's|$(ZLIB_LIB)|$(ZLIB_LIB) -lpthread -ldl|' src/Makevars.in > src/Makevars.in.tmp && mv src/Makevars.in.tmp src/Makevars.in
 cp src/Makevars.in src/Makevars
+# Restore Makevars.in in case this script is run again
+git checkout -- src/Makevars.in
 
 echo "--- [hdf5lib] Exposing HDF5 headers..."
 mkdir -p inst/include
