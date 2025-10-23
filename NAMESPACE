@@ -1,1 +1,2 @@
+useDynLib(hdf5lib, C_smoke_test)
 exportPattern(character(0))
