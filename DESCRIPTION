@@ -1,6 +1,6 @@
 Package: hdf5lib
 Type: Package
-Title: Standalone HDF5 C Library
+Title: Headers and Static Libraries for 'HDF5'
 Version: 1.14.6.0
 Authors@R: c(
     person(
@@ -11,9 +11,15 @@ Authors@R: c(
     person(
       "Alkek Center for Metagenomics and Microbiome Research", 
       role = c("cph", "fnd") ))
-Description: Provides headers and static libraries for the HDF5 C library 
-    (release 1.14.6). Enables other R packages to link to HDF5 via the 
-    'LinkingTo' field without requiring system-level installations.
+Description: 'HDF5' (Hierarchical Data Format 5) is a high-performance 
+    library and file format for storing and managing large, complex 
+    data. This package provides the static libraries and headers for 
+    the 'HDF5' 'C' library (release 1.14.6). It is intended for R 
+    package developers to use in the 'LinkingTo' field, which 
+    eliminates the need for users to install system-level 'HDF5' 
+    dependencies. This build is compiled with thread-safety enabled 
+    and supports dynamic loading of external compression filters. 
+    'HDF5' is developed by 'The HDF Group' <https://www.hdfgroup.org/>.
 URL: https://github.com/cmmr/hdf5lib
 BugReports: https://github.com/cmmr/hdf5lib/issues
 License: MIT + file LICENSE
