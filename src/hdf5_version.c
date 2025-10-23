@@ -20,11 +20,11 @@ SEXP C_hdf5_version(SEXP sexp_filename) {
     char        version_str_write[64];
     char       *version_str_read = NULL;
     unsigned    majnum, minnum, relnum;
-    hid_t       file_id  = H5I_INVALID_HID, dset_id = H5I_INVALID_HID;
-    hid_t       dtype_id = H5I_INVALID_HID, space_id = H5I_INVALID_HID;
-    hsize_t     dims[1] = {1}; // For string dataset
-    herr_t      status = 0;
-    size_t      dtype_size = 0;
+    hid_t       file_id  = H5I_INVALID_HID;
+    hid_t       dset_id  = H5I_INVALID_HID;
+    hid_t       dtype_id = H5I_INVALID_HID;
+    herr_t      status      = 0;
+    size_t      dtype_size  = 0;
     SEXP        sexp_result = R_NilValue; // Default return
 
     // --- Get HDF5 Version ---

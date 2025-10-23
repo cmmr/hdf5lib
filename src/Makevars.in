@@ -1,12 +1,13 @@
 # Define paths to our compiled static libraries
 # Use .libs/ for Unix-like systems
 HDF5_LIB = ./hdf5-1.14.6/src/.libs/libhdf5.a
+HDF5_HL_LIB = ./hdf5-1.14.6/hl/src/.libs/libhdf5_hl.a
 ZLIB_LIB = ./zlib-1.3.1/libz.a
 
-# Tell the R linker to link against both libraries
-# NOTE: The Unix 'configure' script adds '-lpthread -ldl' to this line
-PKG_LIBS = $(HDF5_LIB) $(ZLIB_LIB)
+# Tell the R linker to link against ALL required static libraries
+# Order can sometimes matter: link HL, then core HDF5, then zlib
+# NOTE: The Unix 'configure' script adds '-lpthread -ldl' AFTER these
+PKG_LIBS = $(HDF5_HL_LIB) $(HDF5_LIB) $(ZLIB_LIB)
 
-# Tell the R compiler where to find the EXPOSED HDF5 headers
-# This path is relative from src/ up to the package root and down to inst/include
+# Tell the R compiler where to find HDF5 headers (core and HL)
 PKG_CPPFLAGS = -I../inst/include
