@@ -135,3 +135,4 @@
 ^src/hdf5-1.14.6/tools/test/h5ls/testfiles
 ^src/hdf5-1.14.6/tools/test/h5stat/expected
 ^src/hdf5-1.14.6/tools/test/h5stat/testfiles
+^CRAN-SUBMISSION$
