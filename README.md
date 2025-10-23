@@ -5,15 +5,20 @@
 This package provides **no R functions** and is intended for R package developers to use in the `LinkingTo` field of their `DESCRIPTION` file.
 
 
+
 ## Features
 
-* **Self-contained:** Builds the HDF5 library from source, requiring only R and a standard C compiler (like Rtools on Windows, Xcode Command Line Tools on macOS, or `build-essential` on Linux).
+* **Self-contained:** Builds the HDF5 library from source using only R and a standard C compiler (like Rtools on Windows, Xcode Command Line Tools on macOS, or `build-essential` on Linux).
 
-* **No System Dependencies:** Users can install your package without first needing to `apt-get install` or `brew install` HDF5.
+* **No System Dependencies:** Users and dependent packages can be installed without needing system administration rights to install HDF5 via `apt-get`, `brew`, etc.
 
-* **Includes High-Level API:** Provides both the core HDF5 C API and the convenient High-Level (HL) APIs, including H5LT (Lite), H5IM (Image), and H5TB (Table).
+* **Compression Support:** Includes built-in support for reading and writing HDF5 files using standard `gzip/deflate` compression via the bundled zlib library.
 
-* **Compression Support:** The bundled HDF5 library is built with zlib support enabled, allowing linked packages to read and write HDF5 files using standard `gzip/deflate` compression.
+* **Includes High-Level API:** Provides the convenient HDF5 High-Level (HL) APIs, including H5LT (Lite), H5IM (Image), and H5TB (Table), alongside the core low-level API.
+
+* **Safe for Parallel Code:** Compiled with thread-safety enabled, allowing safe concurrent access to the HDF5 library from multiple threads within a single process (e.g., when using packages like `RcppParallel`).
+
+* **Extensible Filter Support:** Enables the HDF5 library to dynamically load external filter plugins (e.g., for Blosc, LZ4, Bzip2) at runtime via `H5Pset_filter_path()`, provided the user has installed those plugins separately.
 
 
 ## **Installation**
@@ -32,6 +37,7 @@ devtools::install_github("cmmr/hdf5lib")
 ```
 
 **Note:** As this package builds the HDF5 library from source, the one-time installation may take several minutes. ⏳
+
 
 
 ## **Usage (For Developers)**
@@ -113,13 +119,14 @@ For complete documentation, see the official HDF5 Reference Manual:
 
 The [`Rhdf5lib`](https://doi.org/doi:10.18129/B9.bioc.Rhdf5lib) package on Bioconductor serves a similar purpose within the Bioconductor ecosystem. `hdf5lib` was created to provide a general-purpose, standalone HDF5 library provider native to CRAN, offering several key distinctions:
 
-Zero Configuration Installation: `hdf5lib` is designed for ease of use. Installation via `install.packages()` requires no user configuration and reliably provides a modern HDF5 build with important features enabled by default. In contrast, `Rhdf5lib` offers flexibility through numerous configuration options but requires users to potentially manage the build process if customization is needed.
+* **Zero Configuration Installation:** `hdf5lib` is designed for simplicity. Installation via `install.packages()` requires no user configuration and reliably provides a modern HDF5 build with important features enabled by default. `Rhdf5lib`, while flexible, may require users to manage configuration options for customized builds.
 
-Modern HDF5 Version: `hdf5lib` bundles HDF5 v1.14.6, providing access to more recent features and fixes compared to the version bundled in `Rhdf5lib` (v1.12.2 as of Bioconductor 3.19).
+* **Modern HDF5 Version:** `hdf5lib` bundles HDF5 v1.14.6, providing access to more recent features and fixes compared to the version typically bundled in `Rhdf5lib` (v1.12.2 as of Bioconductor 3.19).
 
-Advanced Features Enabled: `hdf5lib` builds HDF5 with thread-safety (`--enable-threadsafe`) and dynamic filter loading (`--enable-dynamic-loading`) enabled by default. This ensures safe use with parallel R packages (like `RcppParallel`) and allows runtime loading of external compression filters (like Blosc, LZ4). `Rhdf5lib` does not enable these features in its default build configuration.
+* **Advanced Features Enabled:** `hdf5lib` builds HDF5 with **thread-safety** and **dynamic filter loading** enabled by default, ensuring safe use with parallel R packages (like `RcppParallel`) and allowing runtime loading of external compression filters (like Blosc or LZ4). `Rhdf5lib` does not enable these features by default.
 
-`hdf5lib` aims to be the standard, straightforward provider of the HDF5 C library for R packages on CRAN, offering a modern HDF5 build with zero configuration required for a standard installation.
+`hdf5lib` aims to be the standard provider of the HDF5 C library for R packages on CRAN.
+
 
 
 ## **License**
