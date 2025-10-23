@@ -19,7 +19,7 @@ cd src/hdf5-1.14.6
 
 # Apply patches from the patches directory if they exist
 echo "--- [hdf5lib] Applying patches..."
-PATCH_DIR=../patches # Path relative to src/hdf5-1.14.6
+PATCH_DIR=../hdf5-patches # Path relative to src/hdf5-1.14.6
 if [ -d "$PATCH_DIR" ]; then
   for patchfile in "$PATCH_DIR"/*.patch; do
     # Check if the glob found an actual file
@@ -40,7 +40,6 @@ ac_cv_header_dlfcn_h=no ac_cv_lib_dl_dlopen=no CPPFLAGS="-I${ZLIB_PATH}" LDFLAGS
   --disable-shared \
   --enable-static \
   --enable-threadsafe \
-  --enable-dynamic-loading \
   --enable-unsupported \
   --disable-fortran \
   --disable-cxx \
@@ -54,7 +53,7 @@ ac_cv_header_dlfcn_h=no ac_cv_lib_dl_dlopen=no CPPFLAGS="-I${ZLIB_PATH}" LDFLAGS
 
 # Compile HDF5 with warning suppressions
 echo "--- [hdf5lib] Compiling HDF5 static library..."
-make CFLAGS="$CFLAGS -Wno-deprecated-declarations -Wno-format -Wno-format-extra-args -Wno-implicit-fallthrough -Wno-unused-parameter -Wno-strict-prototypes -Wno-unused-function -Wno-sign-conversion"
+make CFLAGS="$CFLAGS -Wno-deprecated-declarations -Wno-format -Wno-format-extra-args -Wno-implicit-fallthrough -Wno-unused-parameter -Wno-strict-prototypes -Wno-unused-function -Wno-unused-variable -Wno-sign-conversion"
 cd ../..
 
 # --- 3. Finalize R package ---

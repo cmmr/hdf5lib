@@ -1,0 +1,318 @@
+`configure' configures HDF5 1.14.6 to adapt to many kinds of systems.
+
+Usage: ./configure [OPTION]... [VAR=VALUE]...
+
+To assign environment variables (e.g., CC, CFLAGS...), specify them as
+VAR=VALUE.  See below for descriptions of some of the useful variables.
+
+Defaults for the options are specified in brackets.
+
+Configuration:
+  -h, --help              display this help and exit
+      --help=short        display options specific to this package
+      --help=recursive    display the short help of all the included packages
+  -V, --version           display version information and exit
+  -q, --quiet, --silent   do not print `checking ...' messages
+      --cache-file=FILE   cache test results in FILE [disabled]
+  -C, --config-cache      alias for `--cache-file=config.cache'
+  -n, --no-create         do not create output files
+      --srcdir=DIR        find the sources in DIR [configure dir or `..']
+
+Installation directories:
+  --prefix=PREFIX         install architecture-independent files in PREFIX
+                          [/d/Dropbox/Baylor/GitHub/hdf5lib/src/hdf5-1.14.6/hdf5]
+  --exec-prefix=EPREFIX   install architecture-dependent files in EPREFIX
+                          [PREFIX]
+
+By default, `make install' will install all the files in
+`/d/Dropbox/Baylor/GitHub/hdf5lib/src/hdf5-1.14.6/hdf5/bin', `/d/Dropbox/Baylor/GitHub/hdf5lib/src/hdf5-1.14.6/hdf5/lib' etc.  You can specify
+an installation prefix other than `/d/Dropbox/Baylor/GitHub/hdf5lib/src/hdf5-1.14.6/hdf5' using `--prefix',
+for instance `--prefix=$HOME'.
+
+For better control, use the options below.
+
+Fine tuning of the installation directories:
+  --bindir=DIR            user executables [EPREFIX/bin]
+  --sbindir=DIR           system admin executables [EPREFIX/sbin]
+  --libexecdir=DIR        program executables [EPREFIX/libexec]
+  --sysconfdir=DIR        read-only single-machine data [PREFIX/etc]
+  --sharedstatedir=DIR    modifiable architecture-independent data [PREFIX/com]
+  --localstatedir=DIR     modifiable single-machine data [PREFIX/var]
+  --runstatedir=DIR       modifiable per-process data [LOCALSTATEDIR/run]
+  --libdir=DIR            object code libraries [EPREFIX/lib]
+  --includedir=DIR        C header files [PREFIX/include]
+  --oldincludedir=DIR     C header files for non-gcc [/usr/include]
+  --datarootdir=DIR       read-only arch.-independent data root [PREFIX/share]
+  --datadir=DIR           read-only architecture-independent data [DATAROOTDIR]
+  --infodir=DIR           info documentation [DATAROOTDIR/info]
+  --localedir=DIR         locale-dependent data [DATAROOTDIR/locale]
+  --mandir=DIR            man documentation [DATAROOTDIR/man]
+  --docdir=DIR            documentation root [DATAROOTDIR/doc/hdf5]
+  --htmldir=DIR           html documentation [DOCDIR]
+  --dvidir=DIR            dvi documentation [DOCDIR]
+  --pdfdir=DIR            pdf documentation [DOCDIR]
+  --psdir=DIR             ps documentation [DOCDIR]
+
+Program names:
+  --program-prefix=PREFIX            prepend PREFIX to installed program names
+  --program-suffix=SUFFIX            append SUFFIX to installed program names
+  --program-transform-name=PROGRAM   run sed PROGRAM on installed program names
+
+System types:
+  --build=BUILD     configure for building on BUILD [guessed]
+  --host=HOST       cross-compile to build programs to run on HOST [BUILD]
+
+Optional Features:
+  --disable-option-checking  ignore unrecognized --enable/--with options
+  --disable-FEATURE       do not include FEATURE (same as --enable-FEATURE=no)
+  --enable-FEATURE[=ARG]  include FEATURE [ARG=yes]
+  --enable-silent-rules   less verbose build output (undo: "make V=1")
+  --disable-silent-rules  verbose build output (undo: "make V=0")
+  --enable-maintainer-mode
+                          enable make rules and dependencies not useful (and
+                          sometimes confusing) to the casual installer
+  --enable-warnings-as-errors
+                          Determines whether certain warnings will be
+                          considered errors. This is mainly for use by HDF5
+                          library developers. [default=no]
+  --enable-sanitize-checks=address
+                          (clang/clang++ compilers only) Enable sanitize
+                          checks. Address is useful for detecting issues
+                          dealing with memory. See AddressSanitizer in
+                          config/sanitizer/README.md for more information.
+                          [default=none]
+  --enable-build-mode=(debug|production|clean)
+                          Sets the build mode. Debug turns on symbols, API
+                          tracing, asserts, and debug optimization, as well as
+                          several other minor configure options that aid in
+                          debugging. Production turns high optimizations on.
+                          Clean turns nothing on and disables optimization
+                          (i.e.: a 'clean slate' configuration). All these
+                          settings can be overridden by using specific
+                          configure flags. [default=production]
+  --enable-dependency-tracking
+                          do not reject slow dependency extractors
+  --disable-dependency-tracking
+                          speeds up one-time build
+  --enable-unsupported    Allow unsupported combinations of configure options
+  --enable-nonstandard-features
+                          Enable support for non-standard programming language
+                          features [default=yes]
+  --enable-nonstandard-feature-float16
+                          Enable support for _Float16 C datatype [default=yes]
+  --enable-fortran        Compile the Fortran interface [default=no]
+  --enable-cxx            Compile the C++ interface [default=no]
+  --enable-hl             Enable the high-level library. [default=yes (unless
+                          build mode = clean)]
+  --enable-dimension-scales-with-new-ref
+                          Use new references when creating dimension scales.
+                          [default=no]
+  --enable-java           Compile the Java JNI interface [default=no]
+  --enable-tests          Compile the HDF5 tests [default=yes]
+  --enable-test-express=(0-3)
+                          Set HDF5 testing intensity level (0-3) [0 =
+                          exhaustive testing; 3 = quicker testing; default=3]
+                          Set environment variable HDF5TestExpress to override
+                          configured setting
+  --enable-tools          Compile the HDF5 tools [default=yes]
+  --enable-hlgiftools     Enable the high-level GIF tools. NOTE: These have
+                          unfixed CVE issues! [default=no]
+  --enable-doxygen        Compile the HDF5 doxygen files [default=no]
+  --enable-doxygen-errors Error on HDF5 doxygen warnings [default=no]
+  --disable-doxygen-doc   don't generate any doxygen documentation
+  --enable-doxygen-dot    generate graphics for doxygen documentation
+  --disable-doxygen-man   don't generate doxygen manual pages
+  --enable-doxygen-rtf    generate doxygen RTF documentation
+  --enable-doxygen-xml    generate doxygen XML documentation
+  --enable-doxygen-chm    generate doxygen compressed HTML help documentation
+  --enable-doxygen-chi    generate doxygen separate compressed HTML help index
+                          file
+  --disable-doxygen-html  don't generate doxygen plain HTML documentation
+  --enable-doxygen-ps     generate doxygen PostScript documentation
+  --enable-doxygen-pdf    generate doxygen PDF documentation
+  --enable-shared[=PKGS]  build shared libraries [default=yes]
+  --enable-static[=PKGS]  build static libraries [default=yes]
+  --enable-fast-install[=PKGS]
+                          optimize for fast installation [default=yes]
+  --disable-libtool-lock  avoid locking (might break parallel builds)
+  --enable-static-exec    Install only statically linked executables
+                          [default=no]
+  --disable-sharedlib-rpath
+                          Disable use of the '=Wl,-rpath' linker option
+  --enable-threadsafe     Enable thread-safe capability. Not compatible with
+                          the high-level library, Fortran, or C++ wrappers.
+                          [default=no]
+  --enable-debug          OPTION CHANGE: use --enable-build-mode=debug
+  --enable-production     OPTION CHANGE: use --enable-build-mode=production
+  --enable-diags=(yes|no|<custom>)
+                          Allow default enhanced diagnostics to the build.
+                          This is independent of the build mode and
+                          optimization level. [default=no]
+  --enable-symbols=(yes|no|<custom>)
+                          Add debug symbols to the library (e.g.: build with
+                          -g). This is independent of the build mode and
+                          optimization level. The custom string allows special
+                          settings like -ggdb, etc. to be used. [default=yes
+                          if debug build, otherwise no]
+  --enable-asserts        Determines whether NDEBUG is defined or not, which
+                          controls assertions. This is independent of the
+                          build mode and presence of debugging symbols.
+                          [default=yes if debug build, otherwise no]
+  --enable-developer-warnings
+                          Determines whether developer warnings will be
+                          emitted. These are usually performance suggestions
+                          (e.g. -Wsuggest-attribute) and do not flag poor code
+                          quality. [default=no]
+  --enable-show-all-warnings
+                          Enable showing all compiler warnings (for developer
+                          debugging). [default=no]
+  --enable-profiling=(yes|no|<custom>)
+                          Enable profiling flags (e.g.: -pg). This can be set
+                          independently from the build mode. The custom
+                          setting can be used to pass alternative profiling
+                          flags (e.g.: -P for using Prof with gcc).
+                          [default=no]
+  --enable-optimization=(high|debug|none|<custom>)
+                          Enable optimization flags/settings (e.g.: -O3). This
+                          can be set independently from the build mode.
+                          Optimizations for a given compiler can be specified
+                          at several levels: High, with aggressive
+                          optimizations turned on; debug, with optimizations
+                          that are unlikely to interfere with debugging or
+                          profiling; and none, with no optimizations at all.
+                          See the compiler-specific config/*-flags file for
+                          more details. Alternatively, optimization options
+                          can be specified directly by specifying them as a
+                          string value. These custom optimization flags will
+                          completely replace all other optimization flags.
+                          [default depends on build mode: debug=debug,
+                          production=high, clean=none]
+  --enable-file-locking=(yes|no|best-effort)
+                          Sets the default for whether or not to use file
+                          locking when opening files. Can be overridden with
+                          the HDF5_USE_FILE_LOCKING environment variable and
+                          the H5Pset_file_locking() API call. best-effort
+                          attempts to use file locking but does not fail when
+                          file locks have been disabled on the file system
+                          (useful with Lustre). [default=best-effort]
+  --enable-internal-debug=(yes|all|no|none|<pkg list>)
+                          Enable extra debugging output on HDF5 library
+                          errors. One may also specify a comma-separated list
+                          of package names without the leading H5. This is
+                          independent of the build mode and is mainly of
+                          interest to HDF Group developers. Yes/all and
+                          no/none are synonymous. [default=all if debug build,
+                          otherwise none]
+  --enable-trace          Enable HDF5 API tracing capability. [default=yes if
+                          debug build, otherwise no]
+  --enable-using-memchecker
+                          Enable this option if a memory allocation and/or
+                          bounds checking tool will be used on the HDF5
+                          library. Enabling this causes the library to be more
+                          picky about its memory operations and also disables
+                          the library's free space manager code. [default=no]
+  --enable-parallel       Search for MPI-IO and MPI support files
+  --enable-instrument     Enable library instrumentation of optimization
+                          tracing (only used with parallel builds).
+                          [default=yes if a parallel debug build, otherwise
+                          no]
+  --enable-parallel-tools Enable building parallel tools. [default=no]
+  --enable-map-api        Build the map API (H5M). This is not yet supported
+                          in the native file format and requires a VOL
+                          connector that supports it. [default=no]
+  --enable-subfiling-vfd  Build the subfiling I/O virtual file driver (VFD).
+                          Requires --enable-parallel. [default=no]
+  --enable-direct-vfd     Build the direct I/O virtual file driver (VFD). This
+                          is based on the POSIX (sec2) VFD and requires the
+                          open() call to take the O_DIRECT flag. [default=no]
+  --enable-mirror-vfd     Build the socket-based Mirror virtual file driver
+                          (VFD). [default=no]
+  --enable-ros3-vfd       Build the Read-Only S3 virtual file driver (VFD).
+                          [default=no]
+  --enable-dconv-exception
+                          Check exception handling functions during data
+                          conversions [default=yes]
+  --enable-dconv-accuracy Guarantee data accuracy during data conversions
+                          [default=yes]
+  --enable-build-all      Build helper programs that only developers should
+                          need [default=no]
+  --enable-deprecated-symbols
+                          Enable deprecated public API symbols. [default=yes
+                          (unless build mode = clean)]
+  --enable-strict-format-checks
+                          Enable strict file format checks. [default=yes if
+                          debug build, otherwise no]
+  --enable-preadwrite     Enable using pread/pwrite instead of read/write in
+                          sec2/log/core VFDs. [default=yes if pread/pwrite are
+                          present]
+  --enable-embedded-libinfo
+                          Enable embedded library information [default=yes]
+
+Optional Packages:
+  --with-PACKAGE[=ARG]    use PACKAGE [ARG=yes]
+  --without-PACKAGE       do not use PACKAGE (same as --with-PACKAGE=no)
+  --with-fmoddir=DIR      Fortran module install directory
+  --with-java-prefix=PFX  prefix where Java runtime is installed (optional)
+  --with-javac-flags=FLAGS flags to pass to the Java compiler (optional)
+  --with-java-flags=FLAGS flags to pass to the Java VM (optional)
+  --with-pic[=PKGS]       try to use only PIC/non-PIC objects [default=use
+                          both]
+  --with-aix-soname=aix|svr4|both
+                          shared library versioning (aka "SONAME") variant to
+                          provide on AIX, [default=aix].
+  --with-gnu-ld           assume the C compiler uses GNU ld [default=no]
+  --with-sysroot[=DIR]    Search for dependent libraries within DIR (or the
+                          compiler's sysroot if not specified).
+
+ For the following --with-xxx options, you can specify where the header
+ files and libraries are in two different ways:
+
+    --with-xxx=INC,LIB - Specify individually the include directory and
+                         library directory separated by a comma
+    --with-xxx=DIR     - Specify only the directory which contains the
+                         include/ and lib/ subdirectories
+
+  --with-zlib=DIR         Use zlib library for external deflate I/O filter
+                          [default=yes]
+  --with-szlib=DIR        Use szlib library for external szlib I/O filter
+                          [default=yes]
+  --with-pthread=DIR      Specify alternative path to Pthreads library when
+                          thread-safe capability is built. Set this to 'yes'
+                          or the location of Pthreads when building with MinGW
+                          and you would rather use Pthreads than Win32
+                          threads.
+  --with-libmfu=DIR       Use the libmfu library [default=no]
+  --with-libhdfs=DIR      Provide libhdfs library to enable HDFS virtual file
+                          driver (VFD) [default=no]
+  --with-examplesdir=location
+                          Specify path for examples
+                          [default="DATAROOTDIR/hdf5_examples"]
+  --with-default-plugindir=location
+                          Specify default location for plugins
+                          [default="/usr/local/hdf5/lib/plugin"]
+  --with-default-api-version=(default|v16|v18|v110|v112|v114)
+                          Specify default release version of public symbols
+                          [default=v114]
+
+Some influential environment variables:
+  CC          C compiler command
+  CFLAGS      C compiler flags
+  LDFLAGS     linker flags, e.g. -L<lib dir> if you have libraries in a
+              nonstandard directory <lib dir>
+  LIBS        libraries to pass to the linker, e.g. -l<library>
+  CPPFLAGS    (Objective) C/C++ preprocessor flags, e.g. -I<include dir> if
+              you have headers in a nonstandard directory <include dir>
+  FC          Fortran compiler command
+  FCFLAGS     Fortran compiler flags
+  CXX         C++ compiler command
+  CXXFLAGS    C++ compiler flags
+  CXXCPP      C++ preprocessor
+  DOXYGEN_PAPER_SIZE
+              a4wide (default), a4, letter, legal or executive
+  LT_SYS_LIBRARY_PATH
+              User-defined run-time library search path.
+
+Use these variables to override the choices made by `configure' or to help
+it to find libraries and programs with nonstandard names/locations.
+
+Report bugs to <help@hdfgroup.org>.

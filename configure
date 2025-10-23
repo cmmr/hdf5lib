@@ -1,57 +1,56 @@
 #!/bin/sh
 set -e
 
+WD="$(pwd)"
+
+# Input directories
+ZLIB_SRC="$(WD)/src/zlib-1.3.1"
+HDF5_SRC="$(WD)/src/hdf5-1.14.6"
+HDF5_PATCHES="$(WD)/src/hdf5-patches"
+
+# Temporary staging directory
+HDF5_PREFIX="$(WD)/src/hdf5_staging"
+
+# Output directories
+INST_INCLUDE="$(WD)/inst/include"
+INST_LIB="$(WD)/inst/lib"
+
+
 echo "--- [hdf5lib] Starting Unix configuration ---"
+
+# --- Show our path assumptions ---
+echo "--- [hdf5lib] zlib src path: ${ZLIB_SRC} ---"
+echo "--- [hdf5lib] hdf5 src path: ${HDF5_SRC} ---"
 
 # --- 1. Build static zlib ---
 echo "--- [hdf5lib] Configuring and compiling static zlib..."
-cd src/zlib-1.3.1
-# Add -fPIC to CFLAGS for zlib configure
+cd "$ZLIB_SRC"
 CC="$CC" CFLAGS="$CFLAGS -fPIC" ./configure --static
-# Make sure make also uses -fPIC if needed (though configure usually handles this)
 make libz.a CFLAGS="$CFLAGS -fPIC"
-cd ../..
-
-# --- Store the absolute path to zlib ---
-ZLIB_PATH="$(pwd)/src/zlib-1.3.1"
-echo "--- [hdf5lib] zlib path set to: ${ZLIB_PATH} ---"
 
 # --- 2. Build static HDF5 ---
 echo "--- [hdf5lib] Starting HDF5 build..."
-cd src/hdf5-1.14.6
+cd "$HDF5_SRC"
 
 # Export CFLAGS and LDFLAGS with zlib path AND -fPIC
-export CFLAGS="$CFLAGS -fPIC -I${ZLIB_PATH}"
-export LDFLAGS="$LDFLAGS -L${ZLIB_PATH}"
+export CFLAGS="$CFLAGS -fPIC -I${ZLIB_SRC}"
+export LDFLAGS="$LDFLAGS -L${ZLIB_SRC}"
 
-# Apply patches from the patches directory if they exist
-echo "--- [hdf5lib] Applying patches..."
-PATCH_DIR=../patches # Path relative to src/hdf5-1.14.6
-if [ -d "$PATCH_DIR" ]; then
-  for patchfile in "$PATCH_DIR"/*.patch; do
-    # Check if the glob found an actual file
-    if [ -f "$patchfile" ]; then
-      echo "Applying patch: $(basename "$patchfile")"
-      patch -p1 < "$patchfile" # Assuming patches generated relative to hdf5-1.14.6 root
-    fi
-  done
-else
-  echo "--- [hdf5lib] No patches directory found, skipping patching. ---"
-fi
+# Apply patches from the hdf5-patches directory
+echo "--- [hdf5lib] Applying patches to HDF5 codebase..."
+for patchfile in "$HDF5_PATCHES"/*.patch; do
+  echo "Applying patch: $(basename "$patchfile")"
+  patch -p0 < "$patchfile"
+done
 
-# Configure HDF5 with thread-safety and dynamic loading enabled
+# Configure HDF5 with thread-safety enabled
 echo "--- [hdf5lib] Configuring bundled HDF5 library..."
 ./configure \
+  --prefix="$HDF5_PREFIX" \
   --disable-shared \
   --enable-static \
   --enable-threadsafe \
-  --enable-dynamic-loading \
   --enable-unsupported \
-  --disable-fortran \
-  --disable-cxx \
-  --disable-parallel \
-  --disable-subfiling-vfd \
-  --disable-direct-vfd \
   --disable-tests \
   --disable-tools \
   --disable-dependency-tracking \
@@ -60,19 +59,32 @@ echo "--- [hdf5lib] Configuring bundled HDF5 library..."
 # Compile HDF5 with warning suppressions
 # Make sure make uses -fPIC if needed (configure should handle this via CFLAGS export)
 echo "--- [hdf5lib] Compiling HDF5 static library..."
-make CFLAGS="$CFLAGS -fPIC -Wno-deprecated-declarations -Wno-format -Wno-format-extra-args -Wno-implicit-fallthrough -Wno-unused-parameter -Wno-strict-prototypes -Wno-unused-function -Wno-unneeded-internal-declaration -Wno-sign-conversion"
-cd ../..
+make CFLAGS="$CFLAGS -fPIC -Wno-deprecated-declarations -Wno-format -Wno-format-extra-args -Wno-implicit-fallthrough -Wno-unused-parameter -Wno-strict-prototypes -Wno-unused-function -Wno-unneeded-internal-declaration -Wno-sign-conversion -Wno-enum-enum-conversion"
+
+echo "--- [hdf5lib] Installing HDF5 to staging directory..."
+make install
 
 # --- 3. Finalize R package ---
-echo "--- [hdf5lib] Creating Makevars..."
-# Append -lpthread and -ldl AFTER all static libs defined in Makevars.in
-sed 's|$(ZLIB_LIB)|$(ZLIB_LIB) -lpthread -ldl|' src/Makevars.in > src/Makevars.in.tmp && mv src/Makevars.in.tmp src/Makevars.in
-cp src/Makevars.in src/Makevars
+mkdir -p "$INST_INCLUDE"
+mkdir -p "$INST_LIB"
+
+echo "--- [hdf5lib] Exposing HDF5 and zlib static libraries..."
+cp "$HDF5_PREFIX"/lib/libhdf5.a "$INST_LIB"/
+cp "$ZLIB_SRC"/libz.a "$INST_LIB"/
 
 echo "--- [hdf5lib] Exposing HDF5 headers..."
-mkdir -p inst/include
-cp src/hdf5-1.14.6/src/*.h inst/include/
-cp src/hdf5-1.14.6/hl/src/*.h inst/include/
+cp -r "$HDF5_PREFIX"/include/* "$INST_INCLUDE"/
+
+echo "--- [hdf5lib] Creating Makevars for LinkingTo..."
+echo "PKG_LIBS = -L'$(R_PACKAGE_LIB)' -lhdf5 -lz -lpthread -ldl" > "$INST_INCLUDE"/Makevars
+
+echo "--- [hdf5lib] Cleaning up build-time directories..."
+cd "$WD"
+rm -rf "$HDF5_SRC"
+rm -rf "$ZLIB_SRC"
+rm -rf "$PATCHES"
+rm -rf "$HDF5_PREFIX"
+
 
 echo "--- [hdf5lib] Unix configuration complete. ---"
 exit 0
