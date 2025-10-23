@@ -77,7 +77,7 @@ echo "--- [hdf5lib] Exposing HDF5 headers..."
 cp -r "$HDF5_PREFIX"/include/* "$INST_INCLUDE"/
 
 echo "--- [hdf5lib] Creating Makevars for LinkingTo..."
-echo "PKG_LIBS = -L'$(R_PACKAGE_LIB)' -lhdf5 -lz -lpthread -ldl" > "$INST_INCLUDE"/Makevars
+echo "PKG_LIBS = -L'$R_PACKAGE_LIB' -lhdf5 -lz -lpthread -ldl" > "$INST_INCLUDE"/Makevars
 
 echo "--- [hdf5lib] Cleaning up build-time directories..."
 cd "$WD"
