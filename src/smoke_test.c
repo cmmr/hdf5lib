@@ -14,7 +14,7 @@
  * - Returns the read-back version string as an R character vector SEXP.
  * - Assumes the temp file is created and deleted by the calling R code.
  */
-SEXP C_hdf5_version(SEXP sexp_filename) {
+SEXP C_smoke_test(SEXP sexp_filename) {
 
     const char *filename = CHAR(STRING_ELT(sexp_filename, 0));
     char        version_str_write[64];
@@ -29,7 +29,7 @@ SEXP C_hdf5_version(SEXP sexp_filename) {
 
     // --- Get HDF5 Version ---
     if (H5get_libversion(&majnum, &minnum, &relnum) < 0) {
-        Rf_error("C_hdf5_version: H5get_libversion failed");
+        Rf_error("C_smoke_test: H5get_libversion failed");
         return R_NilValue;
     }
     snprintf(version_str_write, sizeof(version_str_write), "%u.%u.%u", majnum, minnum, relnum);
@@ -38,14 +38,14 @@ SEXP C_hdf5_version(SEXP sexp_filename) {
     // Create the file
     file_id = H5Fcreate(filename, H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT);
     if (file_id < 0) {
-        Rf_error("C_hdf5_version: H5Fcreate failed for file: %s", filename);
+        Rf_error("C_smoke_test: H5Fcreate failed for file: %s", filename);
         goto error_cleanup;
     }
 
     // Write the version string using H5LT
     status = H5LTmake_dataset_string(file_id, "/version_str", version_str_write);
     if (status < 0) {
-        Rf_error("C_hdf5_version: H5LTmake_dataset_string failed");
+        Rf_error("C_smoke_test: H5LTmake_dataset_string failed");
         goto error_cleanup;
     }
 
@@ -53,7 +53,7 @@ SEXP C_hdf5_version(SEXP sexp_filename) {
     status = H5Fclose(file_id);
     file_id = H5I_INVALID_HID; // Reset ID after close
     if (status < 0) {
-        Rf_warning("C_hdf5_version: H5Fclose (after write) failed");
+        Rf_warning("C_smoke_test: H5Fclose (after write) failed");
         // Continue to read attempt anyway
     }
 
@@ -61,40 +61,40 @@ SEXP C_hdf5_version(SEXP sexp_filename) {
     // Open the file read-only
     file_id = H5Fopen(filename, H5F_ACC_RDONLY, H5P_DEFAULT);
     if (file_id < 0) {
-        Rf_error("C_hdf5_version: H5Fopen failed for file: %s", filename);
+        Rf_error("C_smoke_test: H5Fopen failed for file: %s", filename);
         goto error_cleanup;
     }
 
     // Open the dataset
     dset_id = H5Dopen2(file_id, "/version_str", H5P_DEFAULT);
     if (dset_id < 0) {
-        Rf_error("C_hdf5_version: H5Dopen2 failed for dataset '/version_str'");
+        Rf_error("C_smoke_test: H5Dopen2 failed for dataset '/version_str'");
         goto error_cleanup;
     }
 
     // Get the datatype
     dtype_id = H5Dget_type(dset_id);
     if (dtype_id < 0) {
-        Rf_error("C_hdf5_version: H5Dget_type failed");
+        Rf_error("C_smoke_test: H5Dget_type failed");
         goto error_cleanup;
     }
     // Check if it's actually a string type (optional but good practice)
     if (H5Tget_class(dtype_id) != H5T_STRING) {
-         Rf_error("C_hdf5_version: Dataset is not a string type");
+         Rf_error("C_smoke_test: Dataset is not a string type");
          goto error_cleanup;
     }
 
     // Get the size needed to store the string in memory
     dtype_size = H5Tget_size(dtype_id);
     if (dtype_size == 0) {
-         Rf_error("C_hdf5_version: H5Tget_size returned 0");
+         Rf_error("C_smoke_test: H5Tget_size returned 0");
          goto error_cleanup;
     }
 
     // Allocate buffer for reading (+1 for null terminator)
     version_str_read = (char *)malloc(dtype_size + 1);
     if (version_str_read == NULL) {
-        Rf_error("C_hdf5_version: Failed to allocate memory for reading");
+        Rf_error("C_smoke_test: Failed to allocate memory for reading");
         goto error_cleanup;
     }
 
@@ -110,7 +110,7 @@ SEXP C_hdf5_version(SEXP sexp_filename) {
     H5Tclose(mem_dtype_id); // Close the temporary memory datatype
 
     if (status < 0) {
-        Rf_error("C_hdf5_version: H5Dread failed");
+        Rf_error("C_smoke_test: H5Dread failed");
         goto error_cleanup;
     }
     // Ensure null termination (H5Dread should do this with H5T_STR_NULLTERM, but belt-and-suspenders)

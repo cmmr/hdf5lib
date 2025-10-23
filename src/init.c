@@ -4,11 +4,11 @@
 #include <R_ext/Rdynload.h>
 
 /* Declare C function signatures */
-extern SEXP C_hdf5_version(SEXP sexp_filename);
+extern SEXP C_smoke_test(SEXP sexp_filename);
 
 /* Define Callables */
 static const R_CallMethodDef CallEntries[] = {
-    {"C_hdf5_version", (DL_FUNC) &C_hdf5_version, 1},
+    {"C_smoke_test", (DL_FUNC) &C_smoke_test, 1},
     {NULL, NULL, 0}
 };
 
