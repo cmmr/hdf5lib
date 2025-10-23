@@ -18,7 +18,7 @@ version_string <- tryCatch({
 })
 
 # Check the result
-expected_version <- "1.14.6" # Update this if your bundled version changes
+expected_version <- "1.14.6" # Update this if the bundled version changes
 if (is.null(version_string)) {
     stop("Internal C function returned NULL.")
 } else if (!is.character(version_string) || length(version_string) != 1) {

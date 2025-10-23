@@ -20,7 +20,7 @@ hdf5_version <- function() {
   # Call the C function registered as "C_hdf5_version"
   result <- tryCatch({
     # .Call returns a SEXP, which should be a character vector
-    result <- .Call("C_hdf5_version", tmp_h5_file)
+    result <- .Call("C_hdf5_version", tmp_h5_file, PACKAGE = "hdf5lib")
   }, error = function(e) {
     stop("Internal C function 'C_hdf5_version' failed: ", e$message)
   })
