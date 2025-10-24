@@ -85,6 +85,7 @@ if command -v gcc >/dev/null 2>&1; then
   echo "--- [hdf5lib] Building BaseMax/C-Minifier..."
   cd "$MINI_SRC"
   gcc Minifier.c -o minifier
+  chmod a+x minifier
 
   echo "--- [hdf5lib] Minifying header files..."
   for headerfile in "$INST_LIB"/*.h; do
