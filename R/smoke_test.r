@@ -1,34 +1,81 @@
-#' Internal Function to Call C Version Test
-#'
-#' This function calls the internal C routine \code{C_smoke_test}
-#' which performs several HDF5 operations (get version, write with HL,
-#' read with LL) using a temporary file. This is primarily used for
-#' testing the successful linkage and basic functionality of the bundled
-#' HDF5 library.
-#'
-#' @return A character string containing the HDF5 library version detected by
-#'   the C code, e.g., "1.14.6". Returns `NULL` if the C call fails.
-#' @keywords internal
-#' @noRd
-smoke_test <- function() {
+# This script is run by R CMD check to "smoke test" the hdf5lib
+# linking functionality.
+#
+# It simulates an external package by:
+# 1. Finding a C file in hdf5lib/inst/tests/
+# 2. Compiling it with R CMD SHLIB
+# 3. Getting the compiler/linker flags by calling the
+#    exported hdf5lib::c_flags() and hdf5lib::ld_flags() functions.
+# 4. Loading the resulting .so/.dll with dyn.load()
+# 5. Calling the C function with .Call()
 
-  # Create a temporary file path
-  tmp_h5_file <- tempfile(fileext = ".h5")
-  # Ensure cleanup even if function errors
-  on.exit(unlink(tmp_h5_file, force = TRUE), add = TRUE)
-
-  # Call the C function registered as "C_smoke_test"
-  result <- tryCatch({
-    # .Call returns a SEXP, which should be a character vector
-    result <- .Call("C_smoke_test", tmp_h5_file, PACKAGE = "hdf5lib")
-  }, error = function(e) {
-    stop("Internal C function 'C_smoke_test' failed: ", e$message)
-  })
-
-  # Validate and return the result
-  if (is.character(result) && length(result) == 1) {
-    return(result)
-  } else {
-    stop("Internal C function 'C_smoke_test' returned unexpected type or length.")
-  }
+# 1. Setup paths
+message("Starting hdf5lib link test...")
+if (!requireNamespace("hdf5lib", quietly = TRUE)) {
+  stop("Failed to load hdf5lib namespace. Cannot run link test.")
 }
+
+# Find the C test file in the *installed* package
+test_c_file <- system.file("tests", "smoke_test.c", package = "hdf5lib")
+if (!file.exists(test_c_file)) {
+  stop("Could not find test C file at: ", test_c_file)
+}
+
+# Define the output shared library
+test_lib_out <- file.path(tempdir(), "smoke_test_lib")
+
+# 2. Get the build flags from hdf5lib's R functions
+# This is the *most important* part of the test.
+# We are testing the exact developer experience.
+message("Retrieving build flags from hdf5lib R API...")
+cflags <- hdf5lib::c_flags()
+libs <- hdf5lib::ld_flags()
+
+# 3. Build the R CMD SHLIB command
+# Note: We pass the flags directly to the command.
+cmd <- paste(
+  "R CMD SHLIB",
+  shQuote(test_c_file),
+  "-o", shQuote(test_lib_out),
+  cflags,
+  libs
+)
+
+message("Compiling test C code with command:")
+message(cmd)
+system(cmd)
+
+# 4. Load and run the compiled function
+lib_file_ext <- paste0(test_lib_out, .Platform$dynlib.ext)
+if (!file.exists(lib_file_ext)) {
+  stop("Test library compilation failed. Output file not found.")
+}
+
+message("Compilation successful. Loading shared library...")
+dyn.load(lib_file_ext)
+
+tmp_file <- tempfile(fileext = ".h5")
+version_str <- NULL
+tryCatch({
+  # Call the C function, which creates a file and returns HDF5 version
+  version_str <- .Call("C_smoke_test", tmp_file)
+}, error = function(e) {
+  stop("Error during .Call('C_smoke_test'): ", e$message)
+})
+
+# 5. Check results
+message("C function executed. Checking results...")
+if (!file.exists(tmp_file)) {
+  stop("Test failed: C function did not create the output file.")
+}
+
+if (is.null(version_str) || !grepl("^[0-9]+\\.[0-9]+\\.[0-9]+$", version_str)) {
+  stop("Test failed: C function did not return a valid version string.")
+}
+
+message("HDF5 C API call successful. Reported version: ", version_str)
+message("Test passed!")
+
+# 6. Clean up
+file.remove(tmp_file)
+dyn.unload(lib_file_ext)

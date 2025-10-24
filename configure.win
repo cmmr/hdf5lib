@@ -6,7 +6,6 @@ WD="$(pwd)"
 # Input directories
 ZLIB_SRC="$WD/src/zlib-1.3.1"
 HDF5_SRC="$WD/src/hdf5-1.14.6"
-MINI_SRC="$WD/src/Minifier"
 HDF5_PATCHES="$WD/src/hdf5-patches"
 
 # Output directories
@@ -22,7 +21,6 @@ echo "--- [hdf5lib] Starting Windows configuration ---"
 # --- 1. Build static zlib ---
 echo "--- [hdf5lib] Compiling static zlib..."
 cd "$ZLIB_SRC"
-# No change here, this is correct for Windows
 make -f win32/Makefile.gcc libz.a
 
 
@@ -87,13 +85,6 @@ fi
 
 echo "--- [hdf5lib] Exposing final merged static library..."
 cp "$HDF5_SRC"/libhdf5.a "$INST_LIB/"
-
-echo "--- [hdf5lib] Creating Makevars.win..."
-# -lpthread is needed for --enable-threadsafe on MinGW
-# -ldl is NOT needed on Windows.
-echo "PKG_LIBS = $INST_LIB/libhdf5.a -lpthread"   > "$INST_INCLUDE/Makevars.win"
-echo "PKG_LIBS = ../inst/lib/libhdf5.a -lpthread" > "$WD/src/Makevars.win"
-echo "PKG_CPPFLAGS = -I../inst/include"          >> "$WD/src/Makevars.win"
 
 
 # --- 5. Cleanup ---

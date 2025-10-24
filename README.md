@@ -42,9 +42,9 @@ devtools::install_github("cmmr/hdf5lib")
 
 ## **Usage (For Developers)**
 
-To use this library in your own R package, you simply need to link to it.
+To use this library in your own R package, you need to add `hdf5lib` to `LinkingTo`, create a `src/Makevars` file to link against its static library, and then include the HDF5 headers in your C/C++ code.
 
-### **1. Update your DESCRIPTION file**
+### **1. Update your `DESCRIPTION` file**
 
 Add `hdf5lib` to the `LinkingTo` field.  
 
@@ -55,9 +55,29 @@ Version: 0.1.0
 LinkingTo: hdf5lib
 ```
 
-### **2. Include the Header in Your C/C++ Code**
+This step ensures the R build system can find the HDF5 header files in `hdf5lib`.
 
-You can now include the HDF5 headers directly in your package's `src` files. The R build system will automatically find them.  
+
+### **2. Create `src/Makevars`**
+
+Create a file named `Makevars` inside your package's `src/` directory. This tells the build system how to find and link your package against the static HDF5 library.
+
+Add the following lines to `src/Makevars`:
+
+```Makefile
+# Get the C/C++ compiler flags (e.g., -I... include path)
+PKG_CPPFLAGS = `$(R_HOME)/bin/Rscript -e "cat(hdf5lib::c_flags())"`
+
+# Get the linker flags (e.g., -L... library path and -lhdf5)
+PKG_LIBS = `$(R_HOME)/bin/Rscript -e "cat(hdf5lib::ld_flags())"`
+```
+
+*(Note: You only need this one `src/Makevars` file. The R build system on Windows will use `src/Makevars.win` if it exists, but will fall back to using `src/Makevars` if it's not found. Since these commands are platform-independent, this single file works for all operating systems.)*
+
+
+### **3. Include Headers in Your C/C++ Code**
+
+You can now include the HDF5 headers directly in your package's `src` files.
 
 ```c
 #include <R.h>  

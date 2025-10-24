@@ -1,2 +1,2 @@
-useDynLib(hdf5lib, C_smoke_test)
-exportPattern(character(0))
+export(c_flags)
+export(ld_flags)

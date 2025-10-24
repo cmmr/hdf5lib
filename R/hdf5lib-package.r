@@ -1,4 +1,4 @@
-#' hdf5lib: A Standalone HDF5 C Library for R
+#' hdf5lib: Headers and Static Libraries for 'HDF5'
 #'
 #' @description
 #' `hdf5lib` provides a self-contained, static build of the HDF5 C library
@@ -12,9 +12,3 @@
 #'
 #' @keywords internal
 "_PACKAGE"
-
-# The following block is used by usethis to automatically manage
-# roxygen namespace tags. Modify with care!
-## usethis namespace: start
-## usethis namespace: end
-NULL

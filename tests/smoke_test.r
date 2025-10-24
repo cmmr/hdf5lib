@@ -6,7 +6,44 @@ if (!requireNamespace("hdf5lib", quietly = TRUE)) {
   stop("Failed to load hdf5lib namespace.")
 }
 
-# Call the internal function (defined in R/smoke_test.r)
+
+test_lib <- file.path(tempdir(), "test_smoke")
+
+# Get compile flags from hdf5lib's Makevars
+makevars_file <- system.file("include", "Makevars", package = "hdf5lib")
+makevars_lines <- readLines(makevars_file)
+
+# Extract PKG_LIBS (with R_PACKAGE_DIR expanded)
+pkg_dir <- system.file(package = "hdf5lib")
+libs <- gsub("\\$\\(R_PACKAGE_DIR\\)", pkg_dir, makevars_lines)
+
+# Get C flags
+cppflags <- paste0("-I", system.file("include", package = "hdf5lib"))
+
+# Compile!
+system(paste(
+  "R CMD SHLIB",
+  system.file("tests", "src", "smoke_test.c", package = "hdf5lib"),
+  "-o", test_lib,
+  "-e", shQuote(cppflags),
+  "-e", shQuote(libs)
+))
+
+# 2. Load and run the compiled function
+dyn.load(paste0(test_lib, .Platform$dynlib.ext))
+
+tmp_file <- tempfile(fileext = ".h5")
+version_str <- .Call("C_smoke_test", tmp_file)
+
+# 3. Check the result
+expect_true(file.exists(tmp_file))
+expect_match(version_str, "^[0-9]+\\.[0-9]+\\.[0-9]+$")
+
+# 4. Clean up
+file.remove(tmp_file)
+
+
+# Call the internal function (defined in tests/src/smoke_test.r)
 # which in turn calls the C function via .Call()
 message("Running internal C smoke test...")
 version_string <- tryCatch({
