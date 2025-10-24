@@ -83,7 +83,7 @@ if command -v gcc >/dev/null 2>&1; then
 
   echo "--- [hdf5lib] Minifying header files..."
   for headerfile in "$INST_LIB"/*.h; do
-    minifier "$headerfile" > tmp.h
+    ./minifier "$headerfile" > tmp.h
     cp hdf5_preamble.txt "$headerfile"
     cat tmp.h >> "$headerfile"
   done
