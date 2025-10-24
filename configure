@@ -81,11 +81,13 @@ cp "$HDF5_SRC"/src/*.h    "$INST_INCLUDE/"
 cp "$HDF5_SRC"/hl/src/*.h "$INST_INCLUDE/"
 
 # Remove block comments from the HDF5 header files.
-# Retains the license comment at the top of each file.
-echo "--- [hdf5lib] Minifying header files..."
-for headerfile in "$INST_LIB"/*.h; do
-  perl -0777 -pi -e 's/(?<!\A)\/\*.*?\*\///gs' "$headerfile"
-done
+if command -v perl >/dev/null 2>&1; then # if we have perl
+  echo "--- [hdf5lib] Minifying header files..."
+  for headerfile in "$INST_INCLUDE"/*.h; do
+    # (?<!\A) retains the license comment at the top of each file.
+    perl -0777 -pi -e 's/(?<!\A)\/\*.*?\*\///gs' "$headerfile"
+  done
+fi
 
 echo "--- [hdf5lib] Exposing final merged static library..."
 mkdir -p "$INST_LIB"
