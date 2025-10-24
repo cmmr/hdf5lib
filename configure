@@ -84,6 +84,7 @@ mkdir -p "$INST_LIB"
 cp "$HDF5_SRC/libhdf5.a" "$INST_LIB/"
 
 echo "--- [hdf5lib] Creating Makevars for LinkingTo..."
+echo "PKG_LIBS = $INST_LIB/libhdf5.a -lpthread -ldl"   > "$INST_INCLUDE/Makevars"
 echo "PKG_LIBS = ../inst/lib/libhdf5.a -lpthread -ldl" > "$WD/src/Makevars"
 echo "PKG_CPPFLAGS = -I../inst/include"               >> "$WD/src/Makevars"
 

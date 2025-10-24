@@ -58,8 +58,8 @@ make CFLAGS="$CFLAGS -Wno-deprecated-declarations -Wno-format -Wno-format-extra-
 # --- 3. Merge and Strip Libraries ---
 echo "--- [hdf5lib] Merging all static libraries into one..."
 
-ar -x "$HDF5_SRC/src/libhdf5.a"
-ar -x "$HDF5_SRC/hl/src/libhdf5_hl.a"
+ar -x "$HDF5_SRC/src/.libs/libhdf5.a"
+ar -x "$HDF5_SRC/hl/src/.libs/libhdf5_hl.a"
 ar -x "$ZLIB_SRC/libz.a"
 
 echo "--- [hdf5lib] Stripping symbols to reduce file size..."
@@ -80,6 +80,7 @@ cp "$HDF5_SRC"/libhdf5.a "$INST_LIB/"
 echo "--- [hdf5lib] Creating Makevars.win..."
 # -lpthread is needed for --enable-threadsafe on MinGW
 # -ldl is NOT needed on Windows.
+echo "PKG_LIBS = $INST_LIB/libhdf5.a -lpthread"   > "$INST_INCLUDE/Makevars.win"
 echo "PKG_LIBS = ../inst/lib/libhdf5.a -lpthread" > "$WD/src/Makevars.win"
 echo "PKG_CPPFLAGS = -I../inst/include"          >> "$WD/src/Makevars.win"
 
