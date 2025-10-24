@@ -58,7 +58,7 @@ make CFLAGS="$CFLAGS -fPIC -Wno-deprecated-declarations -Wno-format -Wno-format-
 
 
 echo "--- [hdf5lib] Merging all static libraries into one..."
-cd "$INST_LIB"
+cd "$HDF5_SRC"
 
 # Extract the object files from ALL three libraries
 ar -x "$HDF5_SRC/src/.libs/libhdf5.a"
@@ -69,8 +69,7 @@ echo "--- [hdf5lib] Stripping symbols to reduce file size..."
 strip -S *.o
 
 echo "--- [hdf5lib] Re-archiving stripped object files..."
-ar -q libhdf5.a *.o    # Combine all object files into a single .a file
-rm -f *.o              # Remove the individual .o object files
+ar -q libhdf5.a *.o    # Combine all object files
 
 
 # --- 3. Finalize R package ---
@@ -80,15 +79,9 @@ mkdir -p "$INST_INCLUDE"
 cp "$HDF5_SRC"/src/*.h    "$INST_INCLUDE/"
 cp "$HDF5_SRC"/hl/src/*.h "$INST_INCLUDE/"
 
-echo "--- [hdf5lib] Merging all static libraries into one..."
-cd "$HDF5_SRC/src/.libs/"
-ar -x "$HDF5_SRC/hl/src/.libs/libhdf5_hl.a"
-ar -x "$ZLIB_SRC/libz.a"
-ar -q libhdf5.a *.o
-
 echo "--- [hdf5lib] Exposing final merged static library..."
 mkdir -p "$INST_LIB"
-cp "$HDF5_SRC/src/.libs/libhdf5.a" "$INST_LIB/"
+cp "$HDF5_SRC/libhdf5.a" "$INST_LIB/"
 
 echo "--- [hdf5lib] Creating Makevars for LinkingTo..."
 echo "PKG_LIBS = ../inst/lib/libhdf5.a -lpthread -ldl" > "$WD/src/Makevars"
