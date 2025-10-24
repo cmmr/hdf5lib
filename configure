@@ -69,7 +69,8 @@ echo "--- [hdf5lib] Stripping symbols to reduce file size..."
 strip -S *.o
 
 echo "--- [hdf5lib] Re-archiving stripped object files..."
-ar -q libhdf5.a *.o
+ar -q libhdf5.a *.o    # Combine all object files into a single .a file
+rm -f *.o              # Remove the individual .o object files
 
 
 # --- 3. Finalize R package ---
