@@ -75,20 +75,12 @@ echo "--- [hdf5lib] Exposing HDF5 headers..."
 cp "$HDF5_SRC"/src/*.h    "$INST_INCLUDE/"
 cp "$HDF5_SRC"/hl/src/*.h "$INST_INCLUDE/"
 
-# Remove comments from the HDF5 header files
-if command -v gcc >/dev/null 2>&1; then
-  echo "--- [hdf5lib] Building BaseMax/C-Minifier..."
-  cd "$MINI_SRC"
-  gcc Minifier.c -o minifier
-  chmod a+x minifier
-
-  echo "--- [hdf5lib] Minifying header files..."
-  for headerfile in "$INST_LIB"/*.h; do
-    ./minifier "$headerfile" > tmp.h
-    cp hdf5_preamble.txt "$headerfile"
-    cat tmp.h >> "$headerfile"
-  done
-fi
+# Remove block comments from the HDF5 header files.
+# Retains the license comment at the top of each file.
+echo "--- [hdf5lib] Minifying header files..."
+for headerfile in "$INST_LIB"/*.h; do
+  perl -0777 -pi -e 's/(?<!\A)\/\*.*?\*\///gs' "$headerfile"
+done
 
 echo "--- [hdf5lib] Exposing final merged static library..."
 cp "$HDF5_SRC"/libhdf5.a "$INST_LIB/"
