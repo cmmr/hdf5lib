@@ -12,12 +12,11 @@ HDF5_PATCHES="$WD/src/hdf5-patches"
 INST_INCLUDE="$WD/inst/include"
 INST_LIB="$WD/inst/lib"
 
+mkdir -p "$INST_INCLUDE"
+mkdir -p "$INST_LIB"
+
 
 echo "--- [hdf5lib] Starting Unix configuration ---"
-
-# --- Show our path assumptions ---
-echo "--- [hdf5lib] zlib src path: $ZLIB_SRC ---"
-echo "--- [hdf5lib] hdf5 src path: $HDF5_SRC ---"
 
 # --- 1. Build static zlib ---
 echo "--- [hdf5lib] Configuring and compiling static zlib..."
@@ -56,6 +55,21 @@ echo "--- [hdf5lib] Configuring bundled HDF5 library..."
 # Make sure make uses -fPIC if needed (configure should handle this via CFLAGS export)
 echo "--- [hdf5lib] Compiling HDF5 static library..."
 make CFLAGS="$CFLAGS -fPIC -Wno-deprecated-declarations -Wno-format -Wno-format-extra-args -Wno-implicit-fallthrough -Wno-unused-parameter -Wno-strict-prototypes -Wno-unused-function -Wno-unneeded-internal-declaration -Wno-sign-conversion -Wno-enum-enum-conversion"
+
+
+echo "--- [hdf5lib] Merging all static libraries into one..."
+cd "$INST_LIB"
+
+# Extract the object files from ALL three libraries
+ar -x "$HDF5_SRC/src/.libs/libhdf5.a"
+ar -x "$HDF5_SRC/hl/src/.libs/libhdf5_hl.a"
+ar -x "$ZLIB_SRC/libz.a"
+
+echo "--- [hdf5lib] Stripping symbols to reduce file size..."
+strip -S *.o
+
+echo "--- [hdf5lib] Re-archiving stripped object files..."
+ar -q libhdf5.a *.o
 
 
 # --- 3. Finalize R package ---
