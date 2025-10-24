@@ -4,7 +4,7 @@
 \name{hdf5lib-package}
 \alias{hdf5lib}
 \alias{hdf5lib-package}
-\title{hdf5lib: A Standalone HDF5 C Library for R}
+\title{hdf5lib: Headers and Static Libraries for 'HDF5'}
 \description{
 `hdf5lib` provides a self-contained, static build of the HDF5 C library
 (version 1.14.6) and zlib (version 1.3.1).
