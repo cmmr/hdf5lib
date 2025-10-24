@@ -79,8 +79,9 @@ cp "$HDF5_SRC"/hl/src/*.h "$INST_INCLUDE/"
 if command -v perl >/dev/null 2>&1; then # if we have perl
   echo "--- [hdf5lib] Minifying header files..."
   for headerfile in "$INST_INCLUDE"/*.h; do
-    # (?<!\A) retains the license comment at the top of each file.
-    perl -0777 -pi -e 's/(?<!\A)\/\*.*?\*\///gs' "$headerfile"
+    perl -0777 -pi -e 's/\/\*.*?\*\//\/\/ \(c\) The HDF Group/s' "$headerfile"
+    perl -0777 -pi -e 's/\ *\/\*.*?\*\///gs' "$headerfile"
+    perl -0777 -pi -e 's/\n+/\n/gs' "$headerfile"
   done
 fi
 
