@@ -50,6 +50,8 @@ echo "--- [hdf5lib] Configuring bundled HDF5 library..."
 echo "--- [hdf5lib] Compiling HDF5 static library..."
 make CFLAGS="$CFLAGS -fPIC -Wno-deprecated-declarations -Wno-format -Wno-format-extra-args -Wno-implicit-fallthrough -Wno-unused-parameter -Wno-strict-prototypes -Wno-unused-function -Wno-unneeded-internal-declaration -Wno-sign-conversion -Wno-enum-enum-conversion"
 
+
+# --- 3. Merge and Strip Libraries ---
 echo "--- [hdf5lib] Merging all static libraries into one..."
 
 # Extract the object files from ALL three libraries
@@ -64,7 +66,7 @@ echo "--- [hdf5lib] Re-archiving stripped object files..."
 ar -q libhdf5.a *.o
 
 
-# --- 3. Finalize R package ---
+# --- 4. Finalize R package ---
 cd "$WD"
 
 echo "--- [hdf5lib] Exposing minified HDF5 headers..."

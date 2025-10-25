@@ -34,7 +34,8 @@ compile_output <- ""
 
 if (.Platform$OS.type == "windows") {
   # --- On Windows, use system2() and pass *only* our vars ---
-  # This AUGMENTS the existing environment.
+  # This AUGMENTS the existing environment and avoids the
+  # "command line too long" error.
   message("Using system2() for Windows.")
   
   cmd_args <- c(

@@ -1,19 +1,11 @@
 #!/bin/sh
 set -e
 
-WD="$(pwd)"
-
 # Input directories
+WD="$(pwd)"
 ZLIB_SRC="$WD/src/zlib-1.3.1"
 HDF5_SRC="$WD/src/hdf5-1.14.6"
 HDF5_PATCHES="$WD/src/hdf5-patches"
-
-# Output directories
-INST_INCLUDE="$WD/inst/include"
-INST_LIB="$WD/inst/lib"
-
-mkdir -p "$INST_INCLUDE"
-mkdir -p "$INST_LIB"
 
 
 echo "--- [hdf5lib] Starting Windows configuration ---"
@@ -69,14 +61,17 @@ ar -q libhdf5.a *.o
 
 
 # --- 4. Finalize R package ---
-echo "--- [hdf5lib] Exposing HDF5 headers..."
-cp "$HDF5_SRC"/src/*.h    "$INST_INCLUDE/"
-cp "$HDF5_SRC"/hl/src/*.h "$INST_INCLUDE/"
+cd "$WD"
+
+echo "--- [hdf5lib] Exposing minified HDF5 headers..."
+mkdir -p inst/include
+cp "$HDF5_SRC"/src/*.h    inst/include/
+cp "$HDF5_SRC"/hl/src/*.h inst/include/
 
 # Remove block comments from the HDF5 header files.
 if command -v perl >/dev/null 2>&1; then # if we have perl
   echo "--- [hdf5lib] Minifying header files..."
-  for headerfile in "$INST_INCLUDE"/*.h; do
+  for headerfile in inst/include/*.h; do
     perl -0777 -pi -e 's/\/\*.*?\*\//\/\/ \(c\) The HDF Group/s' "$headerfile"
     perl -0777 -pi -e 's/\ *\/\*.*?\*\///gs' "$headerfile"
     perl -0777 -pi -e 's/\n+/\n/gs' "$headerfile"
@@ -84,15 +79,11 @@ if command -v perl >/dev/null 2>&1; then # if we have perl
 fi
 
 echo "--- [hdf5lib] Exposing final merged static library..."
-cp "$HDF5_SRC"/libhdf5.a "$INST_LIB/"
+mkdir -p inst/lib
+cp "$HDF5_SRC/libhdf5.a" inst/lib/
 
-
-# --- 5. Cleanup ---
 echo "--- [hdf5lib] Cleaning up build-time directories..."
-cd "$WD"
-rm -rf "$HDF5_SRC"
-rm -rf "$ZLIB_SRC"
-rm -rf "$HDF5_PATCHES"
+rm -rf "src"
 
 echo "--- [hdf5lib] Windows configuration complete. ---"
 exit 0
