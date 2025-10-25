@@ -18,57 +18,37 @@ message("Retrieving build flags from hdf5lib R API...")
 cflags <- hdf5lib::c_flags()
 libs <- hdf5lib::ld_flags()
 
-# 3. Build and run the command using system2()
+# 3. Build and run the command using system()
 # We must use the full path to R
 R_EXE <- file.path(R.home("bin"), "R")
 
-#
-# *** THIS IS THE FIX ***
-# Arguments for system2() must NOT be shell-quoted.
-#
-cmd_args <- c(
-  "CMD", "SHLIB",
-  test_c_file,      # REMOVED shQuote()
-  "-o", test_lib_out  # REMOVED shQuote()
+# Build the environment variable part of the command
+env_vars <- paste(
+  "PKG_CPPFLAGS=", shQuote(cflags),
+  "PKG_LIBS=", shQuote(libs)
 )
 
-# The 'env' argument needs literal "NAME=VALUE" strings.
-cmd_env <- c(
-  paste0("PKG_CPPFLAGS=", cflags),
-  paste0("PKG_LIBS=", libs)
+# Build the main R command part
+r_cmd <- paste(
+  shQuote(R_EXE),
+  "CMD SHLIB",
+  shQuote(test_c_file),
+  "-o", shQuote(test_lib_out)
 )
+
+# Combine them into one command for the shell
+full_cmd <- paste(env_vars, r_cmd)
 
 message("Compiling test C code with command:")
-message(paste(
-  cmd_env[1], " ",
-  cmd_env[2], " ",
-  shQuote(R_EXE), " ",
-  "CMD SHLIB ",
-  shQuote(test_c_file), " -o ", shQuote(test_lib_out),
-  sep = ""
-))
+message(full_cmd)
 
-# Run the compilation
-compile_output <- system2(
-  R_EXE,
-  args = cmd_args,
-  env = cmd_env,
-  stdout = TRUE,
-  stderr = TRUE
-)
+# Run the compilation. system() will return 0 for success.
+compile_status <- system(full_cmd)
 
 # Check for a non-zero exit status
-compile_status <- attr(compile_output, "status")
-if (!is.null(compile_status) && compile_status != 0) {
-  # Print the compiler output to help debug
-  message("--- COMPILER OUTPUT ---")
-  message(paste(compile_output, collapse = "\n"))
-  message("--- END COMPILER OUTPUT ---")
+if (compile_status != 0) {
   stop("R CMD SHLIB failed. Compilation returned non-zero exit status.")
 }
-
-message(paste(compile_output, collapse = "\n"))
-
 
 # 4. Load and run the compiled function
 lib_file_ext <- paste0(test_lib_out, .Platform$dynlib.ext)
