@@ -29,23 +29,25 @@ cmd_args <- c(
   "-o", shQuote(test_lib_out)
 )
 
-# Define the environment variables for the compiler/linker
+#
+# *** THIS IS THE FIX ***
+# The 'env' argument needs literal "NAME=VALUE" strings.
+#
 cmd_env <- c(
-  PKG_CPPFLAGS = cflags,
-  PKG_LIBS = libs
+  paste0("PKG_CPPFLAGS=", cflags),
+  paste0("PKG_LIBS=", libs)
 )
 
 message("Compiling test C code with command:")
 message(paste(
-  "PKG_CPPFLAGS=", shQuote(cmd_env["PKG_CPPFLAGS"]), " ",
-  "PKG_LIBS=", shQuote(cmd_env["PKG_LIBS"]), " ",
+  cmd_env[1], " ",
+  cmd_env[2], " ",
   shQuote(R_EXE), " ",
   paste(cmd_args, collapse = " "),
   sep = ""
 ))
 
 # Run the compilation
-# We pass stdout=TRUE, stderr=TRUE to capture output
 compile_output <- system2(
   R_EXE,
   args = cmd_args,
