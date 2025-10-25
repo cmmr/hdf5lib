@@ -33,35 +33,33 @@ compile_status <- 1 # Default to fail
 compile_output <- ""
 
 if (.Platform$OS.type == "windows") {
-  # --- On Windows, use system2() and pass *only* our vars ---
-  # This AUGMENTS the existing environment and avoids the
-  # "command line too long" error.
-  message("Using system2() for Windows.")
+  # --- On Windows, use system2() to call cmd.exe ---
+  # This avoids the 'set' not found error and correctly
+  # handles environment variables for the shell.
+  message("Using system2(cmd.exe) for Windows.")
   
-  cmd_args <- c(
-    "CMD", "SHLIB",
-    test_c_file,
-    "-o", lib_file_to_create
+  # Build the full command string for cmd.exe
+  # Note: shQuote() on Windows uses double quotes (""), which is correct.
+  env_var_1 <- paste0("set PKG_CPPFLAGS=", shQuote(cflags))
+  env_var_2 <- paste0("set PKG_LIBS=", shQuote(libs))
+  
+  r_cmd <- paste(
+    shQuote(R_EXE),
+    "CMD SHLIB",
+    shQuote(test_c_file),
+    "-o", shQuote(lib_file_to_create)
   )
   
-  cmd_env <- c(
-    paste0("PKG_CPPFLAGS=", cflags),
-    paste0("PKG_LIBS=", libs)
-  )
+  # Combine with '&&' and redirect stderr
+  full_cmd <- paste(env_var_1, "&&", env_var_2, "&&", r_cmd, "2>&1")
   
   message("Compiling test C code with command:")
-  message(paste(
-    paste0("PKG_CPPFLAGS=", shQuote(cflags)),
-    paste0("PKG_LIBS=", shQuote(libs)),
-    shQuote(R_EXE),
-    paste(cmd_args, collapse = " "),
-    sep = " "
-  ))
-  
+  message(full_cmd)
+
+  # Call cmd.exe and pass the entire command string as an argument
   compile_output <- system2(
-    R_EXE,
-    args = cmd_args,
-    env = cmd_env, # Pass *only* our two new variables
+    Sys.which("cmd.exe"),
+    args = c("/c", full_cmd),
     stdout = TRUE,
     stderr = TRUE
   )
@@ -69,7 +67,6 @@ if (.Platform$OS.type == "windows") {
   
 } else {
   # --- On Unix (macOS/Linux), use system() with "VAR='val' command" syntax ---
-  # This inherits the environment from the shell.
   message("Using system() for Unix-like OS.")
   
   # Use paste0() to join var name to its quoted value
