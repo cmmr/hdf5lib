@@ -24,8 +24,8 @@ R_EXE <- file.path(R.home("bin"), "R")
 
 # Build the environment variable part of the command
 env_vars <- paste(
-  "PKG_CPPFLAGS=", shQuote(cflags),
-  "PKG_LIBS=", shQuote(libs)
+  paste0("PKG_CPPFLAGS=", shQuote(cflags)),
+  paste0("PKG_LIBS=", shQuote(libs))
 )
 
 # Build the main R command part
