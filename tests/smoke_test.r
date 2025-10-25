@@ -22,17 +22,17 @@ libs <- hdf5lib::ld_flags()
 # We must use the full path to R
 R_EXE <- file.path(R.home("bin"), "R")
 
-# Define the arguments for the 'R' command
-cmd_args <- c(
-  "CMD", "SHLIB",
-  shQuote(test_c_file),
-  "-o", shQuote(test_lib_out)
-)
-
 #
 # *** THIS IS THE FIX ***
-# The 'env' argument needs literal "NAME=VALUE" strings.
+# Arguments for system2() must NOT be shell-quoted.
 #
+cmd_args <- c(
+  "CMD", "SHLIB",
+  test_c_file,      # REMOVED shQuote()
+  "-o", test_lib_out  # REMOVED shQuote()
+)
+
+# The 'env' argument needs literal "NAME=VALUE" strings.
 cmd_env <- c(
   paste0("PKG_CPPFLAGS=", cflags),
   paste0("PKG_LIBS=", libs)
@@ -43,7 +43,8 @@ message(paste(
   cmd_env[1], " ",
   cmd_env[2], " ",
   shQuote(R_EXE), " ",
-  paste(cmd_args, collapse = " "),
+  "CMD SHLIB ",
+  shQuote(test_c_file), " -o ", shQuote(test_lib_out),
   sep = ""
 ))
 
