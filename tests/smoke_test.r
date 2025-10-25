@@ -29,72 +29,49 @@ libs <- hdf5lib::ld_flags()
 
 # 3. Build and run the command (platform-specific)
 R_EXE <- file.path(R.home("bin"), "R")
-compile_status <- 1 # Default to fail
-compile_output <- ""
 
+# Build the main R command part
+r_cmd <- paste(
+  shQuote(R_EXE),
+  "CMD SHLIB",
+  shQuote(test_c_file),
+  "-o", shQuote(lib_file_to_create)
+)
+
+# Construct the command string differently for Windows vs. Unix.
 if (.Platform$OS.type == "windows") {
-  # --- On Windows, use system2() and pass the full env ---
-  message("Using system2() for Windows.")
+  # --- On Windows, use "set VAR=VAL && command" syntax ---
+  # Note: shQuote() on Windows uses double quotes (""), which is correct.
+  env_var_1 <- paste0("set PKG_CPPFLAGS=", shQuote(cflags))
+  env_var_2 <- paste0("set PKG_LIBS=", shQuote(libs))
   
-  cmd_args <- c("CMD", "SHLIB", test_c_file, "-o", lib_file_to_create)
-  
-  current_env <- Sys.getenv()
-  current_env["PKG_CPPFLAGS"] <- cflags
-  current_env["PKG_LIBS"] <- libs
-  
-  message("Compiling test C code with command:")
-  message(paste(
-    paste0("PKG_CPPFLAGS=", shQuote(cflags)),
-    paste0("PKG_LIBS=", shQuote(libs)),
-    shQuote(R_EXE),
-    paste(cmd_args, collapse = " "),
-    sep = " "
-  ))
-  
-  compile_output <- system2(
-    R_EXE,
-    args = cmd_args,
-    env = current_env, # Pass the *full* environment
-    stdout = TRUE,
-    stderr = TRUE
-  )
-  compile_status <- attr(compile_output, "status")
+  # Combine with '&&' and redirect stderr
+  full_cmd <- paste(env_var_1, "&&", env_var_2, "&&", r_cmd, "2>&1")
   
 } else {
-  # --- On Unix (macOS/Linux), use system() with "VAR=val command" syntax ---
-  message("Using system() for Unix-like OS.")
+  # --- On Unix (macOS/Linux), use "VAR='VAL' command" syntax ---
+  # Note: shQuote() on Unix uses single quotes (''), which is correct.
   
   # Use paste0() to join var name to its quoted value
   env_var_1 <- paste0("PKG_CPPFLAGS=", shQuote(cflags))
   env_var_2 <- paste0("PKG_LIBS=", shQuote(libs))
   
-  r_cmd <- paste(
-    shQuote(R_EXE),
-    "CMD SHLIB",
-    shQuote(test_c_file),
-    "-o", shQuote(lib_file_to_create)
-  )
-  
-  #
-  # *** THIS IS THE FIX ***
-  # 1. Append 2>&1 to redirect stderr to stdout for the shell.
-  # 2. Remove the unsupported stderr = TRUE argument from system().
-  #
+  # Combine variables, command, and redirect stderr
   full_cmd <- paste(env_var_1, env_var_2, r_cmd, "2>&1")
-  
-  message("Compiling test C code with command:")
-  message(full_cmd)
-  
-  # Run and capture all output (stdout + redirected stderr)
-  compile_output <- system(full_cmd, intern = TRUE)
-  compile_status <- attr(compile_output, "status")
-  if (is.null(compile_status)) {
-    compile_status <- 0 # No status attribute means success
-  }
+}
+
+message("Compiling test C code with command:")
+message(full_cmd)
+
+# Run and capture all output
+compile_output <- system(full_cmd, intern = TRUE)
+compile_status <- attr(compile_output, "status")
+if (is.null(compile_status)) {
+  compile_status <- 0 # No status attribute means success
 }
 
 # Check for a non-zero exit status
-if (!is.null(compile_status) && compile_status != 0) {
+if (compile_status != 0) {
   message("--- COMPILER OUTPUT ---")
   message(paste(compile_output, collapse = "\n"))
   message("--- END COMPILER OUTPUT ---")
