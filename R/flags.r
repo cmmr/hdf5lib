@@ -25,8 +25,8 @@ c_flags <- function() {
   if (include_dir == "" || !dir.exists(include_dir))
     stop("C flags not found: The 'inst/include' directory is missing from hdf5lib.")
   
-  # Return the compiler flag
-  paste0("-I", normalizePath(include_dir))
+  # Return the compiler flag# Use normalizePath and winslash for robust paths
+  paste0("-I", normalizePath(include_dir, winslash = "/", mustWork = TRUE))
 }
 
 
@@ -62,7 +62,8 @@ ld_flags <- function() {
     stop("Linker flags not found: 'lib/libhdf5.a' is missing from hdf5lib.")
   
   # Create the -L flag pointing to the directory
-  lib_path_flag <- paste0("-L", normalizePath(lib_dir))
+  # Use normalizePath and winslash for robust paths
+  lib_path_flag <- paste0("-L", normalizePath(lib_dir, winslash = "/", mustWork = TRUE))
   
   # Create a vector of all flags.
   # This correctly handles the case where the 'if' returns NULL.
