@@ -11,7 +11,10 @@ test_c_file <- system.file("tests", "smoke_test.c", package = "hdf5lib")
 if (!file.exists(test_c_file)) {
   stop("Could not find test C file at: ", test_c_file)
 }
-test_lib_out <- file.path(tempdir(), "smoke_test_lib")
+
+# Define the *full* output filename
+test_lib_base <- file.path(tempdir(), "smoke_test_lib")
+lib_file_to_create <- paste0(test_lib_base, .Platform$dynlib.ext)
 
 # 2. Get the build flags from hdf5lib's R functions
 message("Retrieving build flags from hdf5lib R API...")
@@ -19,25 +22,22 @@ cflags <- hdf5lib::c_flags()
 libs <- hdf5lib::ld_flags()
 
 # 3. Build and run the command using system()
-# We must use the full path to R
 R_EXE <- file.path(R.home("bin"), "R")
 
-# Build the environment variable part of the command
-env_vars <- paste(
-  paste0("PKG_CPPFLAGS=", shQuote(cflags)),
-  paste0("PKG_LIBS=", shQuote(libs))
-)
+# Use paste0() to join the variable name directly to its quoted value
+env_var_1 <- paste0("PKG_CPPFLAGS=", shQuote(cflags))
+env_var_2 <- paste0("PKG_LIBS=", shQuote(libs))
 
 # Build the main R command part
 r_cmd <- paste(
   shQuote(R_EXE),
   "CMD SHLIB",
   shQuote(test_c_file),
-  "-o", shQuote(test_lib_out)
+  "-o", shQuote(lib_file_to_create) # <-- Use the full filename
 )
 
-# Combine them into one command for the shell
-full_cmd <- paste(env_vars, r_cmd)
+# Combine the variable assignments and the command
+full_cmd <- paste(env_var_1, env_var_2, r_cmd)
 
 message("Compiling test C code with command:")
 message(full_cmd)
@@ -51,13 +51,13 @@ if (compile_status != 0) {
 }
 
 # 4. Load and run the compiled function
-lib_file_ext <- paste0(test_lib_out, .Platform$dynlib.ext)
-if (!file.exists(lib_file_ext)) {
+#    Check for the *exact* file we told R CMD SHLIB to create.
+if (!file.exists(lib_file_to_create)) {
   stop("Test library compilation failed. Output file not found.")
 }
 
 message("Compilation successful. Loading shared library...")
-dyn.load(lib_file_ext)
+dyn.load(lib_file_to_create)
 
 tmp_file <- tempfile(fileext = ".h5")
 version_str <- NULL
@@ -82,4 +82,4 @@ message("Test passed!")
 
 # 6. Clean up
 file.remove(tmp_file)
-dyn.unload(lib_file_ext)
+dyn.unload(lib_file_to_create)
