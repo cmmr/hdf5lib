@@ -29,49 +29,75 @@ libs <- hdf5lib::ld_flags()
 
 # 3. Build and run the command (platform-specific)
 R_EXE <- file.path(R.home("bin"), "R")
+compile_status <- 1 # Default to fail
+compile_output <- ""
 
-# Build the main R command part
-r_cmd <- paste(
-  shQuote(R_EXE),
-  "CMD SHLIB",
-  shQuote(test_c_file),
-  "-o", shQuote(lib_file_to_create)
-)
-
-# Construct the command string differently for Windows vs. Unix.
 if (.Platform$OS.type == "windows") {
-  # --- On Windows, use "set VAR=VAL && command" syntax ---
-  # Note: shQuote() on Windows uses double quotes (""), which is correct.
-  env_var_1 <- paste0("set PKG_CPPFLAGS=", shQuote(cflags))
-  env_var_2 <- paste0("set PKG_LIBS=", shQuote(libs))
+  # --- On Windows, use system2() and pass *only* our vars ---
+  # This AUGMENTS the existing environment.
+  message("Using system2() for Windows.")
   
-  # Combine with '&&' and redirect stderr
-  full_cmd <- paste(env_var_1, "&&", env_var_2, "&&", r_cmd, "2>&1")
+  cmd_args <- c(
+    "CMD", "SHLIB",
+    test_c_file,
+    "-o", lib_file_to_create
+  )
+  
+  cmd_env <- c(
+    paste0("PKG_CPPFLAGS=", cflags),
+    paste0("PKG_LIBS=", libs)
+  )
+  
+  message("Compiling test C code with command:")
+  message(paste(
+    paste0("PKG_CPPFLAGS=", shQuote(cflags)),
+    paste0("PKG_LIBS=", shQuote(libs)),
+    shQuote(R_EXE),
+    paste(cmd_args, collapse = " "),
+    sep = " "
+  ))
+  
+  compile_output <- system2(
+    R_EXE,
+    args = cmd_args,
+    env = cmd_env, # Pass *only* our two new variables
+    stdout = TRUE,
+    stderr = TRUE
+  )
+  compile_status <- attr(compile_output, "status")
   
 } else {
-  # --- On Unix (macOS/Linux), use "VAR='VAL' command" syntax ---
-  # Note: shQuote() on Unix uses single quotes (''), which is correct.
+  # --- On Unix (macOS/Linux), use system() with "VAR='val' command" syntax ---
+  # This inherits the environment from the shell.
+  message("Using system() for Unix-like OS.")
   
   # Use paste0() to join var name to its quoted value
   env_var_1 <- paste0("PKG_CPPFLAGS=", shQuote(cflags))
   env_var_2 <- paste0("PKG_LIBS=", shQuote(libs))
   
-  # Combine variables, command, and redirect stderr
+  r_cmd <- paste(
+    shQuote(R_EXE),
+    "CMD SHLIB",
+    shQuote(test_c_file),
+    "-o", shQuote(lib_file_to_create)
+  )
+  
+  # Append 2>&1 to redirect stderr to stdout for the shell
   full_cmd <- paste(env_var_1, env_var_2, r_cmd, "2>&1")
-}
-
-message("Compiling test C code with command:")
-message(full_cmd)
-
-# Run and capture all output
-compile_output <- system(full_cmd, intern = TRUE)
-compile_status <- attr(compile_output, "status")
-if (is.null(compile_status)) {
-  compile_status <- 0 # No status attribute means success
+  
+  message("Compiling test C code with command:")
+  message(full_cmd)
+  
+  # Run and capture all output
+  compile_output <- system(full_cmd, intern = TRUE)
+  compile_status <- attr(compile_output, "status")
+  if (is.null(compile_status)) {
+    compile_status <- 0 # No status attribute means success
+  }
 }
 
 # Check for a non-zero exit status
-if (compile_status != 0) {
+if (!is.null(compile_status) && compile_status != 0) {
   message("--- COMPILER OUTPUT ---")
   message(paste(compile_output, collapse = "\n"))
   message("--- END COMPILER OUTPUT ---")
