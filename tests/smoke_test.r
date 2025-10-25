@@ -27,74 +27,45 @@ message("Retrieving build flags from hdf5lib R API...")
 cflags <- hdf5lib::c_flags()
 libs <- hdf5lib::ld_flags()
 
-# 3. Build and run the command (platform-specific)
+# 3. Set environment variables for the child process
+#    This is the core of this approach. R CMD SHLIB will
+#    inherit these variables from the R process.
+Sys.setenv(
+  PKG_CPPFLAGS = cflags,
+  PKG_LIBS = libs
+)
+
+# 4. Build and run the command using system2()
 R_EXE <- file.path(R.home("bin"), "R")
-compile_status <- 1 # Default to fail
-compile_output <- ""
 
-if (.Platform$OS.type == "windows") {
-  # --- On Windows, use system2() to call cmd.exe ---
-  # This avoids the 'set' not found error and correctly
-  # handles environment variables for the shell.
-  message("Using system2(cmd.exe) for Windows.")
-  
-  # Build the full command string for cmd.exe
-  # Note: shQuote() on Windows uses double quotes (""), which is correct.
-  env_var_1 <- paste0("set PKG_CPPFLAGS=", shQuote(cflags))
-  env_var_2 <- paste0("set PKG_LIBS=", shQuote(libs))
-  
-  r_cmd <- paste(
-    shQuote(R_EXE),
-    "CMD SHLIB",
-    shQuote(test_c_file),
-    "-o", shQuote(lib_file_to_create)
-  )
-  
-  # Combine with '&&' and redirect stderr
-  full_cmd <- paste(env_var_1, "&&", env_var_2, "&&", r_cmd, "2>&1")
-  
-  message("Compiling test C code with command:")
-  message(full_cmd)
+# Arguments are simple and unquoted
+cmd_args <- c(
+  "CMD", "SHLIB",
+  test_c_file,
+  "-o", lib_file_to_create
+)
 
-  # Call cmd.exe and pass the entire command string as an argument
-  compile_output <- system2(
-    Sys.which("cmd.exe"),
-    args = c("/c", full_cmd),
-    stdout = TRUE,
-    stderr = TRUE
-  )
-  compile_status <- attr(compile_output, "status")
-  
-} else {
-  # --- On Unix (macOS/Linux), use system() with "VAR='val' command" syntax ---
-  message("Using system() for Unix-like OS.")
-  
-  # Use paste0() to join var name to its quoted value
-  env_var_1 <- paste0("PKG_CPPFLAGS=", shQuote(cflags))
-  env_var_2 <- paste0("PKG_LIBS=", shQuote(libs))
-  
-  r_cmd <- paste(
-    shQuote(R_EXE),
-    "CMD SHLIB",
-    shQuote(test_c_file),
-    "-o", shQuote(lib_file_to_create)
-  )
-  
-  # Append 2>&1 to redirect stderr to stdout for the shell
-  full_cmd <- paste(env_var_1, env_var_2, r_cmd, "2>&1")
-  
-  message("Compiling test C code with command:")
-  message(full_cmd)
-  
-  # Run and capture all output
-  compile_output <- system(full_cmd, intern = TRUE)
-  compile_status <- attr(compile_output, "status")
-  if (is.null(compile_status)) {
-    compile_status <- 0 # No status attribute means success
-  }
-}
+message("Compiling test C code with command:")
+# We log the equivalent shell command for debugging
+message(paste(
+  paste0("PKG_CPPFLAGS=", shQuote(cflags)),
+  paste0("PKG_LIBS=", shQuote(libs)),
+  shQuote(R_EXE),
+  paste(cmd_args, collapse = " "),
+  sep = " "
+))
+
+# Run the compilation
+# No 'env' or 'system()' logic needed.
+compile_output <- system2(
+  R_EXE,
+  args = cmd_args,
+  stdout = TRUE,
+  stderr = TRUE
+)
 
 # Check for a non-zero exit status
+compile_status <- attr(compile_output, "status")
 if (!is.null(compile_status) && compile_status != 0) {
   message("--- COMPILER OUTPUT ---")
   message(paste(compile_output, collapse = "\n"))
@@ -105,7 +76,7 @@ if (!is.null(compile_status) && compile_status != 0) {
 # Print output on success
 message(paste(compile_output, collapse = "\n"))
 
-# 4. Load and run the compiled function
+# 5. Load and run the compiled function
 if (!file.exists(lib_file_to_create)) {
   stop("Test library compilation failed. Output file not found.")
 }
@@ -125,7 +96,7 @@ tryCatch({
   stop("Error during .Call('C_smoke_test'): ", e$message)
 })
 
-# 5. Check results
+# 6. Check results
 message("C function executed. Checking results...")
 if (!file.exists(tmp_file)) {
   stop("Test failed: C function did not create the output file.")
@@ -138,6 +109,6 @@ if (is.null(version_str) || !grepl("^[0-9]+\\.[0-9]+\\.[0-9]+$", version_str)) {
 message("HDF5 C API call successful. Reported version: ", version_str)
 message("Test passed!")
 
-# 6. Clean up
+# 7. Clean up
 file.remove(tmp_file)
 dyn.unload(lib_file_to_create)
