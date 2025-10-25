@@ -88,8 +88,8 @@ echo "--- [hdf5lib] Exposing final merged static library..."
 mkdir -p inst/lib
 cp "$HDF5_SRC/libhdf5.a" inst/lib/
 
-echo "--- [hdf5lib] Cleaning up build-time directories..."
-rm -rf "src"
+#echo "--- [hdf5lib] Cleaning up build-time directories..."
+#rm -rf "src"
 
 echo "--- [hdf5lib] Unix configuration complete. ---"
 exit 0

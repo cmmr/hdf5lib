@@ -43,7 +43,7 @@ ac_cv_header_dlfcn_h=no ac_cv_lib_dl_dlopen=no CPPFLAGS="-I${ZLIB_SRC}" LDFLAGS=
 
 # Compile HDF5 with warning suppressions
 echo "--- [hdf5lib] Compiling HDF5 static library..."
-make CFLAGS="$CFLAGS -Wno-deprecated-declarations -Wno-format -Wno-format-extra-args -Wno-implicit-fallthrough -Wno-unused-parameter -Wno-strict-prototypes -Wno-unused-function -Wno-unused-variable -Wno-sign-conversion"
+make CFLAGS="$CFLAGS -Wno-deprecated-declarations -Wno-format -Wno-format-extra-args -Wno-implicit-fallthrough -Wno-unused-parameter -Wno-strict-prototypes -Wno-unused-function -Wno-unused-variable -Wno-sign-conversion -Wno-unknown-pragmas"
 
 
 # --- 3. Merge and Strip Libraries ---
@@ -82,8 +82,8 @@ echo "--- [hdf5lib] Exposing final merged static library..."
 mkdir -p inst/lib
 cp "$HDF5_SRC/libhdf5.a" inst/lib/
 
-echo "--- [hdf5lib] Cleaning up build-time directories..."
-rm -rf "src"
+#echo "--- [hdf5lib] Cleaning up build-time directories..."
+#rm -rf "src"
 
 echo "--- [hdf5lib] Windows configuration complete. ---"
 exit 0
