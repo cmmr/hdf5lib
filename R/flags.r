@@ -17,14 +17,13 @@
 #'   c_flags()
 #' }
 c_flags <- function() {
+
   # Find the directory /path/to/R/library/hdf5lib/include
   include_dir <- system.file("include", package = "hdf5lib")
   
   # Ensure the directory exists
-  stopifnot(
-    dir.exists(include_dir),
-    "C flags not found: 'inst/include' directory is missing from hdf5lib."
-  )
+  if (include_dir == "" || !dir.exists(include_dir))
+    stop("C flags not found: The 'inst/include' directory is missing from hdf5lib.")
   
   # Return the compiler flag
   paste0("-I", normalizePath(include_dir))
@@ -51,15 +50,16 @@ c_flags <- function() {
 #'   ld_flags()
 #' }
 ld_flags <- function() {
+
   # Find the directory /path/to/R/library/hdf5lib/lib
   lib_dir <- system.file("lib", package = "hdf5lib")
+  if (lib_dir == "" || !file.exists(lib_dir))
+    stop("Linker flags not found: The 'inst/lib' directory is missing from hdf5lib.")
   
   # Ensure the library file actually exists in that directory
   static_lib_file <- file.path(lib_dir, "libhdf5.a")
-  stopifnot(
-    file.exists(static_lib_file),
-    "Linker flags not found: 'lib/libhdf5.a' is missing from hdf5lib."
-  )
+  if (!file.exists(static_lib_file))
+    stop("Linker flags not found: 'lib/libhdf5.a' is missing from hdf5lib.")
   
   # Create the -L flag pointing to the directory
   lib_path_flag <- paste0("-L", normalizePath(lib_dir))
