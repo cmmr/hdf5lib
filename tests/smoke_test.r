@@ -75,13 +75,18 @@ if (.Platform$OS.type == "windows") {
     "-o", shQuote(lib_file_to_create)
   )
   
-  full_cmd <- paste(env_var_1, env_var_2, r_cmd)
+  #
+  # *** THIS IS THE FIX ***
+  # 1. Append 2>&1 to redirect stderr to stdout for the shell.
+  # 2. Remove the unsupported stderr = TRUE argument from system().
+  #
+  full_cmd <- paste(env_var_1, env_var_2, r_cmd, "2>&1")
   
   message("Compiling test C code with command:")
   message(full_cmd)
   
-  # Run and capture all output
-  compile_output <- system(full_cmd, intern = TRUE, stderr = TRUE)
+  # Run and capture all output (stdout + redirected stderr)
+  compile_output <- system(full_cmd, intern = TRUE)
   compile_status <- attr(compile_output, "status")
   if (is.null(compile_status)) {
     compile_status <- 0 # No status attribute means success
@@ -89,7 +94,7 @@ if (.Platform$OS.type == "windows") {
 }
 
 # Check for a non-zero exit status
-if (compile_status != 0) {
+if (!is.null(compile_status) && compile_status != 0) {
   message("--- COMPILER OUTPUT ---")
   message(paste(compile_output, collapse = "\n"))
   message("--- END COMPILER OUTPUT ---")
