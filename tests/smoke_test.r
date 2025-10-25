@@ -1,13 +1,5 @@
 # This script is run by R CMD check to "smoke test" the hdf5lib
 # linking functionality.
-#
-# It simulates an external package by:
-# 1. Finding a C file in hdf5lib/inst/tests/
-# 2. Compiling it with R CMD SHLIB
-# 3. Getting the compiler/linker flags by calling the
-#    exported hdf5lib::c_flags() and hdf5lib::ld_flags() functions.
-# 4. Loading the resulting .so/.dll with dyn.load()
-# 5. Calling the C function with .Call()
 
 # 1. Setup paths
 message("Starting hdf5lib link test...")
@@ -15,14 +7,10 @@ if (!requireNamespace("hdf5lib", quietly = TRUE)) {
   stop("Failed to load hdf5lib namespace. Cannot run link test.")
 }
 
-# Find the C test file in the *installed* package
-# (Assumes it's in 'inst/tests/smoke_test.c')
 test_c_file <- system.file("tests", "smoke_test.c", package = "hdf5lib")
 if (!file.exists(test_c_file)) {
   stop("Could not find test C file at: ", test_c_file)
 }
-
-# Define the output shared library
 test_lib_out <- file.path(tempdir(), "smoke_test_lib")
 
 # 2. Get the build flags from hdf5lib's R functions
@@ -30,27 +18,54 @@ message("Retrieving build flags from hdf5lib R API...")
 cflags <- hdf5lib::c_flags()
 libs <- hdf5lib::ld_flags()
 
-# 3. Build the R CMD SHLIB command
+# 3. Build and run the command using system2()
+# We must use the full path to R
 R_EXE <- file.path(R.home("bin"), "R")
 
-cmd <- paste(
-  shQuote(R_EXE), # Use the full path to R
-  "CMD SHLIB",
+# Define the arguments for the 'R' command
+cmd_args <- c(
+  "CMD", "SHLIB",
   shQuote(test_c_file),
-  "-o", shQuote(test_lib_out),
-  cflags,
-  libs
+  "-o", shQuote(test_lib_out)
+)
+
+# Define the environment variables for the compiler/linker
+cmd_env <- c(
+  PKG_CPPFLAGS = cflags,
+  PKG_LIBS = libs
 )
 
 message("Compiling test C code with command:")
-message(cmd)
-# Run the compilation
-compile_status <- system(cmd)
+message(paste(
+  "PKG_CPPFLAGS=", shQuote(cmd_env["PKG_CPPFLAGS"]), " ",
+  "PKG_LIBS=", shQuote(cmd_env["PKG_LIBS"]), " ",
+  shQuote(R_EXE), " ",
+  paste(cmd_args, collapse = " "),
+  sep = ""
+))
 
-# Stop if compilation failed
-if (compile_status != 0) {
+# Run the compilation
+# We pass stdout=TRUE, stderr=TRUE to capture output
+compile_output <- system2(
+  R_EXE,
+  args = cmd_args,
+  env = cmd_env,
+  stdout = TRUE,
+  stderr = TRUE
+)
+
+# Check for a non-zero exit status
+compile_status <- attr(compile_output, "status")
+if (!is.null(compile_status) && compile_status != 0) {
+  # Print the compiler output to help debug
+  message("--- COMPILER OUTPUT ---")
+  message(paste(compile_output, collapse = "\n"))
+  message("--- END COMPILER OUTPUT ---")
   stop("R CMD SHLIB failed. Compilation returned non-zero exit status.")
 }
+
+message(paste(compile_output, collapse = "\n"))
+
 
 # 4. Load and run the compiled function
 lib_file_ext <- paste0(test_lib_out, .Platform$dynlib.ext)
@@ -64,7 +79,6 @@ dyn.load(lib_file_ext)
 tmp_file <- tempfile(fileext = ".h5")
 version_str <- NULL
 tryCatch({
-  # Call the C function, which creates a file and returns HDF5 version
   version_str <- .Call("C_smoke_test", tmp_file)
 }, error = function(e) {
   stop("Error during .Call('C_smoke_test'): ", e$message)
