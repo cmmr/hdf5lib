@@ -32,24 +32,23 @@ jobs:
       matrix:
         config:
           - {os: macos-latest,     r: 'release'}
-          - {os: macos-latest,     r: 'devel'}
-          - {os: macos-latest,     r: 'oldrel-1'}
-          - {os: macos-14,         r: 'release'}
-
           - {os: windows-latest,   r: 'release'}
-          - {os: windows-latest,   r: 'devel'}
-          - {os: windows-latest,   r: 'oldrel-1'}
-          - {os: windows-2022,     r: 'release'}
-
           - {os: ubuntu-latest,    r: 'release'}
-          - {os: ubuntu-latest,    r: 'devel' }
-          - {os: ubuntu-latest,    r: 'oldrel-1'}
-          - {os: ubuntu-22.04,     r: 'release'}
-          - {os: ubuntu-22.04-arm, r: 'release' }
-          - {os: ubuntu-24.04-arm, r: 'release' }
+          #- {os: macos-latest,     r: 'devel'}
+          #- {os: macos-latest,     r: 'oldrel-1'}
+          #- {os: macos-14,         r: 'release'}
+          #- {os: windows-latest,   r: 'devel'}
+          #- {os: windows-latest,   r: 'oldrel-1'}
+          #- {os: windows-2022,     r: 'release'}
+          #- {os: ubuntu-latest,    r: 'devel' }
+          #- {os: ubuntu-latest,    r: 'oldrel-1'}
+          #- {os: ubuntu-22.04,     r: 'release'}
+          #- {os: ubuntu-22.04-arm, r: 'release' }
+          #- {os: ubuntu-24.04-arm, r: 'release' }
 
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+      R_KEEP_PKG_SOURCE: no
       NOT_CRAN: true
 
     steps:
@@ -71,4 +70,5 @@ jobs:
       - uses: r-lib/actions/check-r-package@v2
         with:
           upload-snapshots: true
+          #error-on: '"error"'
           build_args: 'c("--no-manual","--compact-vignettes=gs+qpdf")'

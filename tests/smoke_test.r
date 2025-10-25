@@ -14,7 +14,6 @@ test_c_file <- normalizePath(
   mustWork = TRUE
 )
 
-# Use normalizePath here too for consistency
 test_lib_base <- normalizePath(
   file.path(tempdir(), "smoke_test_lib"),
   winslash = "/",
@@ -28,52 +27,77 @@ message("Retrieving build flags from hdf5lib R API...")
 cflags <- hdf5lib::c_flags()
 libs <- hdf5lib::ld_flags()
 
-# 3. Build and run the command using system2()
+# 3. Build and run the command (platform-specific)
 R_EXE <- file.path(R.home("bin"), "R")
+compile_status <- 1 # Default to fail
+compile_output <- ""
 
-# Arguments for system2() must NOT be shell-quoted
-cmd_args <- c(
-  "CMD", "SHLIB",
-  test_c_file,
-  "-o", lib_file_to_create
-)
-
-# Get all current environment variables
-current_env <- Sys.getenv()
-# Add/overwrite our specific build flags
-current_env["PKG_CPPFLAGS"] <- cflags
-current_env["PKG_LIBS"] <- libs
-
-message("Compiling test C code with command:")
-message(paste(
-  paste0("PKG_CPPFLAGS=", shQuote(cflags)),
-  paste0("PKG_LIBS=", shQuote(libs)),
-  shQuote(R_EXE),
-  paste(cmd_args, collapse = " "),
-  sep = " "
-))
-
-# Run the compilation
-compile_output <- system2(
-  R_EXE,
-  args = cmd_args,
-  env = current_env, # Pass the *full* environment
-  stdout = TRUE,
-  stderr = TRUE
-)
+if (.Platform$OS.type == "windows") {
+  # --- On Windows, use system2() and pass the full env ---
+  message("Using system2() for Windows.")
+  
+  cmd_args <- c("CMD", "SHLIB", test_c_file, "-o", lib_file_to_create)
+  
+  current_env <- Sys.getenv()
+  current_env["PKG_CPPFLAGS"] <- cflags
+  current_env["PKG_LIBS"] <- libs
+  
+  message("Compiling test C code with command:")
+  message(paste(
+    paste0("PKG_CPPFLAGS=", shQuote(cflags)),
+    paste0("PKG_LIBS=", shQuote(libs)),
+    shQuote(R_EXE),
+    paste(cmd_args, collapse = " "),
+    sep = " "
+  ))
+  
+  compile_output <- system2(
+    R_EXE,
+    args = cmd_args,
+    env = current_env, # Pass the *full* environment
+    stdout = TRUE,
+    stderr = TRUE
+  )
+  compile_status <- attr(compile_output, "status")
+  
+} else {
+  # --- On Unix (macOS/Linux), use system() with "VAR=val command" syntax ---
+  message("Using system() for Unix-like OS.")
+  
+  # Use paste0() to join var name to its quoted value
+  env_var_1 <- paste0("PKG_CPPFLAGS=", shQuote(cflags))
+  env_var_2 <- paste0("PKG_LIBS=", shQuote(libs))
+  
+  r_cmd <- paste(
+    shQuote(R_EXE),
+    "CMD SHLIB",
+    shQuote(test_c_file),
+    "-o", shQuote(lib_file_to_create)
+  )
+  
+  full_cmd <- paste(env_var_1, env_var_2, r_cmd)
+  
+  message("Compiling test C code with command:")
+  message(full_cmd)
+  
+  # Run and capture all output
+  compile_output <- system(full_cmd, intern = TRUE, stderr = TRUE)
+  compile_status <- attr(compile_output, "status")
+  if (is.null(compile_status)) {
+    compile_status <- 0 # No status attribute means success
+  }
+}
 
 # Check for a non-zero exit status
-compile_status <- attr(compile_output, "status")
-if (!is.null(compile_status) && compile_status != 0) {
-  # Print the compiler output to help debug
+if (compile_status != 0) {
   message("--- COMPILER OUTPUT ---")
   message(paste(compile_output, collapse = "\n"))
   message("--- END COMPILER OUTPUT ---")
   stop("R CMD SHLIB failed. Compilation returned non-zero exit status.")
 }
 
+# Print output on success
 message(paste(compile_output, collapse = "\n"))
-
 
 # 4. Load and run the compiled function
 if (!file.exists(lib_file_to_create)) {
