@@ -19,6 +19,10 @@
  * Example: nm path/to/libhdf5.a | grep ' T ' | awk '{print $3}'
  */
 
+ // cd hdf5lib/inst/include
+ // gcc -E hdf5_hl.h -o out.c
+ // ctags --kinds-c=p -o - --language-force=c out.c | awk '{print $1}' | grep '^H5' | sort -uf
+
 #include <R.h>
 #include <Rinternals.h>
 #include <hdf5_hl.h>
