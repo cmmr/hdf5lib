@@ -39,7 +39,7 @@ if command -v perl >/dev/null 2>&1; then # if we have perl
   for c_file in ./src/*.c ./hl/src/*.c; do
    
     # printf -> Rprintf
-    perl pi -e 's/\bprintf\b/Rprintf/g' "$c_file"
+    perl -pi -e 's/\bprintf\b/Rprintf/g' "$c_file"
     
     # abort()  -> Rf_error("HDF5 abort")
     perl -pi -e 's/\babort\s*\(\s*\)/Rf_error("HDF5 abort()")/g' "$c_file"
