@@ -4,6 +4,9 @@
 # This includes the dummy 'init.c' needed to trigger the build.
 OBJECTS = init.o
 
+# Prevent R from stripping the final shared library
+SHLIB_strip =
+
 # Get linker flags to force inclusion of the whole HDF5 archive.
 # Use the internal hdf5lib:::ld_flags_whole_archive() function.
 # Note the triple-colon ':::' for accessing an internal function.
