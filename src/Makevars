@@ -1,17 +1,3 @@
-# src/Makevars for hdf5lib package
-
-# Define the object file(s) to compile.
-# This includes the dummy 'init.c' needed to trigger the build.
-OBJECTS = init.o
-
-# Prevent R from stripping the final shared library
-SHLIB_strip =
-
-# Get linker flags to force inclusion of the whole HDF5 archive.
-# Use the internal hdf5lib:::ld_flags_whole_archive() function.
-# Note the triple-colon ':::' for accessing an internal function.
-PKG_LIBS = `$(R_HOME)/bin/Rscript -e "cat(hdf5lib:::ld_flags_whole_archive())"`
-
-# PKG_CPPFLAGS is usually not needed in this specific Makevars file,
-# as the dummy init.c doesn't need the HDF5 headers, and the main
-# HDF5 library linking is handled entirely by PKG_LIBS.
+OBJECTS = init.o all_hdf5.o
+PKG_LIBS = `$(R_HOME)/bin/Rscript -e "cat(hdf5lib::ld_flags())"`
+PKG_CPPFLAGS = `$(R_HOME)/bin/Rscript -e "cat(hdf5lib::c_flags())"`
