@@ -22,6 +22,7 @@
  // cd hdf5lib/inst/include
  // gcc -E hdf5_hl.h -o out.c
  // ctags --kinds-c=p -o - --language-force=c out.c | awk '{print $1}' | grep '^H5' | sort -uf
+ // remove 'H5Pset_fapl_windows' as it's a windows-only function
 
 #include <R.h>
 #include <Rinternals.h>
@@ -662,7 +663,6 @@ const void * const hdf5_all_function_pointers[] = {
   (void*)H5Pset_fapl_split,
   (void*)H5Pset_fapl_splitter,
   (void*)H5Pset_fapl_stdio,
-  (void*)H5Pset_fapl_windows,
   (void*)H5Pset_fclose_degree,
   (void*)H5Pset_file_image,
   (void*)H5Pset_file_image_callbacks,
