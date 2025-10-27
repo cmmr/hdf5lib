@@ -1,14 +1,6 @@
-# Set default behavior
+# Set default behavior: Git tries to guess if a file is text or binary.
+# Binary files will be left alone.
 * text=auto
 
-# Enforce Unix (LF) line endings for all scripts
-*.sh      text eol=lf
-configure text eol=lf
-missing   text eol=lf
-
-# Enforce Unix (LF) for patch files
-*.patch   text eol=lf
-
-# Make sure Makefiles are also Unix-style
-Makefile  text eol=lf
-Makefile.in text eol=lf
+# Force Unix (LF) line endings for all files Git identified as text.
+* text eol=lf
