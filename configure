@@ -22,17 +22,12 @@ make libz.a CFLAGS="$CFLAGS -fPIC"
 echo "--- [hdf5lib] Starting HDF5 build..."
 cd "$HDF5_SRC"
 
-# Export CFLAGS and LDFLAGS with zlib path AND -fPIC
-export CFLAGS="$CFLAGS -fPIC -I${ZLIB_SRC}"
-export LDFLAGS="$LDFLAGS -L${ZLIB_SRC}"
-
 # Apply patches from the hdf5-patches directory
 echo "--- [hdf5lib] Applying patches to HDF5 codebase..."
 for patchfile in "$HDF5_PATCHES"/*.patch; do
   echo "Applying patch: $(basename "$patchfile")"
   patch -p0 < "$patchfile"
 done
-
 
 # Configure HDF5 with thread-safety enabled
 echo "--- [hdf5lib] Configuring bundled HDF5 library..."
@@ -44,7 +39,10 @@ echo "--- [hdf5lib] Configuring bundled HDF5 library..."
   --disable-tests \
   --disable-tools \
   --disable-dependency-tracking \
-  --without-szlib
+  --without-szlib \
+  CFLAGS="$CFLAGS -fPIC -I${ZLIB_SRC}" \
+  LDFLAGS="$LDFLAGS -L${ZLIB_SRC}" \
+  CPPFLAGS="$CPPFLAGS $(R CMD config --cppflags) -I${ZLIB_SRC}"
 
 if command -v perl >/dev/null 2>&1; then # if we have perl
   echo "--- [hdf5lib] Converting disallowed C functions to R equivalents..."

@@ -30,7 +30,7 @@ done
 
 # Configure HDF5 with explicit host and szlib disabled
 echo "--- [hdf5lib] Configuring bundled HDF5 library..."
-ac_cv_header_dlfcn_h=no ac_cv_lib_dl_dlopen=no CPPFLAGS="-I${ZLIB_SRC}" LDFLAGS="-L${ZLIB_SRC}" ./configure \
+./configure \
   --host=x86_64-w64-mingw32 \
   --disable-shared \
   --enable-static \
@@ -39,7 +39,12 @@ ac_cv_header_dlfcn_h=no ac_cv_lib_dl_dlopen=no CPPFLAGS="-I${ZLIB_SRC}" LDFLAGS=
   --disable-tests \
   --disable-tools \
   --disable-dependency-tracking \
-  --without-szlib
+  --without-szlib \
+  ac_cv_header_dlfcn_h=no \
+  ac_cv_lib_dl_dlopen=no \
+  CFLAGS="$CFLAGS -fPIC -I${ZLIB_SRC}" \
+  LDFLAGS="$LDFLAGS -L${ZLIB_SRC}" \
+  CPPFLAGS="$CPPFLAGS $(R CMD config --cppflags) -I${ZLIB_SRC}"
 
 if command -v perl >/dev/null 2>&1; then # if we have perl
   echo "--- [hdf5lib] Converting disallowed C functions to R equivalents..."
