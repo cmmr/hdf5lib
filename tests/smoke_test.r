@@ -37,6 +37,7 @@ Sys.setenv(
 
 # 4. Build and run the command using system2()
 R_EXE <- file.path(R.home("bin"), "R")
+R_EXE <- normalizePath(R_EXE, winslash = "/", mustWork = TRUE)
 
 # Arguments are simple and unquoted
 cmd_args <- c(

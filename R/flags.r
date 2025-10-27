@@ -64,10 +64,17 @@ ld_flags <- function() {
   # Create the -L flag pointing to the directory
   # Use normalizePath and winslash for robust paths
   lib_path_flag <- paste0("-L", normalizePath(lib_dir, winslash = "/", mustWork = TRUE))
-  
+
+  # Get flags needed to link against R itself (e.g., -L/path/to/R/lib -lR)
+  # Using R CMD config --ldflags is often the most comprehensive way
+  R_EXE     <- file.path(R.home("bin"), "R")
+  R_EXE     <- normalizePath(R_EXE, winslash = "/", mustWork = TRUE)
+  r_ldflags <- system(paste(shQuote(R_EXE), "CMD config --ldflags"), intern = TRUE)
+
   # Create a vector of all flags.
   # This correctly handles the case where the 'if' returns NULL.
   flags <- c(
+    r_ldflags,     # Needed to find `_R_Errorfile`
     lib_path_flag, # The -L path to the library directory
     "-lhdf5",      # The -l name of the library
     "-lpthread",   # HDF5 dependency
