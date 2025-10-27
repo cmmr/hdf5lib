@@ -12,12 +12,19 @@ HDF5_PATCHES="$WD/src/hdf5-patches"
 # --- Get R's linker variables ---
 echo "--- [hdf5lib] Setting linker variables ---"
 R_EXE="${R_HOME}/bin/R"
+echo "R_EXE: $R_EXE"
 R_CPPFLAGS=$("$R_EXE" CMD config --cppflags)
+echo "R_CPPFLAGS: $R_CPPFLAGS"
 R_SHLIB_LINK=$("$R_EXE" CMD config SHLIB_LINK)
+echo "R_SHLIB_LINK: $R_SHLIB_LINK"
 R_LIBR=$("$R_EXE" CMD config LIBR)
+echo "R_LIBR: $R_LIBR"
 R_FLIBS=$("$R_EXE" CMD config FLIBS)
+echo "R_FLIBS: $R_FLIBS"
 R_SHLIB_EXT=$("$R_EXE" CMD config SHLIB_EXT)
+echo "R_SHLIB_EXT: $R_SHLIB_EXT"
 HDF5_SHLIB_NAME="libhdf5.$R_SHLIB_EXT"
+echo "HDF5_SHLIB_NAME: $HDF5_SHLIB_NAME"
 
 
 # --- 1. Build static zlib ---
