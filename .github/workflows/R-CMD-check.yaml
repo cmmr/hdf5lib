@@ -11,6 +11,7 @@ on:
       - R/**
       - src/**
       - tests/**
+      - inst/h5linker/**
       - configure
       - configure.win
       - .Rbuildignore
