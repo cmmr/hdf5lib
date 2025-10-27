@@ -1,14 +1,18 @@
 #!/bin/sh
 set -e
 
+echo "--- [hdf5lib] Starting Unix configuration ---"
+
 # Input directories
 WD="$(pwd)"
 ZLIB_SRC="$WD/src/zlib-1.3.1"
 HDF5_SRC="$WD/src/hdf5-1.14.6"
 HDF5_PATCHES="$WD/src/hdf5-patches"
 
+# R_HOME is set by the R build system
+R_EXE="${R_HOME}/bin/R"
+R_CPPFLAGS=$("$R_EXE" CMD config --cppflags)
 
-echo "--- [hdf5lib] Starting Unix configuration ---"
 
 # --- 1. Build static zlib ---
 echo "--- [hdf5lib] Configuring and compiling static zlib..."
@@ -42,7 +46,7 @@ echo "--- [hdf5lib] Configuring bundled HDF5 library..."
   --without-szlib \
   CFLAGS="$CFLAGS -fPIC -I${ZLIB_SRC}" \
   LDFLAGS="$LDFLAGS -L${ZLIB_SRC}" \
-  CPPFLAGS="$CPPFLAGS $(R CMD config --cppflags) -I${ZLIB_SRC}"
+  CPPFLAGS="$CPPFLAGS $R_CPPFLAGS -I${ZLIB_SRC}"
 
 if command -v perl >/dev/null 2>&1; then # if we have perl
   echo "--- [hdf5lib] Converting disallowed C functions to R equivalents..."
@@ -56,7 +60,7 @@ if command -v perl >/dev/null 2>&1; then # if we have perl
     # abort()  -> Rf_error("HDF5 abort")
     perl -pi -e 's/\babort\s*\(\s*\)/Rf_error("HDF5 abort()")/g' "$c_file"
     
-    # exit(...)  -> Rf_error("HDF5 abort")
+    # exit(...)  -> Rf_error("HDF5 exit")
     perl -pi -e 's/\bexit\s*\(.*?\)/Rf_error("HDF5 exit()")/g' "$c_file"
 
     # fprintf(stdout, ...) -> Rprintf(...)
