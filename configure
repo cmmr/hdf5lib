@@ -50,9 +50,12 @@ echo "--- [hdf5lib] Configuring bundled HDF5 library..."
 
 if command -v perl >/dev/null 2>&1; then # if we have perl
   echo "--- [hdf5lib] Converting disallowed C functions to R equivalents..."
-  echo "#define R_NO_REMAP 1"     >> src/H5pubconf.h
-  echo "#include <R_ext/Print.h>" >> src/H5pubconf.h
-  echo "#include <R_ext/Error.h>" >> src/H5pubconf.h
+  echo "#define R_NO_REMAP 1"       >> src/H5pubconf.h
+  echo "#include <R_ext/Print.h>"   >> src/H5pubconf.h
+  echo "#include <R_ext/Error.h>"   >> src/H5pubconf.h
+  echo "#include <stdio.h>"         >> src/H5pubconf.h
+  echo "extern FILE *R_Outputfile;" >> src/H5pubconf.h
+  echo "extern FILE *R_Errorfile;"  >> src/H5pubconf.h
   for c_file in ./src/*.c ./hl/src/*.c; do
    
     # printf -> Rprintf
@@ -69,6 +72,12 @@ if command -v perl >/dev/null 2>&1; then # if we have perl
 
     # fprintf(stderr, ...) -> REprintf(...)
     perl -pi -e 's/\bfprintf\s*\(\s*stderr\s*,\s*/REprintf(/g' "$c_file"
+   
+    # stdout -> R_Outputfile
+    perl -pi -e 's/\bstdout\b/R_Outputfile/g' "$c_file"
+   
+    # stderr -> R_Errorfile
+    perl -pi -e 's/\bstderr\b/R_Errorfile/g' "$c_file"
   done
 fi
 
