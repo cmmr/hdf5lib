@@ -28,8 +28,23 @@ do
   patch -p0 < "$patchfile"
 done
 
+# Configure HDF5 with explicit host and szlib disabled
+echo "--- [hdf5lib] Configuring bundled HDF5 library..."
+ac_cv_header_dlfcn_h=no ac_cv_lib_dl_dlopen=no CPPFLAGS="-I${ZLIB_SRC}" LDFLAGS="-L${ZLIB_SRC}" ./configure \
+  --host=x86_64-w64-mingw32 \
+  --disable-shared \
+  --enable-static \
+  --enable-threadsafe \
+  --enable-unsupported \
+  --disable-tests \
+  --disable-tools \
+  --disable-dependency-tracking \
+  --without-szlib
+
 if command -v perl >/dev/null 2>&1; then # if we have perl
   echo "--- [hdf5lib] Converting disallowed C functions to R equivalents..."
+  echo "#include <R.h>"          >> src/H5pubconf.h
+  echo "#include <Rinternals.h>" >> src/H5pubconf.h
   for c_file in ./src/*.c ./hl/src/*.c; do
    
     # printf -> Rprintf
@@ -48,19 +63,6 @@ if command -v perl >/dev/null 2>&1; then # if we have perl
     perl -pi -e 's/\bfprintf\s*\(\s*stderr\s*,\s*/REprintf(/g' "$c_file"
   done
 fi
-
-# Configure HDF5 with explicit host and szlib disabled
-echo "--- [hdf5lib] Configuring bundled HDF5 library..."
-ac_cv_header_dlfcn_h=no ac_cv_lib_dl_dlopen=no CPPFLAGS="-I${ZLIB_SRC}" LDFLAGS="-L${ZLIB_SRC}" ./configure \
-  --host=x86_64-w64-mingw32 \
-  --disable-shared \
-  --enable-static \
-  --enable-threadsafe \
-  --enable-unsupported \
-  --disable-tests \
-  --disable-tools \
-  --disable-dependency-tracking \
-  --without-szlib
 
 # Compile HDF5 with warning suppressions
 echo "--- [hdf5lib] Compiling HDF5 static library..."

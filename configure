@@ -34,8 +34,22 @@ for patchfile in "$HDF5_PATCHES"/*.patch; do
 done
 
 
+# Configure HDF5 with thread-safety enabled
+echo "--- [hdf5lib] Configuring bundled HDF5 library..."
+./configure \
+  --disable-shared \
+  --enable-static \
+  --enable-threadsafe \
+  --enable-unsupported \
+  --disable-tests \
+  --disable-tools \
+  --disable-dependency-tracking \
+  --without-szlib
+
 if command -v perl >/dev/null 2>&1; then # if we have perl
   echo "--- [hdf5lib] Converting disallowed C functions to R equivalents..."
+  echo "#include <R.h>"          >> src/H5pubconf.h
+  echo "#include <Rinternals.h>" >> src/H5pubconf.h
   for c_file in ./src/*.c ./hl/src/*.c; do
    
     # printf -> Rprintf
@@ -54,19 +68,6 @@ if command -v perl >/dev/null 2>&1; then # if we have perl
     perl -pi -e 's/\bfprintf\s*\(\s*stderr\s*,\s*/REprintf(/g' "$c_file"
   done
 fi
-
-
-# Configure HDF5 with thread-safety enabled
-echo "--- [hdf5lib] Configuring bundled HDF5 library..."
-./configure \
-  --disable-shared \
-  --enable-static \
-  --enable-threadsafe \
-  --enable-unsupported \
-  --disable-tests \
-  --disable-tools \
-  --disable-dependency-tracking \
-  --without-szlib
 
 # Compile HDF5 with warning suppressions
 # Make sure make uses -fPIC if needed (configure should handle this via CFLAGS export)
