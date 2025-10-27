@@ -2,15 +2,8 @@ Package: h5linker
 Type: Package
 Title: Minimal Test Package Linking to hdf5lib
 Version: 0.1.0
-Authors@R: c(
-    person(
-      "Daniel P.", "Smith",
-      email   = "dansmith01@gmail.com",
-      role    = c("aut", "cre"),
-      comment = c(ORCID = "0000-0002-2479-2044")),
-    person(
-      "Alkek Center for Metagenomics and Microbiome Research", 
-      role = c("cph", "fnd") ))
+Authors@R: person("Daniel P.", "Smith", email = "dansmith01@gmail.com", role = c("aut", "cre"))
+Maintainer: Daniel P. Smith <dansmith01@gmail.com>
 Description: A simple package that includes minimal C code calling an HDF5 function.
     Its purpose is to test if linking against the 'hdf5lib' package works correctly
     during R CMD check or install.
