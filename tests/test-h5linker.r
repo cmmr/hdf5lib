@@ -24,6 +24,10 @@ cmd_args <- c(
   shQuote(h5linker_src_dir) 
 )
 
+# prevent error `cannot open file 'startup.Rs': No such file or directory`
+Sys.setenv("R_TESTS" = "")
+olddir <- setwd(h5linker_src_dir)
+
 message("Running command:")
 message(paste(shQuote(R_EXE), paste(cmd_args, collapse=" ")))
 
@@ -34,6 +38,8 @@ check_output <- system2(
   stdout = TRUE,
   stderr = TRUE
 )
+
+setwd(olddir)
 
 # 5. Check the exit status
 check_status <- attr(check_output, "status")

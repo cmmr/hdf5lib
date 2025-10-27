@@ -1,7 +1,5 @@
 # src/Makevars for h5linker package
 
-R_HOME ?= $(shell R RHOME)
-
-# Add --no-init-file and --no-environ
-PKG_CPPFLAGS = $(shell $(R_HOME)/bin/Rscript --vanilla --no-init-file --no-environ -e "cat(hdf5lib::c_flags())")
-PKG_LIBS = $(shell $(R_HOME)/bin/Rscript --vanilla --no-init-file --no-environ -e "cat(hdf5lib::ld_flags())")
+R_HOME      ?= $(shell R RHOME)
+PKG_CPPFLAGS = $(shell $(R_HOME)/bin/Rscript -e "cat(hdf5lib::c_flags())")
+PKG_LIBS     = $(shell $(R_HOME)/bin/Rscript -e "cat(hdf5lib::ld_flags())")
