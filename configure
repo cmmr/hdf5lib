@@ -14,6 +14,7 @@ echo "--- [hdf5lib] Setting linker variables ---"
 R_EXE="${R_HOME}/bin/R"
 R_CPPFLAGS=$("$R_EXE" CMD config --cppflags)
 R_SHLIB_LD=$("$R_EXE" CMD config SHLIB_LD)
+R_SHLIB_LDFLAGS=$("$R_EXE" CMD config SHLIB_LDFLAGS)
 R_LIB_FLAGS=$("$R_EXE" CMD config --ldflags)
 R_FLIBS=$("$R_EXE" CMD config FLIBS)
 R_SHLIB_EXT=$("$R_EXE" CMD config SHLIB_EXT)
@@ -90,7 +91,6 @@ if command -v perl >/dev/null 2>&1; then # if we have perl
 fi
 
 # Compile HDF5 with warning suppressions
-# ... (rest of your make command is fine)
 echo "--- [hdf5lib] Compiling HDF5 static library..."
 make CFLAGS="$CFLAGS -fPIC -Wno-deprecated-declarations -Wno-format -Wno-format-extra-args -Wno-implicit-fallthrough -Wno-unused-parameter -Wno-strict-prototypes -Wno-unused-function -Wno-unneeded-internal-declaration -Wno-sign-conversion -Wno-enum-enum-conversion -Wno-c11-extensions"
 
@@ -110,7 +110,7 @@ echo "--- [hdf5lib] Linking all .o files into $HDF5_SHLIB_NAME..."
 
 # Link all objects into ONE shared library, link it against R,
 # and strip it (-Wl,-s)
-$R_SHLIB_LD -Wl,-s -o "$HDF5_SHLIB_NAME" $OBJECT_FILES $R_LIB_FLAGS $R_FLIBS
+$R_SHLIB_LD $R_SHLIB_LDFLAGS -Wl,-x -o "$HDF5_SHLIB_NAME" $OBJECT_FILES $R_LIB_FLAGS $R_FLIBS -undefined dynamic_lookup
 
 
 # --- 4. Finalize R package ---
