@@ -1,7 +1,10 @@
 # src/Makevars for h5linker package
 
-# Get the C/C++ compiler flags from hdf5lib
-PKG_CPPFLAGS = `$(R_HOME)/bin/Rscript --vanilla -e "cat(hdf5lib::c_flags())"`
+# Ensure R_HOME is explicitly available if needed, though usually inherited.
+R_HOME ?= $(shell R RHOME)
 
-# Get the linker library flags from hdf5lib
-PKG_LIBS = `$(R_HOME)/bin/Rscript --vanilla -e "cat(hdf5lib::ld_flags())"`
+# Get the C/C++ compiler flags from hdf5lib using $(...)
+PKG_CPPFLAGS = $(shell $(R_HOME)/bin/Rscript --vanilla -e "cat(hdf5lib::c_flags())")
+
+# Get the linker library flags from hdf5lib using $(...)
+PKG_LIBS = $(shell $(R_HOME)/bin/Rscript --vanilla -e "cat(hdf5lib::ld_flags())")
