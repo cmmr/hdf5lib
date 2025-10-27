@@ -53,23 +53,23 @@ if command -v perl >/dev/null 2>&1; then # if we have perl
   echo "--- [hdf5lib] Converting disallowed C functions to R equivalents..."
   echo "#include <R.h>"          >> src/H5pubconf.h
   echo "#include <Rinternals.h>" >> src/H5pubconf.h
-  for c_file in ./src/*.c ./hl/src/*.c; do
-   
-    # printf -> Rprintf
-    perl -pi -e 's/\bprintf\b/Rprintf/g' "$c_file"
-    
-    # abort()  -> Rf_error("HDF5 abort")
-    perl -pi -e 's/\babort\s*\(\s*\)/Rf_error("HDF5 abort()")/g' "$c_file"
-    
-    # exit(...)  -> Rf_error("HDF5 exit")
-    perl -pi -e 's/\bexit\s*\(.*?\)/Rf_error("HDF5 exit()")/g' "$c_file"
-
-    # fprintf(stdout, ...) -> Rprintf(...)
-    perl -pi -e 's/\bfprintf\s*\(\s*stdout\s*,\s*/Rprintf(/g' "$c_file"
-
-    # fprintf(stderr, ...) -> REprintf(...)
-    perl -pi -e 's/\bfprintf\s*\(\s*stderr\s*,\s*/REprintf(/g' "$c_file"
-  done
+#  for c_file in ./src/*.c ./hl/src/*.c; do
+#   
+#    # printf -> Rprintf
+#    perl -pi -e 's/\bprintf\b/Rprintf/g' "$c_file"
+#    
+#    # abort()  -> Rf_error("HDF5 abort")
+#    perl -pi -e 's/\babort\s*\(\s*\)/Rf_error("HDF5 abort()")/g' "$c_file"
+#    
+#    # exit(...)  -> Rf_error("HDF5 exit")
+#    perl -pi -e 's/\bexit\s*\(.*?\)/Rf_error("HDF5 exit()")/g' "$c_file"
+#
+#    # fprintf(stdout, ...) -> Rprintf(...)
+#    perl -pi -e 's/\bfprintf\s*\(\s*stdout\s*,\s*/Rprintf(/g' "$c_file"
+#
+#    # fprintf(stderr, ...) -> REprintf(...)
+#    perl -pi -e 's/\bfprintf\s*\(\s*stderr\s*,\s*/REprintf(/g' "$c_file"
+#  done
 fi
 
 # Compile HDF5 with warning suppressions
