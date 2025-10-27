@@ -13,6 +13,13 @@ HDF5_PATCHES="$WD/src/hdf5-patches"
 R_EXE="${R_HOME}/bin/R"
 R_CPPFLAGS=$("$R_EXE" CMD config --cppflags)
 
+# --- NEW: Get R's linker variables ---
+R_SHLIB_LINK=$("$R_EXE" CMD config SHLIB_LINK)
+R_LIBR=$("$R_EXE" CMD config LIBR)
+R_FLIBS=$("$R_EXE" CMD config FLIBS)
+R_SHLIB_EXT=$("$R_EXE" CMD config SHLIB_EXT)
+HDF5_SHLIB_NAME="libhdf5.$R_SHLIB_EXT"
+
 
 # --- 1. Build static zlib ---
 echo "--- [hdf5lib] Configuring and compiling static zlib..."
@@ -28,7 +35,8 @@ cd "$HDF5_SRC"
 
 # Apply patches from the hdf5-patches directory
 echo "--- [hdf5lib] Applying patches to HDF5 codebase..."
-for patchfile in "$HDF5_PATCHES"/*.patch; do
+for patchfile in "$HDF5_PATCHES"/*.patch;
+do
   echo "Applying patch: $(basename "$patchfile")"
   patch -p0 < "$patchfile"
 done
@@ -48,7 +56,8 @@ echo "--- [hdf5lib] Configuring bundled HDF5 library..."
   LDFLAGS="$LDFLAGS -L${ZLIB_SRC}" \
   CPPFLAGS="$CPPFLAGS $R_CPPFLAGS -I${ZLIB_SRC}"
 
-if command -v perl >/dev/null 2>&1; then # if we have perl
+if command -v perl >/dev/null 2>&1;
+then # if we have perl
   echo "--- [hdf5lib] Converting disallowed C functions to R equivalents..."
   echo "#define R_NO_REMAP 1"       >> src/H5pubconf.h
   echo "#include <R_ext/Print.h>"   >> src/H5pubconf.h
@@ -56,7 +65,8 @@ if command -v perl >/dev/null 2>&1; then # if we have perl
   echo "#include <stdio.h>"         >> src/H5pubconf.h
   echo "extern FILE *R_Outputfile;" >> src/H5pubconf.h
   echo "extern FILE *R_Errorfile;"  >> src/H5pubconf.h
-  for c_file in ./src/*.c ./hl/src/*.c; do
+  for c_file in ./src/*.c ./hl/src/*.c;
+do
    
     # printf -> Rprintf
     perl -pi -e 's/\bprintf\b/Rprintf/g' "$c_file"
@@ -73,7 +83,7 @@ if command -v perl >/dev/null 2>&1; then # if we have perl
     # fprintf(stderr, ...) -> REprintf(...)
     perl -pi -e 's/\bfprintf\s*\(\s*stderr\s*,\s*/REprintf(/g' "$c_file"
    
-    # stdout -> R_Outputfile
+   # stdout -> R_Outputfile
     perl -pi -e 's/\bstdout\b/R_Outputfile/g' "$c_file"
    
     # stderr -> R_Errorfile
@@ -82,24 +92,27 @@ if command -v perl >/dev/null 2>&1; then # if we have perl
 fi
 
 # Compile HDF5 with warning suppressions
-# Make sure make uses -fPIC if needed (configure should handle this via CFLAGS export)
+# ... (rest of your make command is fine)
 echo "--- [hdf5lib] Compiling HDF5 static library..."
 make CFLAGS="$CFLAGS -fPIC -Wno-deprecated-declarations -Wno-format -Wno-format-extra-args -Wno-implicit-fallthrough -Wno-unused-parameter -Wno-strict-prototypes -Wno-unused-function -Wno-unneeded-internal-declaration -Wno-sign-conversion -Wno-enum-enum-conversion -Wno-c11-extensions"
 
 
-# --- 3. Merge and Strip Libraries ---
-echo "--- [hdf5lib] Merging all static libraries into one..."
+# --- 3. Extract, Link, and Strip ---
+echo "--- [hdf5lib] Extracting all object files..."
 
 # Extract the object files from ALL three libraries
 ar -x "$HDF5_SRC/src/.libs/libhdf5.a"
 ar -x "$HDF5_SRC/hl/src/.libs/libhdf5_hl.a"
 ar -x "$ZLIB_SRC/libz.a"
 
-echo "--- [hdf5lib] Stripping symbols to reduce file size..."
-strip -S *.o
+# Get a list of all .o files in the current directory
+OBJECT_FILES=$(ls *.o)
 
-echo "--- [hdf5lib] Re-archiving stripped object files..."
-ar -q libhdf5.a *.o
+echo "--- [hdf5lib] Linking all .o files into $HDF5_SHLIB_NAME..."
+
+# Link all objects into ONE shared library, link it against R,
+# and strip it (-Wl,-s)
+$R_SHLIB_LINK -Wl,-s -o "$HDF5_SHLIB_NAME" $OBJECT_FILES $R_LIBR $R_FLIBS
 
 
 # --- 4. Finalize R package ---
@@ -113,16 +126,18 @@ cp "$HDF5_SRC"/hl/src/*.h inst/include/
 # Remove block comments from the HDF5 header files.
 if command -v perl >/dev/null 2>&1; then # if we have perl
   echo "--- [hdf5lib] Minifying header files..."
-  for headerfile in inst/include/*.h; do
+  for headerfile in inst/include/*.h;
+do
     perl -0777 -pi -e 's/\/\*.*?\*\//\/\/ \(c\) The HDF Group/s' "$headerfile"
     perl -0777 -pi -e 's/\ *\/\*.*?\*\///gs' "$headerfile"
     perl -0777 -pi -e 's/\n+/\n/gs' "$headerfile"
   done
 fi
 
-echo "--- [hdf5lib] Exposing final merged static library..."
+echo "--- [hdf5lib] Exposing final shared library..."
 mkdir -p inst/lib
-cp "$HDF5_SRC/libhdf5.a" inst/lib/
+# Copy our new .so file, not the old .a file
+cp "$HDF5_SRC/$HDF5_SHLIB_NAME" inst/lib/
 
 #echo "--- [hdf5lib] Cleaning up build-time directories..."
 #rm -rf "src"

@@ -1,5 +1,8 @@
 {
   "files.associations": {
-    "h5private.h": "c"
+    "h5private.h": "c",
+    "stdio.h": "c",
+    "stdlib.h": "c",
+    "hdf5.h": "c"
   }
 }
