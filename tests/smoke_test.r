@@ -25,7 +25,7 @@ lib_file_to_create <- paste0(test_lib_base, .Platform$dynlib.ext)
 # 2. Get the build flags from hdf5lib's R functions
 message("Retrieving build flags from hdf5lib R API...")
 cflags <- hdf5lib::c_flags()
-libs <- hdf5lib::ld_flags()
+libs   <- hdf5lib::ld_flags()
 
 # 3. Set environment variables for the child process
 #    This is the core of this approach. R CMD SHLIB will

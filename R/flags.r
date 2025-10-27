@@ -53,7 +53,7 @@ ld_flags <- function() {
 
   # Find the directory /path/to/R/library/hdf5lib/lib
   lib_dir <- system.file("lib", package = "hdf5lib")
-  if (lib_dir == "" || !file.exists(lib_dir)) # Note: Check should be dir.exists() or file.exists() on the .a file
+  if (lib_dir == "" || !file.exists(lib_dir))
     stop("Linker flags not found: The 'inst/lib' directory is missing from hdf5lib.")
   
   # Ensure the library file actually exists in that directory
@@ -65,16 +65,9 @@ ld_flags <- function() {
   # Use normalizePath and winslash for robust paths
   lib_path_flag <- paste0("-L", normalizePath(lib_dir, winslash = "/", mustWork = TRUE))
 
-  # Get flags needed to link against R itself (e.g., -L/path/to/R/lib -lR)
-  # Using R CMD config --ldflags is often the most comprehensive way
-  R_EXE     <- file.path(R.home("bin"), "R")
-  R_EXE     <- normalizePath(R_EXE, winslash = "/", mustWork = TRUE)
-  r_ldflags <- system(paste(shQuote(R_EXE), "CMD config --ldflags"), intern = TRUE)
-
   # Create a vector of all flags.
   # This correctly handles the case where the 'if' returns NULL.
   flags <- c(
-    r_ldflags,     # Needed to find `_R_Errorfile`
     lib_path_flag, # The -L path to the library directory
     "-lhdf5",      # The -l name of the library
     "-lpthread",   # HDF5 dependency
