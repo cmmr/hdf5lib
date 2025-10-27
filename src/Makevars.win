@@ -1,3 +1,0 @@
-OBJECTS = init.o all_hdf5.o
-PKG_LIBS = ../inst/lib/libhdf5.a -lpthread
-PKG_CPPFLAGS = -I../inst/include
