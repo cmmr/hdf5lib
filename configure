@@ -9,11 +9,10 @@ ZLIB_SRC="$WD/src/zlib-1.3.1"
 HDF5_SRC="$WD/src/hdf5-1.14.6"
 HDF5_PATCHES="$WD/src/hdf5-patches"
 
-# R_HOME is set by the R build system
+# --- Get R's linker variables ---
+echo "--- [hdf5lib] Setting linker variables ---"
 R_EXE="${R_HOME}/bin/R"
 R_CPPFLAGS=$("$R_EXE" CMD config --cppflags)
-
-# --- NEW: Get R's linker variables ---
 R_SHLIB_LINK=$("$R_EXE" CMD config SHLIB_LINK)
 R_LIBR=$("$R_EXE" CMD config LIBR)
 R_FLIBS=$("$R_EXE" CMD config FLIBS)
@@ -35,8 +34,7 @@ cd "$HDF5_SRC"
 
 # Apply patches from the hdf5-patches directory
 echo "--- [hdf5lib] Applying patches to HDF5 codebase..."
-for patchfile in "$HDF5_PATCHES"/*.patch;
-do
+for patchfile in "$HDF5_PATCHES"/*.patch; do
   echo "Applying patch: $(basename "$patchfile")"
   patch -p0 < "$patchfile"
 done
@@ -56,8 +54,8 @@ echo "--- [hdf5lib] Configuring bundled HDF5 library..."
   LDFLAGS="$LDFLAGS -L${ZLIB_SRC}" \
   CPPFLAGS="$CPPFLAGS $R_CPPFLAGS -I${ZLIB_SRC}"
 
-if command -v perl >/dev/null 2>&1;
-then # if we have perl
+if command -v perl >/dev/null 2>&1; then # if we have perl
+  
   echo "--- [hdf5lib] Converting disallowed C functions to R equivalents..."
   echo "#define R_NO_REMAP 1"       >> src/H5pubconf.h
   echo "#include <R_ext/Print.h>"   >> src/H5pubconf.h
@@ -65,8 +63,8 @@ then # if we have perl
   echo "#include <stdio.h>"         >> src/H5pubconf.h
   echo "extern FILE *R_Outputfile;" >> src/H5pubconf.h
   echo "extern FILE *R_Errorfile;"  >> src/H5pubconf.h
-  for c_file in ./src/*.c ./hl/src/*.c;
-do
+
+  for c_file in ./src/*.c ./hl/src/*.c; do
    
     # printf -> Rprintf
     perl -pi -e 's/\bprintf\b/Rprintf/g' "$c_file"
@@ -83,7 +81,7 @@ do
     # fprintf(stderr, ...) -> REprintf(...)
     perl -pi -e 's/\bfprintf\s*\(\s*stderr\s*,\s*/REprintf(/g' "$c_file"
    
-   # stdout -> R_Outputfile
+    # stdout -> R_Outputfile
     perl -pi -e 's/\bstdout\b/R_Outputfile/g' "$c_file"
    
     # stderr -> R_Errorfile
@@ -126,8 +124,7 @@ cp "$HDF5_SRC"/hl/src/*.h inst/include/
 # Remove block comments from the HDF5 header files.
 if command -v perl >/dev/null 2>&1; then # if we have perl
   echo "--- [hdf5lib] Minifying header files..."
-  for headerfile in inst/include/*.h;
-do
+  for headerfile in inst/include/*.h; do
     perl -0777 -pi -e 's/\/\*.*?\*\//\/\/ \(c\) The HDF Group/s' "$headerfile"
     perl -0777 -pi -e 's/\ *\/\*.*?\*\///gs' "$headerfile"
     perl -0777 -pi -e 's/\n+/\n/gs' "$headerfile"
