@@ -11,6 +11,8 @@ Authors@R: c(
     person(
       "Alkek Center for Metagenomics and Microbiome Research", 
       role = c("cph", "fnd") ))
+Author: Daniel P. Smith [aut, cre]
+Maintainer: Daniel P. Smith <dansmith01@gmail.com>
 Description: A simple package that includes minimal C code calling an HDF5 function.
     Its purpose is to test if linking against the 'hdf5lib' package works correctly
     during R CMD check or install.
