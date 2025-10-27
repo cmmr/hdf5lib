@@ -40,7 +40,7 @@ echo "--- [hdf5lib] Configuring bundled HDF5 library..."
   --enable-static \
   --enable-threadsafe \
   --enable-unsupported \
-  --disable-float16 \
+  # --disable-float16 \
   --disable-tests \
   --disable-tools \
   --disable-dependency-tracking \
@@ -51,8 +51,8 @@ echo "--- [hdf5lib] Configuring bundled HDF5 library..."
 
 if command -v perl >/dev/null 2>&1; then # if we have perl
   echo "--- [hdf5lib] Converting disallowed C functions to R equivalents..."
-  echo "#include <R.h>"          >> src/H5pubconf.h
-  echo "#include <Rinternals.h>" >> src/H5pubconf.h
+#  echo "#include <R.h>"          >> src/H5pubconf.h
+#  echo "#include <Rinternals.h>" >> src/H5pubconf.h
 #  for c_file in ./src/*.c ./hl/src/*.c; do
 #   
 #    # printf -> Rprintf
