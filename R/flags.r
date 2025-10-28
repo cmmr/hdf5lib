@@ -25,7 +25,8 @@ c_flags <- function() {
   if (include_dir == "" || !dir.exists(include_dir))
     stop("C flags not found: The 'inst/include' directory is missing from hdf5lib.")
   
-  # Return the compiler flag# Use normalizePath and winslash for robust paths
+  # Return the compiler flag
+  # Use normalizePath and winslash for robust paths
   paste0("-I", normalizePath(include_dir, winslash = "/", mustWork = TRUE))
 }
 
@@ -33,45 +34,56 @@ c_flags <- function() {
 #' Get C/C++ Linker Flags for hdf5lib
 #'
 #' @description
-#' Provides the required linker flags to link against the static HDF5
-#' library (`libhdf5.a`) bundled with the `hdf5lib` package.
+#' Provides the required linker flags to link against the dynamic HDF5
+#' library (`libhdf5.so` or `libhdf5.dll`) bundled with the `hdf5lib` package.
 #'
 #' This function is intended to be called from a `Makevars` file by
 #' other R packages that link to `hdf5lib`. It returns the `-L` path
-#' to the library directory and the `-l` flags for `libhdf5` and
-#' its system dependencies (like `pthread` and `dl`).
+#' to the library directory and the `-l` flag for `libhdf5`.
 #'
 #' @return A scalar character vector containing the linker flags.
 #'
 #' @export
-#' @seealso [c_flags()] [ld_flags_whole_archive()]
+#' @seealso [c_flags()]
 #' @examples
 #' if (interactive()) {
 #'   ld_flags()
 #' }
 ld_flags <- function() {
 
-  # Find the directory /path/to/R/library/hdf5lib/lib
-  lib_dir <- system.file("lib", package = "hdf5lib")
-  if (lib_dir == "" || !file.exists(lib_dir))
-    stop("Linker flags not found: The 'inst/lib' directory is missing from hdf5lib.")
+  # Find the package's 'libs' directory (e.g., /path/to/R/library/hdf5lib/libs)
+  lib_dir_base <- system.file("libs", package = "hdf5lib")
+
+  # Account for architecture-specific subdirectories (e.g., /libs/x64)
+  lib_dir_arch <- file.path(lib_dir_base, .Platform$r_arch)
+
+  # Use the arch-specific path if it exists, otherwise use the base 'libs' path
+  if (dir.exists(lib_dir_arch)) {
+    final_lib_dir <- lib_dir_arch
+  } else {
+    final_lib_dir <- lib_dir_base
+  }
+
+  if (final_lib_dir == "" || !dir.exists(final_lib_dir))
+    stop("Linker flags not found: The 'libs' directory is missing from hdf5lib.")
   
-  # Ensure the library file actually exists in that directory
-  static_lib_file <- file.path(lib_dir, "libhdf5.a")
-  if (!file.exists(static_lib_file))
-    stop("Linker flags not found: 'lib/libhdf5.a' is missing from hdf5lib.")
+  # Ensure the shared library file actually exists in that directory
+  # .Platform$dynlib.ext gives ".so", ".dll", or ".dylib"
+  shlib_file <- file.path(final_lib_dir, paste0("libhdf5", .Platform$dynlib.ext))
+  
+  if (!file.exists(shlib_file))
+    stop(paste("Linker flags not found:", shlib_file, "is missing from hdf5lib."))
   
   # Create the -L flag pointing to the directory
   # Use normalizePath and winslash for robust paths
-  lib_path_flag <- paste0("-L", normalizePath(lib_dir, winslash = "/", mustWork = TRUE))
+  lib_path_flag <- paste0("-L", normalizePath(final_lib_dir, winslash = "/", mustWork = TRUE))
 
   # Create a vector of all flags.
-  # This correctly handles the case where the 'if' returns NULL.
+  # We only need -L and -l. The dynamic linker will handle
+  # transitive dependencies (like pthread, dl) from libhdf5.so
   flags <- c(
     lib_path_flag, # The -L path to the library directory
-    "-lhdf5",      # The -l name of the library
-    "-lpthread",   # HDF5 dependency
-    if (.Platform$OS.type == "unix") "-ldl" # HDF5 dependency on Unix
+    "-lhdf5"       # The -l name of the library
   )
   
   # Collapse all flags into a single, space-separated string

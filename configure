@@ -19,6 +19,14 @@ R_LIB_FLAGS=$("$R_EXE" CMD config --ldflags)
 R_FLIBS=$("$R_EXE" CMD config FLIBS)
 R_SHLIB_EXT=$("$R_EXE" CMD config SHLIB_EXT)
 HDF5_SHLIB_NAME="libhdf5.$R_SHLIB_EXT"
+echo "R_EXE:            $R_EXE"
+echo "R_CPPFLAGS:       $R_CPPFLAGS"
+echo "R_SHLIB_LD:       $R_SHLIB_LD"
+echo "R_SHLIB_LDFLAGS:  $R_SHLIB_LDFLAGS"
+echo "R_LIB_FLAGS:      $R_LIB_FLAGS"
+echo "R_FLIBS:          $R_FLIBS"
+echo "R_SHLIB_EXT:      $R_SHLIB_EXT"
+echo "HDF5_SHLIB_NAME:  $HDF5_SHLIB_NAME"
 
 
 # --- 1. Build static zlib ---
