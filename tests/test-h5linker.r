@@ -21,8 +21,15 @@ on.exit(unlink(work_dir, recursive = TRUE, force = TRUE), add = TRUE)
 # 3. Find the R executable
 R_EXE <- file.path(R.home("bin"), "R")
 
-# 4. Build the tarball
+# 4. Store current working dir and change to the temporary one
+old_dir <- getwd()
+setwd(work_dir)
+# Ensure we change back to the original directory on exit
+on.exit(setwd(old_dir), add = TRUE)
+
+# 5. Build the tarball
 message("Building h5linker tarball...")
+# We must use the absolute path to the source directory
 build_args <- c(
   "CMD", "build",
   "--no-manual",
@@ -30,54 +37,56 @@ build_args <- c(
   shQuote(h5linker_src_dir)
 )
 
-# Run the build command *inside* the working directory
+# Run the build command
 build_output <- system2(
   R_EXE,
   args = build_args,
   stdout = TRUE,
-  stderr = TRUE,
-  wd = work_dir
+  stderr = TRUE
 )
 
-# 5. Find the built tarball
-tarball_name <- list.files(work_dir, pattern = "\\.tar\\.gz$")
+# 6. Find the built tarball
+# We are inside work_dir, so we can use "."
+tarball_name <- list.files(".", pattern = "\\.tar\\.gz$")
 if (length(tarball_name) == 0) {
   message("--- R CMD build output ---")
   message(paste(build_output, collapse = "\n"))
   stop("R CMD build failed to create a tarball.")
 }
+# Get the absolute path for the check command
 tarball_path <- file.path(work_dir, tarball_name[1])
 message("Successfully built tarball: ", tarball_path)
 
-# 6. Construct the R CMD check command on the tarball
+# 7. Construct the R CMD check command on the tarball
 cmd_args <- c(
   "CMD", "check",
   "--no-manual",
   "--as-cran",
-  shQuote(tarball_path)
+  shQuote(tarball_path) # Use absolute path
 )
 
 message("Running command:")
 message(paste(shQuote(R_EXE), paste(cmd_args, collapse = " ")))
 
-# 7. Run R CMD check
-# We also run this in the temp directory, so the
-# h5linker.Rcheck directory is created there.
+# 8. Run R CMD check (no 'wd' argument)
+# The h5linker.Rcheck directory will be created here, inside work_dir.
 check_output <- system2(
   R_EXE,
   args = cmd_args,
   stdout = TRUE,
-  stderr = TRUE,
-  wd = work_dir
+  stderr = TRUE
 )
 
-# 8. Check the exit status
+# 9. Check the exit status
 check_status <- attr(check_output, "status")
 exit_code <- if (is.null(check_status)) 0 else check_status
 
 message("--- R CMD check output for h5linker ---")
 message(paste(check_output, collapse = "\n"))
 message("--- End h5linker output ---")
+
+# 10. Change directory back before the final cleanup
+# This is handled by the on.exit() hooks
 
 if (exit_code != 0) {
   stop("R CMD check on h5linker failed with exit code: ", exit_code)
