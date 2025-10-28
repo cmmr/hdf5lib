@@ -4,7 +4,8 @@
 /* Don't clutter the namespace. */
 #define R_NO_REMAP 1
 
-#include <stdio.h> // For FILE*
+#include <stdio.h>       // For FILE*
+#include <R_ext/Print.h> // For Rprintf
 
 /*
  * --- Global Sentinel Pointer Declarations ---

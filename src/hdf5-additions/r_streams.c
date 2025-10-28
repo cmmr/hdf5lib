@@ -1,7 +1,7 @@
 #include "r_streams.h"
 
-#include <stdio.h>    // For FILE, vfprintf, fputs
-#include <stdarg.h>   // For va_list, va_start, va_end
+#include <stdio.h>       // For FILE, vfprintf, fputs
+#include <stdarg.h>      // For va_list, va_start, va_end
 #include <R_ext/Print.h> // For Rvprintf, REvprintf, Rprintf, REprintf
 
 /*
