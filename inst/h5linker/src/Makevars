@@ -1,5 +1,2 @@
-# src/Makevars for h5linker package
-
-R_HOME      ?= $(shell R RHOME)
-PKG_CPPFLAGS = $(shell $(R_HOME)/bin/Rscript -e "cat(hdf5lib::c_flags())")
-PKG_LIBS     = $(shell $(R_HOME)/bin/Rscript -e "cat(hdf5lib::ld_flags())")
+PKG_CPPFLAGS = `$(R_HOME)/bin/Rscript -e "cat(hdf5lib::c_flags())"`
+PKG_LIBS     = `$(R_HOME)/bin/Rscript -e "cat(hdf5lib::ld_flags())"`
