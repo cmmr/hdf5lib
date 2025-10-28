@@ -1,2 +1,2 @@
-useDynLib(h5linker, C_smoke_test)
+useDynLib(h5linker)
 exportPattern(character(0))
