@@ -54,7 +54,7 @@ then # if we have perl
   
   echo "--- [hdf5lib] Converting disallowed C functions to R equivalents..."
   echo "#define R_NO_REMAP 1"       >> src/H5pubconf.h
-  echo "#include <R_ext/Print.h>"   >> src*./H5pubconf.h
+  echo "#include <R_ext/Print.h>"   >> src/H5pubconf.h
   echo "#include <R_ext/Error.h>"   >> src/H5pubconf.h
   echo "#include <stdio.h>"         >> src/H5pubconf.h
   echo "extern FILE *R_Outputfile;" >> src/H5pubconf.h
