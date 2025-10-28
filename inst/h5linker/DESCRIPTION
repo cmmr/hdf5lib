@@ -18,6 +18,5 @@ Description: A simple package that includes minimal C code calling an HDF5 funct
     during R CMD check or install.
 License: MIT + file LICENSE
 Encoding: UTF-8
-RoxygenNote: 7.3.3
 LinkingTo: hdf5lib
 NeedsCompilation: yes

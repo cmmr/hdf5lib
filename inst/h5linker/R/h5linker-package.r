@@ -8,4 +8,5 @@
 #' correctly during R CMD check or install.
 #'
 #' @keywords internal
+#' @useDynLib h5linker
 "_PACKAGE"
