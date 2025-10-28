@@ -52,8 +52,8 @@ echo "--- [hdf5lib] Configuring bundled HDF5 library..."
 if command -v perl >/dev/null 2>&1; then # if we have perl
 
   # --- Copy R interceptor C and Header files ---
-  echo "--- [hdf5lib] Injecting R interceptor functions..."
-  cp ../hdf5-additions/* src/
+  echo "--- [hdf5lib] Injecting R interceptor headers..."
+  cp ../hdf5-additions/r_streams.h src/
 
   # --- Modify H5pubconf.h ---
   echo "#include \"r_streams.h\"" >> src/H5pubconf.h
@@ -75,10 +75,14 @@ echo "--- [hdf5lib] Compiling HDF5 static library..."
 make CFLAGS="$CFLAGS -fPIC -Wno-deprecated-declarations -Wno-format -Wno-format-extra-args -Wno-implicit-fallthrough -Wno-unused-parameter -Wno-strict-prototypes -Wno-unused-function -Wno-unneeded-internal-declaration -Wno-sign-conversion -Wno-enum-enum-conversion -Wno-c11-extensions"
 
 
-# --- 3. Extract, Merge, and Strip ---
-echo "--- [hdf5lib] Extracting all object files..."
+# --- 3. Compile, Extract, Merge, and Strip ---
+
+# Manually compile r_streams.c
+echo "--- [hdf5lib] Compiling R interceptor functions..."
+$CC -c "../hdf5-additions/r_streams.c" -o "r_streams.o" $CFLAGS -fPIC $R_CPPFLAGS -I"src"
 
 # Extract the object files from ALL three libraries
+echo "--- [hdf5lib] Extracting all object files..."
 ar -x "$HDF5_SRC/src/.libs/libhdf5.a"
 ar -x "$HDF5_SRC/hl/src/.libs/libhdf5_hl.a"
 ar -x "$ZLIB_SRC/libz.a"
