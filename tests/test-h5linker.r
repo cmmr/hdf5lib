@@ -3,6 +3,9 @@
 
 message("Starting h5linker integration test (running R CMD build and check)...")
 
+# prevent error `cannot open file 'startup.Rs': No such file or directory`
+Sys.setenv("R_TESTS" = "")
+
 # 1. Find the h5linker source directory within the installed hdf5lib
 h5linker_src_dir <- system.file("h5linker", package = "hdf5lib")
 if (!dir.exists(h5linker_src_dir) || h5linker_src_dir == "") {
