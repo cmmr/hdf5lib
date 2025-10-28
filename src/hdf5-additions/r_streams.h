@@ -6,6 +6,7 @@
 
 #include <stdio.h>       // For FILE*
 #include <R_ext/Print.h> // For Rprintf
+#include <R_ext/Error.h> // For Rf_error
 
 /*
  * --- Global Sentinel Pointer Declarations ---
