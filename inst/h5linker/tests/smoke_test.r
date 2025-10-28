@@ -1,4 +1,6 @@
 
+library(h5linker)
+
 # C function expects a tmpfile
 tmp_file <- tempfile(fileext = ".h5")
 tmp_file <- normalizePath(tmp_file, winslash = "/", mustWork = FALSE)
