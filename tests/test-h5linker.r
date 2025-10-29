@@ -35,8 +35,6 @@ message("Building h5linker tarball...")
 # We must use the absolute path to the source directory
 build_args <- c(
   "CMD", "build",
-  "--no-manual",
-  "--no-vignettes",
   shQuote(h5linker_src_dir)
 )
 
