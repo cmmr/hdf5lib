@@ -3,6 +3,8 @@
     "h5private.h": "c",
     "stdio.h": "c",
     "stdlib.h": "c",
-    "hdf5.h": "c"
+    "hdf5.h": "c",
+    "h5acpublic.h": "c",
+    "h5apublic.h": "c"
   }
 }

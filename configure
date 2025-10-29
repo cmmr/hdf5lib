@@ -50,15 +50,7 @@ echo "--- [hdf5lib] Configuring bundled HDF5 library..."
 
 
 if command -v perl >/dev/null 2>&1; then # if we have perl
-
-  # --- Copy R interceptor C and Header files ---
-  echo "--- [hdf5lib] Injecting R interceptor headers..."
-  cp ../hdf5-additions/r_streams.h src/
-
-  # --- Modify H5pubconf.h ---
-  echo "#include \"r_streams.h\"" >> src/H5pubconf.h
-
-  echo "--- [hdf5lib] Converting disallowed C functions to R equivalents..."
+  echo "--- [hdf5lib] Replacing incompatable functions..."
   for c_file in ./src/*.c ./hl/src/*.c; do
     perl -pi -e 's/\bstdout\b/Rstdout/g'   "$c_file"   # stdout  -> Rstdout
     perl -pi -e 's/\bstderr\b/Rstderr/g'   "$c_file"   # stderr  -> Rstderr
@@ -68,23 +60,14 @@ if command -v perl >/dev/null 2>&1; then # if we have perl
     perl -pi -e 's/\babort\b/Rabort/g'     "$c_file"   # abort   -> Rabort
     perl -pi -e 's/\bexit\b/Rexit/g'       "$c_file"   # exit    -> Rexit
   done
-
-  # Can't run format() on Rprintf
-  echo "--- [hdf5lib] Removing specific H5_ATTR_FORMAT lines..."
-  perl -ni -e 'print unless /^H5_ATTR_FORMAT/' ./src/H5E.c
-  perl -ni -e 'print unless /^H5_ATTR_FORMAT/' ./src/H5RS.c
 fi
 
 # Compile HDF5 with warning suppressions
 echo "--- [hdf5lib] Compiling HDF5 static library..."
-make CFLAGS="$CFLAGS -fPIC -Wno-deprecated-declarations -Wno-format -Wno-format-extra-args -Wno-implicit-fallthrough -Wno-unused-parameter -Wno-strict-prototypes -Wno-unused-function -Wno-unneeded-internal-declaration -Wno-sign-conversion -Wno-enum-enum-conversion -Wno-c11-extensions -Wno-invalid-noreturn"
+make CFLAGS="$CFLAGS -fPIC -Wno-deprecated-declarations -Wno-format -Wno-format-extra-args -Wno-implicit-fallthrough -Wno-unused-parameter -Wno-strict-prototypes -Wno-unused-function -Wno-unneeded-internal-declaration -Wno-sign-conversion -Wno-enum-enum-conversion -Wno-c11-extensions"
 
 
-# --- 3. Compile, Extract, Merge, and Strip ---
-
-# Manually compile r_streams.c
-echo "--- [hdf5lib] Compiling R interceptor functions..."
-$CC -c "../hdf5-additions/r_streams.c" -o "r_streams.o" $CFLAGS -fPIC $R_CPPFLAGS -I"src"
+# --- 3. Extract, Merge, and Strip ---
 
 # Extract the object files from ALL three libraries
 echo "--- [hdf5lib] Extracting all object files..."
