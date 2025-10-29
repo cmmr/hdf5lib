@@ -14,7 +14,7 @@ if (!dir.exists(h5linker_src_dir) || h5linker_src_dir == "") {
 message("Found h5linker source at: ", h5linker_src_dir)
 
 # 2. Create a temporary working directory for all build/check artifacts
-work_dir <- tempfile(pattern = "h5linker-test-")
+work_dir <- file.path('..', 'h5linker-check')
 dir.create(work_dir)
 message("Created temporary working directory at: ", work_dir)
 
@@ -35,6 +35,7 @@ message("Building h5linker tarball...")
 # We must use the absolute path to the source directory
 build_args <- c(
   "CMD", "build",
+  "--no-manual",
   shQuote(h5linker_src_dir)
 )
 
