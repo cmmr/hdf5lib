@@ -1,7 +1,6 @@
 #!/bin/sh
 set -e
 
-
 echo "--- [hdf5lib] Starting Windows configuration ---"
 
 # Input directories
@@ -13,7 +12,6 @@ HDF5_PATCHES="$WD/src/hdf5-patches"
 # R_HOME is set by the R build system
 R_EXE="${R_HOME}/bin/R"
 R_CPPFLAGS=$("$R_EXE" CMD config --cppflags)
-
 
 # --- 1. Build static zlib ---
 echo "--- [hdf5lib] Compiling static zlib..."
@@ -27,8 +25,7 @@ cd "$HDF5_SRC"
 
 # Apply patches from the hdf5-patches directory
 echo "--- [hdf5lib] Applying patches to HDF5 codebase..."
-for patchfile in "$HDF5_PATCHES"/*.patch;
-do
+for patchfile in "$HDF5_PATCHES"/*.patch; do
   echo "Applying patch: $(basename "$patchfile")"
   patch -p0 < "$patchfile"
 done
@@ -41,7 +38,6 @@ echo "--- [hdf5lib] Configuring bundled HDF5 library..."
   --enable-static \
   --enable-threadsafe \
   --enable-unsupported \
-  --disable-float16 \
   --disable-tests \
   --disable-tools \
   --disable-dependency-tracking \
@@ -53,26 +49,16 @@ echo "--- [hdf5lib] Configuring bundled HDF5 library..."
   CPPFLAGS="$CPPFLAGS $R_CPPFLAGS -I${ZLIB_SRC}"
 
 if command -v perl >/dev/null 2>&1; then # if we have perl
-  echo "--- [hdf5lib] Converting disallowed C functions to R equivalents..."
-  echo "#include <R.h>"          >> src/H5pubconf.h
-  echo "#include <Rinternals.h>" >> src/H5pubconf.h
-#  for c_file in ./src/*.c ./hl/src/*.c; do
-#   
-#    # printf -> Rprintf
-#    perl -pi -e 's/\bprintf\b/Rprintf/g' "$c_file"
-#    
-#    # abort()  -> Rf_error("HDF5 abort")
-#    perl -pi -e 's/\babort\s*\(\s*\)/Rf_error("HDF5 abort()")/g' "$c_file"
-#    
-#    # exit(...)  -> Rf_error("HDF5 exit")
-#    perl -pi -e 's/\bexit\s*\(.*?\)/Rf_error("HDF5 exit()")/g' "$c_file"
-#
-#    # fprintf(stdout, ...) -> Rprintf(...)
-#    perl -pi -e 's/\bfprintf\s*\(\s*stdout\s*,\s*/Rprintf(/g' "$c_file"
-#
-#    # fprintf(stderr, ...) -> REprintf(...)
-#    perl -pi -e 's/\bfprintf\s*\(\s*stderr\s*,\s*/REprintf(/g' "$c_file"
-#  done
+  echo "--- [hdf5lib] Replacing incompatable functions..."
+  for c_file in ./src/*.c ./hl/src/*.c; do
+    perl -pi -e 's/\bstdout\b/Rstdout/g'   "$c_file"   # stdout  -> Rstdout
+    perl -pi -e 's/\bstderr\b/Rstderr/g'   "$c_file"   # stderr  -> Rstderr
+    perl -pi -e 's/\bprintf\b/Rprintf/g'   "$c_file"   # printf  -> Rprintf
+    perl -pi -e 's/\bfprintf\b/Rfprintf/g' "$c_file"   # fprintf -> Rfprintf
+    perl -pi -e 's/\bfputs\b/Rfputs/g'     "$c_file"   # fputs   -> Rfputs
+    perl -pi -e 's/\babort\b/Rabort/g'     "$c_file"   # abort   -> Rabort
+    perl -pi -e 's/\bexit\b/Rexit/g'       "$c_file"   # exit    -> Rexit
+  done
 fi
 
 # Compile HDF5 with warning suppressions
@@ -80,18 +66,18 @@ echo "--- [hdf5lib] Compiling HDF5 static library..."
 make CFLAGS="$CFLAGS -Wno-deprecated-declarations -Wno-format -Wno-format-extra-args -Wno-implicit-fallthrough -Wno-unused-parameter -Wno-strict-prototypes -Wno-unused-function -Wno-unused-variable -Wno-sign-conversion -Wno-unknown-pragmas -Wno-c11-extensions"
 
 
-# --- 3. Merge and Strip Libraries ---
-echo "--- [hdf5lib] Merging all static libraries into one..."
-
+# --- 3. Extract, Merge, and Strip ---
+echo "--- [hdf5lib] Extracting all object files..."
 ar -x "$HDF5_SRC/src/.libs/libhdf5.a"
 ar -x "$HDF5_SRC/hl/src/.libs/libhdf5_hl.a"
 ar -x "$ZLIB_SRC/libz.a"
 
-echo "--- [hdf5lib] Stripping symbols to reduce file size..."
-strip -S *.o
-
-echo "--- [hdf5lib] Re-archiving stripped object files..."
+echo "--- [hdf5lib] Merging all .o files into libhdf5.a..."
 ar -q libhdf5.a *.o
+ranlib libhdf5.a
+
+echo "--- [hdf5lib] Stripping static library..."
+strip -S libhdf5.a
 
 
 # --- 4. Finalize R package ---
@@ -116,8 +102,8 @@ echo "--- [hdf5lib] Exposing final merged static library..."
 mkdir -p inst/lib
 cp "$HDF5_SRC/libhdf5.a" inst/lib/
 
-#echo "--- [hdf5lib] Cleaning up build-time directories..."
-#rm -rf "src"
+echo "--- [hdf5lib] Cleaning up build-time directories..."
+rm -rf src
 
 echo "--- [hdf5lib] Windows configuration complete. ---"
 exit 0

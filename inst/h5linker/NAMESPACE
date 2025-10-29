@@ -1,2 +1,0 @@
-useDynLib(h5linker)
-exportPattern(character(0))

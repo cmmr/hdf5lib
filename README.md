@@ -65,11 +65,8 @@ Create a file named `Makevars` inside your package's `src/` directory. This tell
 Add the following lines to `src/Makevars`:
 
 ```Makefile
-# Get the C/C++ compiler flags (e.g., -I... include path)
 PKG_CPPFLAGS = `$(R_HOME)/bin/Rscript -e "cat(hdf5lib::c_flags())"`
-
-# Get the linker flags (e.g., -L... library path and -lhdf5)
-PKG_LIBS = `$(R_HOME)/bin/Rscript -e "cat(hdf5lib::ld_flags())"`
+PKG_LIBS     = `$(R_HOME)/bin/Rscript -e "cat(hdf5lib::ld_flags())"`
 ```
 
 *(Note: You only need this one `src/Makevars` file. The R build system on Windows will use `src/Makevars.win` if it exists, but will fall back to using `src/Makevars` if it's not found. Since these commands are platform-independent, this single file works for all operating systems.)*
