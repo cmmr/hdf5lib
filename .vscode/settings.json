@@ -5,6 +5,7 @@
     "stdlib.h": "c",
     "hdf5.h": "c",
     "h5acpublic.h": "c",
-    "h5apublic.h": "c"
+    "h5apublic.h": "c",
+    "h5vlpassthru.h": "c"
   }
 }

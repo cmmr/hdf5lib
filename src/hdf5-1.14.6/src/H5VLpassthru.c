@@ -41,6 +41,11 @@
 /* This connector's header */
 #include "H5VLpassthru.h"
 
+/* For Rprintf */
+#define R_NO_REMAP 1
+#include <R_ext/Print.h>
+
+
 /**********/
 /* Macros */
 /**********/
