@@ -1,6 +1,0 @@
-# Set default behavior: Git tries to guess if a file is text or binary.
-# Binary files will be left alone.
-* text=auto
-
-# Force Unix (LF) line endings for all files Git identified as text.
-* text eol=lf
