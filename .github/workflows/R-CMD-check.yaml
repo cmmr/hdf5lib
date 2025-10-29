@@ -73,5 +73,4 @@ jobs:
       - uses: r-lib/actions/check-r-package@v2
         with:
           upload-results: true
-          #error-on: '"error"'
-          build_args: 'c("--no-manual", "--as-cran")'
+          args: 'c("--no-manual", "--as-cran")'
