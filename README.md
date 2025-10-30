@@ -140,7 +140,7 @@ The [`Rhdf5lib`](https://doi.org/doi:10.18129/B9.bioc.Rhdf5lib) package on Bioco
 
 * **Modern HDF5 Version:** `hdf5lib` bundles HDF5 v1.14.6, providing access to more recent features and fixes compared to the version typically bundled in `Rhdf5lib` (v1.12.2 as of Bioconductor 3.19).
 
-* **Advanced Features Enabled:** `hdf5lib` builds HDF5 with **thread-safety** and **dynamic filter loading** enabled by default, ensuring safe use with parallel R packages (like `RcppParallel`) and allowing runtime loading of external compression filters (like Blosc or LZ4). `Rhdf5lib` does not enable these features by default.
+* **Thread-Safety Enabled:** `hdf5lib` builds HDF5 with thread-safety enabled by default, ensuring safe use with parallel R packages (like `RcppParallel`). `Rhdf5lib` does not enable this feature by default.
 
 `hdf5lib` aims to be the standard provider of the HDF5 C library for R packages on CRAN.
 
