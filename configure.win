@@ -5,13 +5,19 @@ echo "--- [hdf5lib] Starting Windows configuration ---"
 
 # Input directories
 WD="$(pwd)"
-ZLIB_SRC="$WD/src/zlib-1.3.1"
-HDF5_SRC="$WD/src/hdf5-1.14.6"
-HDF5_PATCHES="$WD/src/hdf5-patches"
+ZLIB_SRC="$WD/src/zlib"
+HDF5_SRC="$WD/src/hdf5"
 
 # R_HOME is set by the R build system
 R_EXE="${R_HOME}/bin/R"
 R_CPPFLAGS=$("$R_EXE" CMD config --cppflags)
+
+
+# Extract hdf5 and zlib tarballs
+# Use R's internal untar for cross-platform reliability
+"$R_EXE" -e "utils::untar('src/hdf5.tar.gz', exdir = 'src')"
+"$R_EXE" -e "utils::untar('src/zlib.tar.gz', exdir = 'src')"
+
 
 # --- 1. Build static zlib ---
 echo "--- [hdf5lib] Compiling static zlib..."
@@ -22,13 +28,6 @@ make -f win32/Makefile.gcc libz.a
 # --- 2. Build static HDF5 ---
 echo "--- [hdf5lib] Starting HDF5 build..."
 cd "$HDF5_SRC"
-
-# Apply patches from the hdf5-patches directory
-echo "--- [hdf5lib] Applying patches to HDF5 codebase..."
-for patchfile in "$HDF5_PATCHES"/*.patch; do
-  echo "Applying patch: $(basename "$patchfile")"
-  patch -p0 < "$patchfile"
-done
 
 # Configure HDF5 with explicit host and szlib disabled
 echo "--- [hdf5lib] Configuring bundled HDF5 library..."
@@ -47,20 +46,6 @@ echo "--- [hdf5lib] Configuring bundled HDF5 library..."
   CFLAGS="$CFLAGS -fPIC -I${ZLIB_SRC}" \
   LDFLAGS="$LDFLAGS -L${ZLIB_SRC}" \
   CPPFLAGS="$CPPFLAGS $R_CPPFLAGS -I${ZLIB_SRC}"
-
-# R* functions are defined in src/hdf5-patches/03-R-interceptors.patch
-if command -v perl >/dev/null 2>&1; then # if we have perl
-  echo "--- [hdf5lib] Replacing incompatable functions..."
-  for c_file in ./src/*.c ./hl/src/*.c; do
-    perl -pi -e 's/\bstdout\b/Rstdout/g'   "$c_file"   # stdout  -> Rstdout
-    perl -pi -e 's/\bstderr\b/Rstderr/g'   "$c_file"   # stderr  -> Rstderr
-    perl -pi -e 's/\bprintf\b/Rprintf/g'   "$c_file"   # printf  -> Rprintf
-    perl -pi -e 's/\bfprintf\b/Rfprintf/g' "$c_file"   # fprintf -> Rfprintf
-    perl -pi -e 's/\bfputs\b/Rfputs/g'     "$c_file"   # fputs   -> Rfputs
-    perl -pi -e 's/\babort\b/Rabort/g'     "$c_file"   # abort   -> Rabort
-    perl -pi -e 's/\bexit\b/Rexit/g'       "$c_file"   # exit    -> Rexit
-  done
-fi
 
 # Compile HDF5 with warning suppressions
 echo "--- [hdf5lib] Compiling HDF5 static library..."
@@ -88,16 +73,6 @@ echo "--- [hdf5lib] Exposing minified HDF5 headers..."
 mkdir -p inst/include
 cp "$HDF5_SRC"/src/*.h    inst/include/
 cp "$HDF5_SRC"/hl/src/*.h inst/include/
-
-# Remove block comments from the HDF5 header files.
-if command -v perl >/dev/null 2>&1; then # if we have perl
-  echo "--- [hdf5lib] Minifying header files..."
-  for headerfile in inst/include/*.h; do
-    perl -0777 -pi -e 's/\/\*.*?\*\//\/\/ \(c\) The HDF Group/s' "$headerfile"
-    perl -0777 -pi -e 's/\ *\/\*.*?\*\///gs' "$headerfile"
-    perl -0777 -pi -e 's/\n+/\n/gs' "$headerfile"
-  done
-fi
 
 echo "--- [hdf5lib] Exposing final merged static library..."
 mkdir -p inst/lib
