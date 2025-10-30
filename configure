@@ -46,7 +46,7 @@ echo "--- [hdf5lib] Configuring bundled HDF5 library..."
   LDFLAGS="$LDFLAGS -L${ZLIB_SRC}" \
   CPPFLAGS="$CPPFLAGS $R_CPPFLAGS -I${ZLIB_SRC}"
 
-
+# R* functions are defined in src/hdf5-patches/03-R-interceptors.patch
 if command -v perl >/dev/null 2>&1; then # if we have perl
   echo "--- [hdf5lib] Replacing incompatable functions..."
   for c_file in ./src/*.c ./hl/src/*.c; do
