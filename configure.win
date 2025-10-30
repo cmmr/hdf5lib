@@ -15,9 +15,11 @@ R_CPPFLAGS=$("$R_EXE" CMD config --cppflags)
 
 # Extract hdf5 and zlib tarballs
 # Use R's internal untar for cross-platform reliability
-"$R_EXE" -e "utils::untar('src/hdf5.tar.gz', exdir = 'src')"
-"$R_EXE" -e "utils::untar('src/zlib.tar.gz', exdir = 'src')"
-chmod +x "$ZLIB_SRC/configure" "$HDF5_SRC/configure"
+echo "--- [hdf5lib] Decompressing HDF5 and zlib tarballs..."
+cd "$WD/src"
+"$R_EXE" -q -e "utils::untar('hdf5.tar.gz')"
+"$R_EXE" -q -e "utils::untar('zlib.tar.gz')"
+chmod +x hdf5/configure zlib/configure
 
 
 # --- 1. Build static zlib ---
