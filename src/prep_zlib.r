@@ -4,20 +4,17 @@
 
 
 VER <- '1.3.1'
-TAR <- paste0('zlib-', VER, '.tar.gz')
-PKG <- getwd()
-TMP <- tempdir()
 
-cat('Using tempdir:', TMP, '\n')
 
 # Download and extract the zlib codebase
-url <- paste0('https://github.com/madler/zlib/releases/download/v', VER, '/', TAR)
-cat('Downloading', url, '...\n')
-download.file(url = url, destfile = file.path(TMP, TAR))
+url <- paste0('https://github.com/madler/zlib/releases/download/v', VER, '/zlib-', VER, '.tar.gz')
+tarfile <- basename(url)
+download.file(url, tarfile)
 
-cat('Extracting zlib codebase...\n')
-utils::untar(tarfile = file.path(TMP, TAR), exdir = TMP)
-setwd(file.path(TMP, paste0('zlib-', VER)))
+cat('Decompressing', tarfile, '...\n')
+utils::untar(tarfile)
+invisible(file.rename(paste0("zlib-", VER), 'zlib'))
+setwd('zlib')
 
 
 # Remove extraneous files and folders
@@ -32,19 +29,13 @@ unlink(rm_dirs, recursive = TRUE)
 
 # Create the zlib tarball that will ship with hdf5lib.
 cat('Creating zlib.tar.gz...\n')
-setwd(TMP)
-invisible(file.rename(paste0('zlib-', VER), 'zlib'))
-destfile <- file.path(PKG, 'src', 'zlib.tar.gz')
-utils::tar(destfile, 'zlib', 'gzip', compression_level = 9)
-cat('Patched zlib is in', destfile, '\n')
+setwd('..')
+utils::tar('zlib.tar.gz', 'zlib', 'gzip', compression_level = 9)
 
 
 # Remove temporary files
 cat('Cleaning up...\n')
 unlink('zlib', recursive = TRUE)
 invisible(file.remove(TAR))
-
-# Return to original working directory
-setwd(PKG)
 
 cat('Done.\n')

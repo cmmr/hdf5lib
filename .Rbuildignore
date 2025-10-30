@@ -1,8 +1,8 @@
 ^\.
 ^hdf5lib\.Rproj$
 ^LICENSE\.md$
-^patch_hdf5\.r$
-^patch_zlib\.r$
+^src/prep_hdf5\.r$
+^src/prep_zlib\.r$
 ^src/hdf5-patches
 ^cran-comments\.md$
 ^CRAN-SUBMISSION$

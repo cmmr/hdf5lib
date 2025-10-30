@@ -3,21 +3,17 @@
 # with the hdf5lib source package.
 
 VER <- "1.14.6"
-TAR <- paste0("hdf5-", VER, ".tar.gz")
-PKG <- getwd()
-TMP <- tempdir()
-
-cat('Using tempdir:', TMP, '\n')
 
 
 # Download and extract the HDF5 codebase
-url <- paste0("https://github.com/HDFGroup/hdf5/releases/download/hdf5_", VER, "/", TAR)
-cat('Downloading', url, '...\n')
-download.file(url = url, destfile = file.path(TMP, TAR))
+url     <- paste0("https://github.com/HDFGroup/hdf5/releases/download/hdf5_", VER, "/hdf5-", VER, ".tar.gz")
+tarfile <- basename(url)
+download.file(url, tarfile)
 
-cat('Decompressing', file.path(TMP, TAR), '...\n')
-utils::untar(tarfile = file.path(TMP, TAR), exdir = TMP)
-setwd(file.path(TMP, paste0("hdf5-", VER)))
+cat('Decompressing', tarfile, '...\n')
+utils::untar(tarfile)
+invisible(file.rename(paste0("hdf5-", VER), 'hdf5'))
+setwd('hdf5')
 
 
 # We've disabled a bunch of features, so no need to bundle that code.
@@ -31,18 +27,18 @@ to_remove <- list.files(
     "m4", "release_docs", "test", "testpar", "tools", "utils",
     file.path("hl", c("c++", "examples", "fortran", "test", "tools"))
   ))
-to_remove <- to_remove[basename(to_remove) != "Makefile.in"]
+to_remove <- to_remove[!endsWith(to_remove, ".in")]
 cat('Removing', length(to_remove), 'files...\n')
 invisible(file.remove(to_remove))
 
 cat('Deleting empty directories...\n')
 for (d in rev(sort(list.dirs(full.names = TRUE, recursive = TRUE))))
-  if (length(dir(d, include.dirs = TRUE)) == 0) unlink(d)
+  if (length(dir(d, include.dirs = TRUE)) == 0) unlink(d, force = TRUE)
 
 
 # Here's where we apply surgical fixes and add new code.
 cat('Applying hdf5-patches...\n')
-patch_dir <- file.path(PKG, 'src', 'hdf5-patches')
+patch_dir <- file.path('..', 'hdf5-patches')
 for (patch_file in list.files(patch_dir, full.names = TRUE)) {
   cat("->", basename(patch_file), "\n")
   system2('patch', '-p0', stdin = patch_file)
@@ -78,18 +74,12 @@ for (h_file in h_files) {
 
 
 # Create the HDF5 tarball that will ship with hdf5lib.
-setwd(TMP)
-invisible(file.rename(paste0("hdf5-", VER), 'hdf5'))
-destfile <- file.path(PKG, 'src', 'hdf5.tar.gz')
-utils::tar(destfile, 'hdf5', 'gzip', compression_level = 9)
-cat('Patched HDF5 is in', destfile, '\n')
+setwd('..')
+utils::tar('hdf5.tar.gz', 'hdf5', 'gzip', compression_level = 9)
 
 
 # Remove temporary files
 unlink('hdf5', recursive = TRUE)
 invisible(file.remove(TAR))
-
-# Return to original working directory
-setwd(PKG)
 
 cat('Done.\n')
