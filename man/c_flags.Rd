@@ -18,9 +18,7 @@ This function is intended to be called from a `Makevars` file by
 other R packages that link to `hdf5lib`.
 }
 \examples{
-if (interactive()) {
-  c_flags()
-}
+c_flags()
 }
 \seealso{
 [ld_flags()]

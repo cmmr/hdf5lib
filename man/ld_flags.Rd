@@ -19,9 +19,7 @@ to the library directory and the `-l` flags for `libhdf5` and
 its system dependencies (like `pthread` and `dl`).
 }
 \examples{
-if (interactive()) {
-  ld_flags()
-}
+ld_flags()
 }
 \seealso{
 [c_flags()]
