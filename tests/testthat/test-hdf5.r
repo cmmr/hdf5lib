@@ -5,12 +5,21 @@ test_that("HDF5 smoke test", {
   o_file  <- test_path("../src/smoke_test.o")
   so_file <- paste0(test_path("../src/smoke_test"), .Platform$dynlib.ext)
   
+  # Set environment variables for the R CMD SHLIB call
+  Sys.setenv(PKG_CPPFLAGS = c_flags(), PKG_LIBS = ld_flags())
+  on.exit(Sys.unsetenv(c("PKG_CPPFLAGS", "PKG_LIBS")), add = TRUE)
+
+  message(paste0(
+    "\nSetting environment variables:\n", 
+    "  PKG_CPPFLAGS = ", Sys.getenv('PKG_CPPFLAGS'), "\n", 
+    "  PKG_LIBS     = ", Sys.getenv('PKG_LIBS'), "\n\n" ))
+
   compile_cmd <- sprintf(
-    '%s CMD SHLIB %s %s %s',
+    '%s CMD SHLIB %s',
     shQuote(normalizePath(Sys.which('R'))),
-    shQuote(c_file),
-    c_flags(),
-    ld_flags() )
+    shQuote(c_file))
+
+  message(paste0("Compile command:\n", compile_cmd, "\n"))
   
   tryCatch(
     expr  = {
@@ -25,18 +34,19 @@ test_that("HDF5 smoke test", {
     succeed("Shared object created successfully.")
     on.exit(file.remove(o_file, so_file), add = TRUE)
   } else {
-    fail("Compilation failed. Shared object file not found.")
+    fail(paste0("Shared object file not created:", so_file))
   }
   
   expect_silent(dyn.load(so_file))
   
+  tmp_file <- tempfile(fileext = ".h5")
+  tmp_file <- normalizePath(tmp_file, winslash = "/", mustWork = FALSE)
   
   # Call C the function
-  tryCatch({
-    tmp_file    <- tempfile(fileext = ".h5")
-    tmp_file    <- normalizePath(tmp_file, winslash = "/", mustWork = FALSE)
+  version_str <- tryCatch({
     version_str <- .Call("C_smoke_test", tmp_file)
     succeed(".Call('C_smoke_test') ran successfully")
+    version_str
   }, error = function(e) {
     fail(paste("Error during .Call('C_smoke_test'):", e$message))
   })
@@ -45,7 +55,7 @@ test_that("HDF5 smoke test", {
     succeed("Output H5 file created successfully.")
     on.exit(file.remove(tmp_file), add = TRUE)
   } else {
-    fail("Test failed: C function did not create the H5 output file.")
+    fail(paste0("H5 output file not created:\n", tmp_file))
   }
   
   expect_vector(version_str, character(0), 1)
