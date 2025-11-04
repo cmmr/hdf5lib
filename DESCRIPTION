@@ -1,7 +1,7 @@
 Package: hdf5lib
 Type: Package
 Title: Headers and Static Libraries for 'HDF5'
-Version: 1.14.6.3
+Version: 1.14.6.4
 Authors@R: c(
     person(
       "Daniel P.", "Smith",
@@ -26,3 +26,6 @@ License: MIT + file LICENSE
 Encoding: UTF-8
 Depends: R (>= 4.1.0)
 NeedsCompilation: yes
+Suggests: 
+    testthat (>= 3.0.0)
+Config/testthat/edition: 3

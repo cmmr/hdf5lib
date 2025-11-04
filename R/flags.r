@@ -10,9 +10,8 @@
 #' @export
 #' @seealso [ld_flags()]
 #' @examples
-#' if (interactive()) {
-#'   c_flags()
-#' }
+#' c_flags()
+#' 
 c_flags <- function() {
 
   # Find the directory /path/to/R/library/hdf5lib/include
@@ -24,7 +23,7 @@ c_flags <- function() {
   
   # Return the compiler flag
   # Use normalizePath and winslash for robust paths
-  paste0("-I", normalizePath(include_dir, winslash = "/", mustWork = TRUE))
+  paste0("-I", shQuote(normalizePath(include_dir, winslash = "/", mustWork = TRUE)))
 }
 
 
@@ -39,9 +38,8 @@ c_flags <- function() {
 #' @export
 #' @seealso [c_flags()]
 #' @examples
-#' if (interactive()) {
-#'   ld_flags()
-#' }
+#' ld_flags()
+#' 
 ld_flags <- function() {
 
   # Find the package's 'lib' directory (e.g., /path/to/R/library/hdf5lib/lib)
@@ -56,7 +54,7 @@ ld_flags <- function() {
     stop("Linker flags not found: 'lib/libhdf5.a' is missing from hdf5lib.")
   
   # Create the -L flag pointing to the directory
-  lib_path_flag <- paste0("-L", normalizePath(lib_dir, winslash = "/", mustWork = TRUE))
+  lib_path_flag <- paste0("-L", shQuote(normalizePath(lib_dir, winslash = "/", mustWork = TRUE)))
 
   # Create a vector of all flags.
   # The downstream package must now link to hdf5 and its dependencies.
