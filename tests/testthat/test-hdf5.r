@@ -9,17 +9,20 @@ test_that("HDF5 smoke test", {
   Sys.setenv(PKG_CPPFLAGS = c_flags(), PKG_LIBS = ld_flags())
   on.exit(Sys.unsetenv(c("PKG_CPPFLAGS", "PKG_LIBS")), add = TRUE)
 
-  message(paste0(
-    "\nSetting environment variables:\n", 
-    "  PKG_CPPFLAGS = ", Sys.getenv('PKG_CPPFLAGS'), "\n", 
-    "  PKG_LIBS     = ", Sys.getenv('PKG_LIBS'), "\n\n" ))
+  R_EXE <- file.path(R.home("bin"), "R")
+  R_EXE <- normalizePath(R_EXE, mustWork = FALSE)
 
   compile_cmd <- sprintf(
     '%s CMD SHLIB %s',
-    shQuote(normalizePath(Sys.which('R'))),
-    shQuote(c_file))
+    shQuote(R_EXE),
+    shQuote(c_file) )
 
-  message(paste0("Compile command:\n", compile_cmd, "\n"))
+  message(paste0(
+    "\nSetting environment variables:\n", 
+    "  PKG_CPPFLAGS = ", Sys.getenv('PKG_CPPFLAGS'), "\n", 
+    "  PKG_LIBS     = ", Sys.getenv('PKG_LIBS'),     "\n",
+    "Compiling with command:\n",
+    compile_cmd, "\n"))
   
   tryCatch(
     expr  = {
@@ -27,7 +30,7 @@ test_that("HDF5 smoke test", {
       succeed("Compiled successfully.")
     }, 
     error = function (e) {
-      fail(paste("Could not compile with command:\n", compile_cmd, "\n", e$message))
+      fail(paste("Could not compile:", e$message))
     })
   
   if (file.exists(so_file)) {
@@ -58,6 +61,7 @@ test_that("HDF5 smoke test", {
     fail(paste0("H5 output file not created:\n", tmp_file))
   }
   
-  expect_vector(version_str, character(0), 1)
+  expect_type(version_str, "character")
+  expect_length(version_str, 1)
   expect_match(version_str, "^[0-9]+\\.[0-9]+\\.[0-9]+$")
 })

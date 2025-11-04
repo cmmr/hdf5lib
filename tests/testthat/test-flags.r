@@ -6,8 +6,11 @@ test_that("c_flags and ld_flags", {
   y <- expect_silent(ld_flags())
   
   # Expect a string. Not NA or "".
-  expect_vector(x, character(0), 1)
-  expect_vector(y, character(0), 1)
+  
+  expect_type(x, "character")
+  expect_type(y, "character")
+  expect_length(x, 1)
+  expect_length(y, 1)
   expect_false(is.na(x))
   expect_false(is.na(y))
   expect_true(nzchar(x))
