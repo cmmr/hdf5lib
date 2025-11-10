@@ -18,7 +18,7 @@ This package provides **no R functions** and is intended for R package developer
 
 * **Includes High-Level API:** Provides the convenient HDF5 High-Level (HL) APIs, including H5LT (Lite), H5IM (Image), and H5TB (Table), alongside the core low-level API.
 
-* **Safe for Parallel Code:** Compiled with thread-safety enabled, allowing safe concurrent access to the HDF5 library from multiple threads within a single process (e.g., when using packages like `RcppParallel`).
+* **Safe for Parallel Code:** Compiled with thread-safety enabled. This prevents data corruption and crashes by ensuring that library calls from multiple threads (e.g., via `RcppParallel`) are safely serialized..
 
 * **Extensible Filter Support:** Enables the HDF5 library to dynamically load external filter plugins (e.g., for Blosc, LZ4, Bzip2) at runtime via `H5Pset_filter_path()`, provided the user has installed those plugins separately.
 
