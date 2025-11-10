@@ -46,13 +46,15 @@ echo "--- [hdf5lib] Configuring bundled HDF5 library..."
   --without-szlib \
   ac_cv_header_dlfcn_h=no \
   ac_cv_lib_dl_dlopen=no \
-  CFLAGS="$CFLAGS -fPIC -I${ZLIB_SRC}" \
+  CFLAGS="$CFLAGS -fPIC" \
   LDFLAGS="$LDFLAGS -L${ZLIB_SRC}" \
   CPPFLAGS="$CPPFLAGS $R_CPPFLAGS -I${ZLIB_SRC}"
 
 # Compile HDF5 with warning suppressions
 echo "--- [hdf5lib] Compiling HDF5 static library..."
-make CFLAGS="$CFLAGS -Wno-deprecated-declarations -Wno-format -Wno-format-extra-args -Wno-implicit-fallthrough -Wno-unused-parameter -Wno-strict-prototypes -Wno-unused-function -Wno-unused-variable -Wno-sign-conversion -Wno-unknown-pragmas -Wno-c11-extensions"
+make \
+  CFLAGS="$CFLAGS -Wno-deprecated-declarations -Wno-format -Wno-format-extra-args -Wno-implicit-fallthrough -Wno-unused-parameter -Wno-strict-prototypes -Wno-unused-function -Wno-unused-variable -Wno-sign-conversion -Wno-unknown-pragmas -Wno-c11-extensions" \
+  CPPFLAGS="$CPPFLAGS $R_CPPFLAGS -I${ZLIB_SRC}"
 
 
 # --- 3. Extract, Merge, and Strip ---

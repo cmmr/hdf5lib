@@ -6,3 +6,4 @@
 ^src/hdf5-patches
 ^cran-comments\.md$
 ^CRAN-SUBMISSION$
+^\.Rproj\.user$
