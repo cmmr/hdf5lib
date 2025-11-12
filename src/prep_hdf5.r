@@ -61,13 +61,12 @@ for (c_file in c_files) {
 }
 
 
-# Remove block comments from header files.
+# Remove block comments from header files, but retain copyright/license.
 h_files <- list.files(c("src", "hl"), "\\.h$", full.names = TRUE, recursive = TRUE)
 cat('Minifying', length(h_files), 'header files...\n')
 for (h_file in h_files) {
   code <- readChar(h_file, file.size(h_file))
-  code <- sub('\\/\\*.*?\\*\\/', '// (c) The HDF Group', code)
-  code <- gsub('\\ *\\/\\*.*?\\*\\/', '', code)
+  code <- gsub('(?s)(?<!^) */\\*.*?\\*/', '', code, perl = TRUE)
   code <- gsub('\\n+', '\n', code)
   writeChar(code, h_file, eos = NULL)
 }
@@ -80,6 +79,6 @@ utils::tar('hdf5.tar.gz', 'hdf5', 'gzip', compression_level = 9)
 
 # Remove temporary files
 unlink('hdf5', recursive = TRUE)
-invisible(file.remove(TAR))
+invisible(file.remove(tarfile))
 
 cat('Done.\n')

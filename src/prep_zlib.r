@@ -36,6 +36,6 @@ utils::tar('zlib.tar.gz', 'zlib', 'gzip', compression_level = 9)
 # Remove temporary files
 cat('Cleaning up...\n')
 unlink('zlib', recursive = TRUE)
-invisible(file.remove(TAR))
+invisible(file.remove(tarfile))
 
 cat('Done.\n')

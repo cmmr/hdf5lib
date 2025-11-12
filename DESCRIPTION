@@ -1,16 +1,12 @@
 Package: hdf5lib
 Type: Package
 Title: Headers and Static Libraries for 'HDF5'
-Version: 1.14.6.5
+Version: 1.14.6.6
 Authors@R: c(
-    person(
-      "Daniel P.", "Smith",
-      email   = "dansmith01@gmail.com",
-      role    = c("aut", "cre"),
-      comment = c(ORCID = "0000-0002-2479-2044")),
-    person(
-      "Alkek Center for Metagenomics and Microbiome Research", 
-      role = c("cph", "fnd") ))
+    person("Daniel P.", "Smith", email = "dansmith01@gmail.com", role = c("aut", "cre"), comment = c(ORCID = "0000-0002-2479-2044")),
+    person("The HDF Group", role = "cph", comment = "Copyright holder of the HDF5 library"),
+    person("Jean-loup", "Mark", role = "cph", comment = "Copyright holder of the zlib library"),
+    person("Gailly", "Adler", role = "cph", comment = "Copyright holder of the zlib library") )
 Description: 'HDF5' (Hierarchical Data Format 5) is a high-performance 
     library and file format for storing and managing large, complex 
     data. This package provides the static libraries and headers for 

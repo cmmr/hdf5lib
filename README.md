@@ -136,15 +136,15 @@ For complete documentation, see the official HDF5 Reference Manual:
 
 ## **Relationship to `Rhdf5lib`**
 
-The [`Rhdf5lib`](https://doi.org/doi:10.18129/B9.bioc.Rhdf5lib) package on Bioconductor serves a similar purpose within the Bioconductor ecosystem. `hdf5lib` was created to provide a general-purpose, standalone HDF5 library provider native to CRAN, offering several key distinctions:
+The [`Rhdf5lib`](https://doi.org/doi:10.18129/B9.bioc.Rhdf5lib) package also provides the HDF5 C library. `hdf5lib` was created to provide a general-purpose, standalone HDF5 library provider that offers several key distinctions:
 
-* **Zero Configuration Installation:** `hdf5lib` is designed for simplicity. Installation via `install.packages()` requires no user configuration and reliably provides a modern HDF5 build with important features enabled by default. `Rhdf5lib`, while flexible, may require users to manage configuration options for customized builds.
+* **Zero Configuration Installation:** `hdf5lib` is designed for simplicity. Installation via `install.packages()` requires no user configuration and reliably provides a modern HDF5 build with important features enabled by default. `Rhdf5lib`, while flexible, requires users to manage compile-time configuration options for a customized build.
 
 * **Modern HDF5 Version:** `hdf5lib` bundles HDF5 v1.14.6, providing access to more recent features and fixes compared to the version typically bundled in `Rhdf5lib` (v1.12.2 as of Bioconductor 3.19).
 
-* **Thread-Safety Enabled:** `hdf5lib` builds HDF5 with thread-safety enabled by default, ensuring safe use with parallel R packages (like `RcppParallel`). `Rhdf5lib` does not enable this feature by default.
+* **Thread-Safety Enabled:** `hdf5lib` builds HDF5 with thread-safety enabled, ensuring safe use with parallel R packages (like `RcppParallel`). `Rhdf5lib` does not support building with this feature.
 
-`hdf5lib` aims to be the standard provider of the HDF5 C library for R packages on CRAN.
+`hdf5lib` is intended to be a simple and reliable provider of the HDF5 C library for any R package.
 
 
 
