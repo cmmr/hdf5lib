@@ -49,19 +49,18 @@ ld_flags <- function() {
     stop("Linker flags not found: The 'inst/lib' directory is missing from hdf5lib.")
   
   # Ensure the static library file actually exists in that directory
-  static_lib_file <- file.path(lib_dir, "libhdf5z.a")
-  if (!file.exists(static_lib_file))
-    stop("Linker flags not found: 'lib/libhdf5z.a' is missing from hdf5lib.")
+  if (!file.exists(file.path(lib_dir, "libhdf5z.a")))
+    stop("Static library not found: 'lib/libhdf5z.a' is missing from hdf5lib.")
   
   # Create the -L flag pointing to the directory
-  static_lib_flag <- shQuote(normalizePath(static_lib_file, winslash = "/"))
+  lib_dir_flag <- paste0("-L", shQuote(normalizePath(lib_dir, winslash = "/")))
 
   # Create a vector of all flags.
   # The downstream package must now link to hdf5 and its dependencies.
   flags <- c(
-    static_lib_flag, # Pass the full path hdf5lib's /lib directory
-    "-lhdf5z",       # Link to our libhdf5z.a static library
-    "-lpthread",     # HDF5 dependency for thread-safety
+    lib_dir_flag, # Pass the full path hdf5lib's /lib directory
+    "-lhdf5z",    # Link to our libhdf5z.a static library
+    "-lpthread",  # HDF5 dependency for thread-safety
     if (.Platform$OS.type == "unix") "-ldl" # HDF5 dependency on Unix
   )
   

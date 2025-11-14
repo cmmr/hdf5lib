@@ -11,7 +11,7 @@ A scalar character vector containing the linker flags.
 }
 \description{
 Provides the required linker flags to link against the static HDF5
-library (`libhdf5.a`) bundled with the `hdf5lib` package.
+library (`libhdf5z.a`) bundled with the `hdf5lib` package.
 
 This function is intended to be called from a `Makevars` file by
 other R packages that link to `hdf5lib`. It returns the `-L` path
