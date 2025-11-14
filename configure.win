@@ -63,12 +63,12 @@ ar -x "$HDF5_SRC/src/.libs/libhdf5.a"
 ar -x "$HDF5_SRC/hl/src/.libs/libhdf5_hl.a"
 ar -x "$ZLIB_SRC/libz.a"
 
-echo "--- [hdf5lib] Merging all .o files into libhdf5.a..."
-ar -q libhdf5.a *.o
-ranlib libhdf5.a
+echo "--- [hdf5lib] Merging all .o files into libhdf5z.a..."
+ar -q libhdf5z.a *.o
+ranlib libhdf5z.a
 
 echo "--- [hdf5lib] Stripping static library..."
-strip -S libhdf5.a
+strip -S libhdf5z.a
 
 
 # --- 4. Finalize R package ---
@@ -81,7 +81,7 @@ cp "$HDF5_SRC"/hl/src/*.h inst/include/
 
 echo "--- [hdf5lib] Exposing final merged static library..."
 mkdir -p inst/lib
-cp "$HDF5_SRC/libhdf5.a" inst/lib/
+cp "$HDF5_SRC/libhdf5z.a" inst/lib/
 
 echo "--- [hdf5lib] Cleaning up build-time directories..."
 rm -rf src

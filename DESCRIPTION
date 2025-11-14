@@ -1,7 +1,7 @@
 Package: hdf5lib
 Type: Package
 Title: Headers and Static Libraries for 'HDF5'
-Version: 1.14.6.7
+Version: 1.14.6.8
 Authors@R: c(
     person("Daniel P.", "Smith", email = "dansmith01@gmail.com", role = c("aut", "cre"), comment = c(ORCID = "0000-0002-2479-2044")),
     person("The HDF Group", role = "cph", comment = "Copyright holder of the HDF5 library"),
@@ -25,3 +25,4 @@ NeedsCompilation: yes
 Suggests: 
     testthat (>= 3.0.0)
 Config/testthat/edition: 3
+RoxygenNote: 7.3.3
