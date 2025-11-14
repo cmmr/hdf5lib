@@ -23,7 +23,7 @@ c_flags <- function() {
   
   # Return the compiler flag
   # Use normalizePath and winslash for robust paths
-  paste0("-I", shQuote(normalizePath(include_dir, winslash = "/", mustWork = TRUE)))
+  paste0("-I", shQuote(normalizePath(include_dir, winslash = "/", mustWork = TRUE), type = "double"))
 }
 
 
@@ -53,7 +53,7 @@ ld_flags <- function() {
     stop("Static library not found: 'lib/libhdf5z.a' is missing from hdf5lib.")
   
   # Create the -L flag pointing to the directory
-  lib_dir_flag <- paste0("-L", shQuote(normalizePath(lib_dir, winslash = "/")))
+  lib_dir_flag <- paste0("-L", shQuote(normalizePath(lib_dir, winslash = "/"), type = "double"))
 
   # Create a vector of all flags.
   # The downstream package must now link to hdf5 and its dependencies.
