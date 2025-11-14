@@ -1,6 +1,7 @@
 # hdf5lib 1.14.6.8
 
 * Renamed `libhdf5.a` to `libhdf5z.a` eliminate ambiguity with system libraries.
+* Paths returned by `c_flags()` and `ld_flags()` are only quoted when necessary.
 
 
 
