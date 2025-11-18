@@ -61,11 +61,6 @@ ar -x "$HDF5_SRC/src/.libs/libhdf5.a"
 ar -x "$HDF5_SRC/hl/src/.libs/libhdf5_hl.a"
 ar -x "$ZLIB_SRC/libz.a"
 
-echo "--- [hdf5lib] Stripping object files to remove remaining debug info..."
-for f in *.o; do
-    objcopy --strip-debug "$f"
-done
-
 echo "--- [hdf5lib] Merging all .o files into libhdf5z.a..."
 ar -q libhdf5z.a *.o
 ranlib libhdf5z.a
