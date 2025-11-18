@@ -44,14 +44,14 @@ echo "--- [hdf5lib] Configuring bundled HDF5 library..."
   --disable-tools \
   --disable-dependency-tracking \
   --without-szlib \
-  CFLAGS="$CFLAGS -fPIC" \
+  CFLAGS="$CFLAGS -fPIC -O2" \
   LDFLAGS="$LDFLAGS -L${ZLIB_SRC}" \
   CPPFLAGS="$CPPFLAGS $R_CPPFLAGS -I${ZLIB_SRC}"
 
 # Compile HDF5 with warning suppressions
 echo "--- [hdf5lib] Compiling HDF5 static library..."
 make \
-  CFLAGS="$CFLAGS -fPIC -Wno-deprecated-declarations -Wformat -Wno-format-security -Wno-format-extra-args -Wno-implicit-fallthrough -Wno-unused-parameter -Wno-strict-prototypes -Wno-unused-function -Wno-unneeded-internal-declaration -Wno-sign-conversion -Wno-enum-enum-conversion -Wno-c11-extensions" \
+  CFLAGS="$CFLAGS -fPIC -O2 -Wno-deprecated-declarations -Wformat -Wno-format-security -Wno-format-extra-args -Wno-implicit-fallthrough -Wno-unused-parameter -Wno-strict-prototypes -Wno-unused-function" \
   CPPFLAGS="$CPPFLAGS $R_CPPFLAGS -I${ZLIB_SRC}"
 
 
@@ -66,7 +66,7 @@ ar -q libhdf5z.a *.o
 ranlib libhdf5z.a
 
 echo "--- [hdf5lib] Stripping static library..."
-strip -S libhdf5z.a
+strip --strip-unneeded libhdf5z.a
 
 
 # --- 4. Finalize R package ---
