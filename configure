@@ -44,14 +44,14 @@ echo "--- [hdf5lib] Configuring bundled HDF5 library..."
   --disable-tools \
   --disable-dependency-tracking \
   --without-szlib \
-  CFLAGS="$CFLAGS -fPIC -O2" \
+  CFLAGS="$CFLAGS -fPIC -Os" \
   LDFLAGS="$LDFLAGS -L${ZLIB_SRC}" \
   CPPFLAGS="$CPPFLAGS $R_CPPFLAGS -I${ZLIB_SRC}"
 
 # Compile HDF5 with warning suppressions
 echo "--- [hdf5lib] Compiling HDF5 static library..."
 make \
-  CFLAGS="$CFLAGS -fPIC -O2 -Wno-deprecated-declarations -Wformat -Wno-format-security -Wno-format-extra-args -Wno-implicit-fallthrough -Wno-unused-parameter -Wno-strict-prototypes -Wno-unused-function" \
+  CFLAGS="$CFLAGS -fPIC -Os -Wno-deprecated-declarations -Wformat -Wno-format-security -Wno-format-extra-args -Wno-implicit-fallthrough -Wno-unused-parameter -Wno-strict-prototypes -Wno-unused-function -Wno-c11-c23-compat" \
   CPPFLAGS="$CPPFLAGS $R_CPPFLAGS -I${ZLIB_SRC}"
 
 
@@ -60,6 +60,11 @@ echo "--- [hdf5lib] Extracting all object files..."
 ar -x "$HDF5_SRC/src/.libs/libhdf5.a"
 ar -x "$HDF5_SRC/hl/src/.libs/libhdf5_hl.a"
 ar -x "$ZLIB_SRC/libz.a"
+
+echo "--- [hdf5lib] Stripping object files to remove remaining debug info..."
+for f in *.o; do
+    objcopy --strip-debug "$f"
+done
 
 echo "--- [hdf5lib] Merging all .o files into libhdf5z.a..."
 ar -q libhdf5z.a *.o
