@@ -110,27 +110,26 @@ This package provides access to the HDF5 C API, including:
 ### **High-Level (HL) APIs (Recommended for simplicity)**
 
 -   **H5LT (Lite):** Simplified functions for common dataset and attribute operations.
-    -   `H5LTmake_dataset_int()`, `H5LTmake_dataset_double()`, etc.\
-    -   `H5LTread_dataset_int()`, `H5LTread_dataset_double()`, etc.\
-    -   `H5LTset_attribute_string()`, `H5LTget_attribute_int()`, etc.\
-    -   `H5LTget_dataset_info()`\
+    -   `H5LTmake_dataset_int()`, `H5LTmake_dataset_double()`, etc.
+    -   `H5LTread_dataset_int()`, `H5LTread_dataset_double()`, etc.
+    -   `H5LTset_attribute_string()`, `H5LTget_attribute_int()`, etc.
+    -   `H5LTget_dataset_info()`
 -   **H5IM (Image):** Functions for working with image data.
-    -   `H5IMmake_image_24bit()`, `H5IMread_image()`\
+    -   `H5IMmake_image_24bit()`, `H5IMread_image()`
 -   **H5TB (Table):** Functions for working with table structures.
     -   `H5TBmake_table()`, `H5TBappend_records()`, `H5TBread_records()`
 
 ### **Low-Level APIs (Core functionality for fine-grained control)**
 
--   **H5F (File):** `H5Fcreate()`, `H5Fopen()`, `H5Fclose()`\
--   **H5G (Group):** `H5Gcreate2()`, `H5Gopen2()`, `H5Gclose()`\
--   **H5D (Dataset):** `H5Dcreate2()`, `H5Dopen2()`, `H5Dread()`, `H5Dwrite()`, `H5Dclose()`\
--   **H5S (Dataspace):** `H5Screate_simple()`, `H5Sselect_hyperslab()`, `H5Sclose()`\
--   **H5T (Datatype):** `H5Tcopy()`, `H5Tset_size()`, `H5Tinsert()`, `H5Tclose()` (and predefined types like `H5T_NATIVE_INT`, `H5T_NATIVE_DOUBLE`)\
--   **H5A (Attribute):** `H5Acreate2()`, `H5Aopen()`, `H5Aread()`, `H5Awrite()`, `H5Aclose()`\
+-   **H5F (File):** `H5Fcreate()`, `H5Fopen()`, `H5Fclose()`
+-   **H5G (Group):** `H5Gcreate2()`, `H5Gopen2()`, `H5Gclose()`
+-   **H5D (Dataset):** `H5Dcreate2()`, `H5Dopen2()`, `H5Dread()`, `H5Dwrite()`, `H5Dclose()`
+-   **H5S (Dataspace):** `H5Screate_simple()`, `H5Sselect_hyperslab()`, `H5Sclose()`
+-   **H5T (Datatype):** `H5Tcopy()`, `H5Tset_size()`, `H5Tinsert()`, `H5Tclose()` (and predefined types like `H5T_NATIVE_INT`, `H5T_NATIVE_DOUBLE`)
+-   **H5A (Attribute):** `H5Acreate2()`, `H5Aopen()`, `H5Aread()`, `H5Awrite()`, `H5Aclose()`
 -   **H5P (Property List):** `H5Pcreate()`, `H5Pset_chunk()`, `H5Pset_deflate()`, `H5Pclose()`
 
-For complete documentation, see the official HDF5 Reference Manual:\
-<https://support.hdfgroup.org/documentation/hdf5/latest/_r_m.html>
+For complete documentation, see the official [HDF5 Reference Manual](https://support.hdfgroup.org/documentation/hdf5/latest/_r_m.html).
 
 
 ## **Relationship to `Rhdf5lib`**
