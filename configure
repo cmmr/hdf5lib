@@ -66,7 +66,7 @@ ar -q libhdf5z.a *.o
 ranlib libhdf5z.a
 
 echo "--- [hdf5lib] Stripping static library..."
-strip --strip-unneeded libhdf5z.a
+strip -S libhdf5z.a
 
 
 # --- 4. Finalize R package ---
