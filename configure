@@ -51,7 +51,7 @@ echo "--- [hdf5lib] Configuring bundled HDF5 library..."
 # Compile HDF5 with warning suppressions
 echo "--- [hdf5lib] Compiling HDF5 static library..."
 make \
-  CFLAGS="$CFLAGS -fPIC -Os -Wno-deprecated-declarations -Wformat -Wno-format-security -Wno-format-extra-args -Wno-implicit-fallthrough -Wno-unused-parameter -Wno-strict-prototypes -Wno-unused-function -Wno-c11-c23-compat" \
+  CFLAGS="$CFLAGS -fPIC -Os -Wno-deprecated-declarations -Wformat -Wno-format-security -Wno-format-extra-args -Wno-implicit-fallthrough -Wno-unused-parameter -Wno-strict-prototypes -Wno-unused-function -Wno-pre-c2x-compat" \
   CPPFLAGS="$CPPFLAGS $R_CPPFLAGS -I${ZLIB_SRC}"
 
 
