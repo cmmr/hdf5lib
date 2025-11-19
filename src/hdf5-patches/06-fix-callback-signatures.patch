@@ -1,0 +1,73 @@
+diff -ruNw a/src/H5Dint.c b/src/H5Dint.c
+--- a/src/H5Dint.c
++++ b/src/H5Dint.c
+@@ -28,7 +28,7 @@
+ /****************/
+ 
+ /* Private functions */
+-static herr_t H5D__close_cb(void *dset_ptr);
++static herr_t H5D__close_cb(void *dset_ptr, void **request);
+ static herr_t H5D__update_oh_info(H5F_t *file, hid_t dxpl_id, H5D_t *dset, hid_t oh_addr);
+ 
+ /*********************/
+@@ -3316,13 +3316,14 @@
+  * Function:    H5D__close_cb
+  *
+  * Purpose:     Compare/check for open datasets closing the file
++ * (Updated to match H5I_free_t signature in HDF5 1.14)
+  *
+  * Return:      Non-negative on success/Negative on failure
+  *
+  *-------------------------------------------------------------------------
+  */
+ static herr_t
+-H5D__close_cb(void *dset_ptr)
++H5D__close_cb(void *dset_ptr, void **request)
+ {
+     H5D_t *dset = (H5D_t *)dset_ptr; /* Dataset object */
+     herr_t ret_value = SUCCEED;      /* Return value */
+@@ -3330,6 +3331,8 @@
+     FUNC_ENTER_PACKAGE
+ 
+     /* Sanity check */
++    (void)request; /* Unused */
+     assert(dset);
+     assert(dset->file);
+ 
+diff -ruNw a/src/H5T.c b/src/H5T.c
+--- a/src/H5T.c
++++ b/src/H5T.c
+@@ -137,7 +137,7 @@
+ /*
+  * Local functions
+  */
+-static herr_t H5T__close_cb(void *dt);
++static herr_t H5T__close_cb(void *dt, void **request);
+ static herr_t H5T__path_find_cb(const char *name, const H5T_path_t *path, void *key);
+ static htri_t H5T__path_noop(hid_t src_id, hid_t dst_id, H5T_cdata_t *cdata, size_t nelmts,
+                              size_t buf_stride, size_t bkg_stride, void *buf, void *bkg, hid_t dset_xfer_plid);
+@@ -5161,19 +5161,21 @@
+  * Function:    H5T__close_cb
+  *
+  * Purpose:     Called when the reference count for a transient datatype
+- * reaches zero.  A persistent datatype is not closed by this
+- * function.
++ * reaches zero.
++ * (Updated to match H5I_free_t signature in HDF5 1.14)
+  *
+  * Return:      Non-negative on success/Negative on failure
+  *
+  *-------------------------------------------------------------------------
+  */
+ static herr_t
+-H5T__close_cb(void *dt)
++H5T__close_cb(void *dt, void **request)
+ {
+     herr_t ret_value = SUCCEED; /* Return value */
+ 
+     FUNC_ENTER_PACKAGE
++    
++    (void)request; /* Unused */
+ 
+     /* Sanity check */
+     assert(dt);
