@@ -1,16 +1,15 @@
 --- a/src/H5Iint.c
 +++ b/src/H5Iint.c
-@@ -385,8 +385,10 @@
+@@ -385,8 +385,9 @@
          else {
              /* Check for a 'free' function and call it, if it exists */
              if (udata->type_info->cls->free_func &&
 -                (udata->type_info->cls->free_func)(info->u.object, H5_REQUEST_NULL) < 0) {
-+                ((herr_t(*)(void *, void **))(udata->type_info->cls->free_func))(info->u.object,
-+                                                                               H5_REQUEST_NULL) < 0) {
++                ((herr_t(*)(void *))(udata->type_info->cls->free_func))(info->u.object) < 0) {
                  if (udata->force) {
                      /* Indicate node should be removed from list */
                      mark = true;
-@@ -967,7 +969,8 @@
+@@ -967,8 +968,8 @@
          /* Get the ID's type */
          type_info = H5I_type_info_array_g[H5I_TYPE(id)];
  
