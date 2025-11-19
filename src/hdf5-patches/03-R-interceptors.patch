@@ -30,8 +30,8 @@ diff -ruNw ./src/H5.c /d/Dropbox/Baylor/GitHub/hdf5lib/src/hdf5-1.14.6/src/H5.c
 + * - 'stdout' will be replaced with 'Rstdout'
 + * - 'stderr' will be replaced with 'Rstderr'
 + */
-+FILE *Rstdout = &r_stdout_sentinel;
-+FILE *Rstderr = &r_stderr_sentinel;
++H5_DLL FILE *Rstdout = &r_stdout_sentinel;
++H5_DLL FILE *Rstderr = &r_stderr_sentinel;
 +
 +
 +/**
@@ -41,7 +41,7 @@ diff -ruNw ./src/H5.c /d/Dropbox/Baylor/GitHub/hdf5lib/src/hdf5-1.14.6/src/H5.c
 + * sentinel values. If so, redirects to R's safe printing.
 + * Otherwise, passes through to standard vfprintf.
 + */
-+int Rfprintf(FILE *stream, const char *format, ...) {
++H5_DLL int Rfprintf(FILE *stream, const char *format, ...) {
 +    int ret = 0;
 +    va_list ap;
 +    va_start(ap, format);
@@ -70,7 +70,7 @@ diff -ruNw ./src/H5.c /d/Dropbox/Baylor/GitHub/hdf5lib/src/hdf5-1.14.6/src/H5.c
 + * sentinel values. If so, redirects to R's safe printing.
 + * Otherwise, passes through to standard fputs.
 + */
-+int Rfputs(const char *s, FILE *stream) {
++H5_DLL int Rfputs(const char *s, FILE *stream) {
 +    /* fputs returns non-negative on success */
 +    int ret = 0; 
 +
@@ -97,7 +97,7 @@ diff -ruNw ./src/H5.c /d/Dropbox/Baylor/GitHub/hdf5lib/src/hdf5-1.14.6/src/H5.c
 + * Note: 'abort' is a 'noreturn' function. Rf_error() also
 + * does not return (it longjumps), so this is a safe replacement.
 + */
-+void Rabort(void) {
++H5_DLL void Rabort(void) {
 +    Rf_error("HDF5 library called abort()");
 +}
 +
@@ -108,7 +108,7 @@ diff -ruNw ./src/H5.c /d/Dropbox/Baylor/GitHub/hdf5lib/src/hdf5-1.14.6/src/H5.c
 + * Note: 'exit' is a 'noreturn' function. Rf_error() also
 + * does not return (it longjumps), so this is a safe replacement.
 + */
-+void Rexit(int status) {
++H5_DLL void Rexit(int status) {
 +    Rf_error("HDF5 library called exit() with status %d", status);
 +}
 +
@@ -137,8 +137,8 @@ diff -ruNw ./src/H5private.h /d/Dropbox/Baylor/GitHub/hdf5lib/src/hdf5-1.14.6/sr
 + * Using 'extern' tells the compiler "these variables exist
 + * somewhere else; you will find them at link time."
 + */
-+extern FILE *Rstdout;
-+extern FILE *Rstderr;
++H5_DLL extern FILE *Rstdout;
++H5_DLL extern FILE *Rstderr;
 +
 +/*
 + * --- Function Prototypes ---
