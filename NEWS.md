@@ -1,3 +1,10 @@
+# hdf5lib 1.14.6.9
+
+* Added additional `CPPFLAGS` include directories needed by Fedora builders.
+* Automated build testing using `rhub` github actions.
+
+
+
 # hdf5lib 1.14.6.8
 
 * Fixed compiler flags for Fedora builders.

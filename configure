@@ -11,7 +11,8 @@ HDF5_SRC="$WD/src/hdf5"
 # R_HOME is set by the R build system
 R_EXE="${R_HOME}/bin/R"
 R_CPPFLAGS=$("$R_EXE" CMD config --cppflags)
-
+R_INCLUDE_DIR=$("$R_EXE" -s -e "cat(R.home('include'))")
+R_CPPFLAGS="$R_CPPFLAGS -I$R_INCLUDE_DIR"
 
 # Extract hdf5 and zlib tarballs
 # Use R's internal untar for cross-platform reliability
