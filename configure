@@ -60,8 +60,11 @@ echo "--- [hdf5lib] Configuring bundled HDF5 library..."
 
 # Fix for Intel compiler warning: '-Wl,-s' is a linker flag, not a C flag.
 # Use a temporary file for portability instead of in-place sed.
+# Find all Makefiles and apply the sed command to each.
 echo "--- [hdf5lib] Patching HDF5 Makefile to remove problematic flags..."
-sed 's/-Wl,-s//g' src/Makefile > src/Makefile.tmp && mv src/Makefile.tmp src/Makefile
+for makefile in $(find . -type f -name "Makefile"); do
+  sed 's/-Wl,-s//g' "$makefile" > "$makefile.tmp" && mv "$makefile.tmp" "$makefile"
+done
 
 # Compile HDF5 with warning suppressions
 echo "--- [hdf5lib] Compiling HDF5 static library..."
