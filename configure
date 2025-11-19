@@ -8,11 +8,22 @@ WD="$(pwd)"
 ZLIB_SRC="$WD/src/zlib"
 HDF5_SRC="$WD/src/hdf5"
 
-# R_HOME is set by the R build system
+# Define R executable path for readability
 R_EXE="${R_HOME}/bin/R"
-R_CPPFLAGS=$("$R_EXE" CMD config --cppflags)
+
+# Get R's compiler/linker flags to ensure we respect the build environment
+R_CC=$("$R_EXE" CMD config CC)
+R_CFLAGS=$("$R_EXE" CMD config CFLAGS)
+R_CPICFLAGS=$("$R_EXE" CMD config CPICFLAGS)
+R_CPPFLAGS=$("$R_EXE" CMD config CPPFLAGS)
+R_LDFLAGS=$("$R_EXE" CMD config LDFLAGS)
 R_INCLUDE_DIR=$("$R_EXE" -s -e "cat(R.home('include'))")
-R_CPPFLAGS="$R_CPPFLAGS -I$R_INCLUDE_DIR"
+
+# Combine flags and export them for downstream configure/make
+# We add our own flags to the ones provided by R
+export CC="${R_CC}"
+export CFLAGS="${R_CFLAGS} ${R_CPICFLAGS} -O2 -g0"
+export CPPFLAGS="${R_CPPFLAGS} -I${R_INCLUDE_DIR} -I${ZLIB_SRC}"
 
 # Extract hdf5 and zlib tarballs
 # Use R's internal untar for cross-platform reliability
@@ -26,8 +37,8 @@ chmod +x hdf5/configure zlib/configure
 # --- 1. Build static zlib ---
 echo "--- [hdf5lib] Configuring and compiling static zlib..."
 cd "$ZLIB_SRC"
-CC="$CC" CFLAGS="$CFLAGS -fPIC" ./configure --static
-make libz.a CFLAGS="$CFLAGS -fPIC"
+./configure --static
+make libz.a
 
 
 # --- 2. Build static HDF5 ---
@@ -45,19 +56,17 @@ echo "--- [hdf5lib] Configuring bundled HDF5 library..."
   --disable-tools \
   --disable-dependency-tracking \
   --without-szlib \
-  CFLAGS="$CFLAGS -fPIC -O2 -g0" \
-  LDFLAGS="$LDFLAGS -L${ZLIB_SRC}" \
-  CPPFLAGS="$CPPFLAGS $R_CPPFLAGS -I${ZLIB_SRC}"
+  LDFLAGS="${R_LDFLAGS} -L${ZLIB_SRC}"
 
 # Fix for Intel compiler warning: '-Wl,-s' is a linker flag, not a C flag.
+# Use a temporary file for portability instead of in-place sed.
 echo "--- [hdf5lib] Patching HDF5 Makefile to remove problematic flags..."
-sed -i.bak 's/-Wl,-s//g' src/Makefile
+sed 's/-Wl,-s//g' src/Makefile > src/Makefile.tmp && mv src/Makefile.tmp src/Makefile
 
 # Compile HDF5 with warning suppressions
 echo "--- [hdf5lib] Compiling HDF5 static library..."
 make \
-  CFLAGS="$CFLAGS -fPIC -O2 -g0 -Wno-deprecated-declarations -Wformat -Wno-format-security -Wno-format-extra-args -Wno-implicit-fallthrough -Wno-unused-parameter -Wno-strict-prototypes -Wno-unused-function -Wno-array-bounds" \
-  CPPFLAGS="$CPPFLAGS $R_CPPFLAGS -I${ZLIB_SRC}"
+  CFLAGS="${CFLAGS} -Wno-deprecated-declarations -Wformat -Wno-format-security -Wno-format-extra-args -Wno-implicit-fallthrough -Wno-unused-parameter -Wno-strict-prototypes -Wno-unused-function -Wno-array-bounds"
 
 
 # --- 3. Combine, Link, and Archive ---
@@ -74,9 +83,10 @@ echo "--- [hdf5lib] Linking object files into a single bundle..."
 ld -r -o hdf5_bundle.o *.o
 
 # Safely strip only the debug symbols to reduce size.
-# This is the R-recommended way to strip static libraries.
+# Use '-S' for portability (works on GNU and macOS/LLVM strip).
+# Add '|| true' to prevent the script from exiting if strip fails on an exotic platform.
 echo "--- [hdf5lib] Stripping debug symbols from bundled object file..."
-strip -S hdf5_bundle.o
+strip -S hdf5_bundle.o || true
 
 # Create the final static library from the single bundled object file.
 echo "--- [hdf5lib] Creating final static library libhdf5z.a..."
