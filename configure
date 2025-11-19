@@ -56,7 +56,7 @@ sed -i.bak 's/-Wl,-s//g' src/Makefile
 # Compile HDF5 with warning suppressions
 echo "--- [hdf5lib] Compiling HDF5 static library..."
 make \
-  CFLAGS="$CFLAGS -fPIC -O2 -g0 -Wno-deprecated-declarations -Wformat -Wno-format-security -Wno-format-extra-args -Wno-implicit-fallthrough -Wno-unused-parameter -Wno-strict-prototypes -Wno-unused-function" \
+  CFLAGS="$CFLAGS -fPIC -O2 -g0 -Wno-deprecated-declarations -Wformat -Wno-format-security -Wno-format-extra-args -Wno-implicit-fallthrough -Wno-unused-parameter -Wno-strict-prototypes -Wno-unused-function -Wno-array-bounds" \
   CPPFLAGS="$CPPFLAGS $R_CPPFLAGS -I${ZLIB_SRC}"
 
 
@@ -76,7 +76,7 @@ ld -r -o hdf5_bundle.o *.o
 # Safely strip only the debug symbols to reduce size.
 # This is the R-recommended way to strip static libraries.
 echo "--- [hdf5lib] Stripping debug symbols from bundled object file..."
-strip --strip-debug hdf5_bundle.o
+strip -S hdf5_bundle.o
 
 # Create the final static library from the single bundled object file.
 echo "--- [hdf5lib] Creating final static library libhdf5z.a..."
