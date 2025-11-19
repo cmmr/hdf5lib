@@ -151,10 +151,10 @@ diff -ruNw ./src/H5private.h /d/Dropbox/Baylor/GitHub/hdf5lib/src/hdf5-1.14.6/sr
 +extern "C" {
 +#endif
 +
-+int Rfprintf(FILE *stream, const char *format, ...);
-+int Rfputs(const char *s, FILE *stream);
-+void Rabort(void);
-+void Rexit(int status);
++H5_DLL int Rfprintf(FILE *stream, const char *format, ...);
++H5_DLL int Rfputs(const char *s, FILE *stream);
++H5_DLL void Rabort(void);
++H5_DLL void Rexit(int status);
 +
 +#ifdef __cplusplus
 +}
