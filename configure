@@ -52,6 +52,7 @@ echo "--- [hdf5lib] Configuring bundled HDF5 library..."
   --enable-static \
   --enable-threadsafe \
   --enable-unsupported \
+  --disable-float16 \
   --disable-tests \
   --disable-tools \
   --disable-dependency-tracking \
