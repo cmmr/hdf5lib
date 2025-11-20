@@ -8,7 +8,8 @@ VER <- "1.14.6"
 # Download and extract the HDF5 codebase
 url     <- paste0("https://github.com/HDFGroup/hdf5/releases/download/hdf5_", VER, "/hdf5-", VER, ".tar.gz")
 tarfile <- basename(url)
-download.file(url, tarfile)
+if (!file.exists(tarfile))
+  download.file(url, tarfile)
 
 cat('Decompressing', tarfile, '...\n')
 utils::untar(tarfile)
