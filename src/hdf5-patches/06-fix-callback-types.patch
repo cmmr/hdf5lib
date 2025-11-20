@@ -86,3 +86,69 @@
      herr_t ret_value = SUCCEED;
  
      FUNC_ENTER_PACKAGE
+--- src/H5Gint.c.orig	2025-11-20 18:29:10.588646400 +0000
++++ src/H5Gint.c	2025-11-20 18:57:19.924023400 +0000
+@@ -83,7 +83,7 @@
+ 
+ static herr_t H5G__open_oid(H5G_t *grp);
+ static herr_t H5G__visit_cb(const H5O_link_t *lnk, void *_udata);
+-static herr_t H5G__close_cb(H5VL_object_t *grp_vol_obj, void **request);
++static herr_t H5G__close_cb(void *grp_vol_obj, void **request);
+ 
+ /*********************/
+ /* Package Variables */
+@@ -202,8 +202,9 @@
+  *-------------------------------------------------------------------------
+  */
+ static herr_t
+-H5G__close_cb(H5VL_object_t *grp_vol_obj, void **request)
++H5G__close_cb(void *_grp_vol_obj, void **request)
+ {
++    H5VL_object_t *grp_vol_obj = (H5VL_object_t *) _grp_vol_obj;
+     herr_t ret_value = SUCCEED; /* Return value */
+ 
+     FUNC_ENTER_PACKAGE
+--- src/H5Aint.c.orig	2025-11-20 18:25:11.505964100 +0000
++++ src/H5Aint.c	2025-11-20 18:42:43.661276900 +0000
+@@ -72,7 +72,7 @@
+ /* Local Prototypes */
+ /********************/
+ 
+-static herr_t H5A__close_cb(H5VL_object_t *attr_vol_obj, void **request);
++static herr_t H5A__close_cb(void *attr_vol_obj, void **request);
+ static herr_t H5A__compact_build_table_cb(H5O_t *oh, H5O_mesg_t *mesg /*in,out*/, unsigned sequence,
+                                           unsigned *oh_flags_ptr, void *_udata /*in,out*/);
+ static herr_t H5A__dense_build_table_cb(const H5A_t *attr, void *_udata);
+@@ -1231,8 +1231,9 @@
+  *-------------------------------------------------------------------------
+  */
+ static herr_t
+-H5A__close_cb(H5VL_object_t *attr_vol_obj, void **request)
++H5A__close_cb(void *_attr_vol_obj, void **request)
+ {
++    H5VL_object_t *attr_vol_obj = (H5VL_object_t *)_attr_vol_obj;
+     herr_t ret_value = SUCCEED; /* Return value */
+ 
+     FUNC_ENTER_PACKAGE
+--- src/H5VLint.c.orig	2025-11-20 18:50:02.417641400 +0000
++++ src/H5VLint.c	2025-11-20 18:52:01.599889100 +0000
+@@ -92,7 +92,7 @@
+ /********************/
+ /* Local Prototypes */
+ /********************/
+-static herr_t         H5VL__free_cls(H5VL_class_t *cls, void **request);
++static herr_t         H5VL__free_cls(void *cls, void **request);
+ static int            H5VL__get_connector_cb(void *obj, hid_t id, void *_op_data);
+ static void          *H5VL__wrap_obj(void *obj, H5I_type_t obj_type);
+ static H5VL_object_t *H5VL__new_vol_obj(H5I_type_t type, void *object, H5VL_t *vol_connector, bool wrap_obj);
+@@ -284,8 +284,9 @@
+  *-------------------------------------------------------------------------
+  */
+ static herr_t
+-H5VL__free_cls(H5VL_class_t *cls, void H5_ATTR_UNUSED **request)
++H5VL__free_cls(void *_cls, void H5_ATTR_UNUSED **request)
+ {
++    H5VL_class_t *cls = (H5VL_class_t *) _cls;
+     herr_t ret_value = SUCCEED;
+ 
+     FUNC_ENTER_PACKAGE
