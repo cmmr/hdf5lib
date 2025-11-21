@@ -3,14 +3,11 @@ set -e
 
 echo "--- [hdf5lib] Starting Windows/Unix configuration (STATIC) ---"
 
-echo "  R_HOME:    ${R_HOME}"
-
 # Input directories
 WD="$(pwd)"
 ZLIB_SRC="$WD/src/zlib-1.3.1"
 HDF5_SRC="$WD/src/hdf5-2.0.0"
 HDF5_BUILD="$WD/src/hdf5_build"
-echo "  WD:        ${WD}"
 
 # Find R
 R_EXE="$R_HOME/bin$R_ARCH_BIN/R"
@@ -24,7 +21,6 @@ if ! test -f "$R_EXE"; then
     fi
   fi
 fi
-echo "  R_EXE:     ${R_EXE}"
 
 # Find cmake
 CMAKE_EXE=$(which cmake 2>/dev/null)
@@ -32,6 +28,10 @@ if ! test -f "$CMAKE_EXE"; then
   echo "CMake was not found on the PATH. Please install CMake."
   exit 1
 fi
+
+echo "  WD:        ${WD}"
+echo "  R_HOME:    ${R_HOME}"
+echo "  R_EXE:     ${R_EXE}"
 echo "  CMAKE_EXE: ${CMAKE_EXE}"
 
 # Get R's compiler/linker flags to ensure we respect the build environment
@@ -41,6 +41,14 @@ R_CPICFLAGS=$("$R_EXE" CMD config CPICFLAGS)
 R_CPPFLAGS=$("$R_EXE" CMD config CPPFLAGS)
 R_LDFLAGS=$("$R_EXE" CMD config LDFLAGS)
 R_INCLUDE_DIR=$("$R_EXE" -s -e "cat(R.home('include'))")
+
+# Conditionally quote R_INCLUDE_DIR if it contains whitespace.
+# This prevents the path from being split into multiple arguments by the shell.
+case "$R_INCLUDE_DIR" in
+  *\ *)
+    R_INCLUDE_DIR="\"$R_INCLUDE_DIR\""
+    ;;
+esac
 
 # Combine flags and export them for downstream configure/make
 # We add our own flags to the ones provided by R

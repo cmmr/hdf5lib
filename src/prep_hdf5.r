@@ -45,7 +45,7 @@ cat('Minifying', length(h_files), 'header files...\n')
 for (h_file in h_files) {
   code <- readChar(h_file, file.size(h_file))
   code <- gsub('(?s)(?<!^) */\\*.*?\\*/', '', code, perl = TRUE)
-  code <- gsub('\\n+', '\n', code)
+  code <- gsub('\\n\\n+', '\n\n', code)
   writeChar(code, h_file, eos = NULL)
 }
 
@@ -64,7 +64,7 @@ for (c_file in c_files) {
   code <- gsub('\\babort\\b',  'Rabort',   code) # abort   -> Rabort
   code <- gsub('\\bexit\\b',   'Rexit',    code) # exit    -> Rexit
   code <- gsub('(?s)(?<!^) */\\*.*?\\*/', '', code, perl = TRUE)
-  code <- gsub('\\n+', '\n', code)
+  code <- gsub('\\n\\n+', '\n\n', code)
   writeChar(code, c_file, eos = NULL)
 }
 
