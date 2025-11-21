@@ -2,6 +2,7 @@
 .Rhistory
 .RData
 .Ruserdata
+.vscode
 hdf5lib.Rproj
 CRAN-SUBMISSION
 cran-comments.md

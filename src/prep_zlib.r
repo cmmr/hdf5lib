@@ -1,5 +1,5 @@
 # Use this file to download and minify the latest version of zlib.
-# The output of this script should be saved to src/zlib.tar.gz and
+# The output of this script should be saved to src/zlib-VER.tar.gz and
 # bundled with the hdf5lib source package.
 
 

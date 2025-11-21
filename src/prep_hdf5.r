@@ -1,5 +1,5 @@
 # Use this file to download, patch, and minify the latest version of HDF5.
-# The output of this script should be saved to src/hdf5.tar.gz and bundled
+# The output of this script should be saved to src/hdf5-VER.tar.gz and bundled
 # with the hdf5lib source package.
 
 VER <- "2.0.0"
