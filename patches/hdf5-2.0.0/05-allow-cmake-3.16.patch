@@ -1,0 +1,147 @@
+diff -ru src/hdf5-orig/CMakeLists.txt src/hdf5-2.0.0/CMakeLists.txt
+--- src/hdf5-orig/CMakeLists.txt	2025-11-11 00:00:34.000000000 +0000
++++ src/hdf5-2.0.0/CMakeLists.txt	2025-11-21 23:36:01.294847700 +0000
+@@ -27,7 +27,7 @@
+ # See comments throughout this file for details on configuration variables and options.
+ # -----------------------------------------------------------------------------
+ 
+-cmake_minimum_required (VERSION 3.26)
++cmake_minimum_required (VERSION 3.16)
+ project (HDF5 C)
+ 
+ if (POLICY CMP0074)
+diff -ru src/hdf5-orig/config/cmake/LIBAEC/CMakeLists.txt src/hdf5-2.0.0/config/cmake/LIBAEC/CMakeLists.txt
+--- src/hdf5-orig/config/cmake/LIBAEC/CMakeLists.txt	2025-11-11 00:00:34.000000000 +0000
++++ src/hdf5-2.0.0/config/cmake/LIBAEC/CMakeLists.txt	2025-11-21 23:36:01.294847700 +0000
+@@ -1,4 +1,4 @@
+-cmake_minimum_required (VERSION 3.26)
++cmake_minimum_required (VERSION 3.16)
+ project (LIBAEC C)
+ 
+ #-----------------------------------------------------------------------------
+diff -ru src/hdf5-orig/config/cmake/scripts/CTestScript.cmake src/hdf5-2.0.0/config/cmake/scripts/CTestScript.cmake
+--- src/hdf5-orig/config/cmake/scripts/CTestScript.cmake	2025-11-11 00:00:34.000000000 +0000
++++ src/hdf5-2.0.0/config/cmake/scripts/CTestScript.cmake	2025-11-21 23:36:01.294847700 +0000
+@@ -9,7 +9,7 @@
+ # If you do not have access to either file, you may request a copy from
+ # help@hdfgroup.org.
+ #
+-cmake_minimum_required (VERSION 3.26)
++cmake_minimum_required (VERSION 3.16)
+ ########################################################
+ # For any comments please contact help@hdfgroup.org
+ #
+diff -ru src/hdf5-orig/config/cmake/scripts/HDF5config.cmake src/hdf5-2.0.0/config/cmake/scripts/HDF5config.cmake
+--- src/hdf5-orig/config/cmake/scripts/HDF5config.cmake	2025-11-11 00:00:34.000000000 +0000
++++ src/hdf5-2.0.0/config/cmake/scripts/HDF5config.cmake	2025-11-21 23:36:01.294847700 +0000
+@@ -15,7 +15,7 @@
+ ### ctest -S HDF5config.cmake,BUILD_GENERATOR=VS202264 -C Release -VV -O hdf5.log         ###
+ #############################################################################################
+ 
+-cmake_minimum_required (VERSION 3.26)
++cmake_minimum_required (VERSION 3.16)
+ ############################################################################
+ # Usage:
+ #     ctest -S HDF5config.cmake,OPTION=VALUE -C Release -VV -O test.log
+diff -ru src/hdf5-orig/config/cmake/ZLIB/CMakeLists.txt src/hdf5-2.0.0/config/cmake/ZLIB/CMakeLists.txt
+--- src/hdf5-orig/config/cmake/ZLIB/CMakeLists.txt	2025-11-11 00:00:34.000000000 +0000
++++ src/hdf5-2.0.0/config/cmake/ZLIB/CMakeLists.txt	2025-11-21 23:36:01.294847700 +0000
+@@ -1,4 +1,4 @@
+-cmake_minimum_required (VERSION 3.26)
++cmake_minimum_required (VERSION 3.16)
+ set (CMAKE_ALLOW_LOOSE_LOOP_CONSTRUCTS ON)
+ project (ZLIB C)
+ 
+diff -ru src/hdf5-orig/config/cmake/ZLIB/devCMakeLists.txt src/hdf5-2.0.0/config/cmake/ZLIB/devCMakeLists.txt
+--- src/hdf5-orig/config/cmake/ZLIB/devCMakeLists.txt	2025-11-11 00:00:34.000000000 +0000
++++ src/hdf5-2.0.0/config/cmake/ZLIB/devCMakeLists.txt	2025-11-21 23:36:01.292831900 +0000
+@@ -1,4 +1,4 @@
+-cmake_minimum_required (VERSION 3.26)
++cmake_minimum_required (VERSION 3.16)
+ 
+ project(
+     ZLIB
+diff -ru src/hdf5-orig/config/cmake/ZLIBNG/CMakeLists.txt src/hdf5-2.0.0/config/cmake/ZLIBNG/CMakeLists.txt
+--- src/hdf5-orig/config/cmake/ZLIBNG/CMakeLists.txt	2025-11-11 00:00:34.000000000 +0000
++++ src/hdf5-2.0.0/config/cmake/ZLIBNG/CMakeLists.txt	2025-11-21 23:36:01.292831900 +0000
+@@ -1,4 +1,4 @@
+-cmake_minimum_required(VERSION 3.5.1...3.29.0)
++cmake_minimum_required(VERSION 3.5.1)
+ project(ZLIB LANGUAGES C)
+ message(STATUS "Using CMake version ${CMAKE_VERSION}")
+ 
+diff -ru src/hdf5-orig/config/cmake/ZLIBNG/devCMakeLists.txt src/hdf5-2.0.0/config/cmake/ZLIBNG/devCMakeLists.txt
+--- src/hdf5-orig/config/cmake/ZLIBNG/devCMakeLists.txt	2025-11-11 00:00:34.000000000 +0000
++++ src/hdf5-2.0.0/config/cmake/ZLIBNG/devCMakeLists.txt	2025-11-21 23:36:01.292831900 +0000
+@@ -1,4 +1,4 @@
+-cmake_minimum_required(VERSION 3.5.1...3.29.0)
++cmake_minimum_required(VERSION 3.5.1)
+ project(ZLIB LANGUAGES C)
+ message(STATUS "Using CMake version ${CMAKE_VERSION}")
+ 
+diff -ru src/hdf5-orig/config/examples/CTestScript.cmake src/hdf5-2.0.0/config/examples/CTestScript.cmake
+--- src/hdf5-orig/config/examples/CTestScript.cmake	2025-11-11 00:00:34.000000000 +0000
++++ src/hdf5-2.0.0/config/examples/CTestScript.cmake	2025-11-21 23:36:01.226407800 +0000
+@@ -9,7 +9,7 @@
+ # If you do not have access to either file, you may request a copy from
+ # help@hdfgroup.org.
+ #
+-cmake_minimum_required (VERSION 3.26)
++cmake_minimum_required (VERSION 3.16)
+ ########################################################
+ # For any comments please contact help@hdfgroup.org
+ #
+diff -ru src/hdf5-orig/config/examples/HDF5_Examples.cmake.in src/hdf5-2.0.0/config/examples/HDF5_Examples.cmake.in
+--- src/hdf5-orig/config/examples/HDF5_Examples.cmake.in	2025-11-11 00:00:34.000000000 +0000
++++ src/hdf5-2.0.0/config/examples/HDF5_Examples.cmake.in	2025-11-21 23:36:01.226407800 +0000
+@@ -9,7 +9,7 @@
+ # If you do not have access to either file, you may request a copy from
+ # help@hdfgroup.org.
+ #
+-cmake_minimum_required (VERSION 3.26)
++cmake_minimum_required (VERSION 3.16)
+ ###############################################################################################################
+ # This script will build and run the examples from a folder
+ # Execute from a command line:
+diff -ru src/hdf5-orig/hl/CMakeLists.txt src/hdf5-2.0.0/hl/CMakeLists.txt
+--- src/hdf5-orig/hl/CMakeLists.txt	2025-11-11 00:00:34.000000000 +0000
++++ src/hdf5-2.0.0/hl/CMakeLists.txt	2025-11-21 23:36:00.868056700 +0000
+@@ -1,4 +1,4 @@
+-cmake_minimum_required (VERSION 3.26)
++cmake_minimum_required (VERSION 3.16)
+ project (HDF5_HL C)
+ 
+ #-----------------------------------------------------------------------------
+diff -ru src/hdf5-orig/hl/src/CMakeLists.txt src/hdf5-2.0.0/hl/src/CMakeLists.txt
+--- src/hdf5-orig/hl/src/CMakeLists.txt	2025-11-11 00:00:34.000000000 +0000
++++ src/hdf5-2.0.0/hl/src/CMakeLists.txt	2025-11-21 23:36:00.868056700 +0000
+@@ -4,7 +4,7 @@
+ # It handles HL C source/header definitions, compiler options, linking, export, pkg-config file generation, and optional documentation for the HDF5 HL API.
+ #-----------------------------------------------------------------------------
+ 
+-cmake_minimum_required (VERSION 3.26)
++cmake_minimum_required (VERSION 3.16)
+ project (HDF5_HL_SRC C)
+ 
+ #-----------------------------------------------------------------------------
+diff -ru src/hdf5-orig/src/CMakeLists.txt src/hdf5-2.0.0/src/CMakeLists.txt
+--- src/hdf5-orig/src/CMakeLists.txt	2025-11-11 00:00:34.000000000 +0000
++++ src/hdf5-2.0.0/src/CMakeLists.txt	2025-11-21 23:36:00.867059300 +0000
+@@ -5,7 +5,7 @@
+ # It organizes source and header files for each module, sets up build targets,
+ # manages installation, pkg-config, and documentation generation.
+ # -----------------------------------------------------------------------------
+-cmake_minimum_required (VERSION 3.26)
++cmake_minimum_required (VERSION 3.16)
+ project (HDF5_SRC C)
+ 
+ #-----------------------------------------------------------------------------
+diff -ru src/hdf5-orig/src/H5FDsubfiling/CMakeLists.txt src/hdf5-2.0.0/src/H5FDsubfiling/CMakeLists.txt
+--- src/hdf5-orig/src/H5FDsubfiling/CMakeLists.txt	2025-11-11 00:00:34.000000000 +0000
++++ src/hdf5-2.0.0/src/H5FDsubfiling/CMakeLists.txt	2025-11-21 23:36:00.866054700 +0000
+@@ -1,4 +1,4 @@
+-cmake_minimum_required (VERSION 3.26)
++cmake_minimum_required (VERSION 3.16)
+ project (HDF5_H5FD_SUBFILING C)
+ 
+ # Sanity checking

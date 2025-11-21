@@ -21,7 +21,7 @@ BugReports: https://github.com/cmmr/hdf5lib/issues
 License: MIT + file LICENSE
 Encoding: UTF-8
 Depends: R (>= 4.1.0)
-SystemRequirements: cmake (>= 3.26.0)
+SystemRequirements: cmake (>= 3.16.0)
 NeedsCompilation: yes
 Suggests: testthat (>= 3.0.0)
 Config/testthat/edition: 3
