@@ -130,8 +130,8 @@ ld -r -o libhdf5z.o *.o
 # # Safely strip only the debug symbols to reduce size.
 # # Use '-S' for portability (works on GNU and macOS/LLVM strip).
 # # Add '|| true' to prevent the script from exiting if strip fails on an exotic platform.
-echo "--- [hdf5lib] Stripping debug symbols from bundled object file..."
-strip -S libhdf5z.o || true
+# echo "--- [hdf5lib] Stripping debug symbols from bundled object file..."
+# strip -S libhdf5z.o || true
 
 # Create the final static library from the single bundled object file.
 echo "--- [hdf5lib] Creating final static library libhdf5z.a..."
