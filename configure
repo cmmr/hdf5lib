@@ -11,11 +11,11 @@ HDF5_BUILD="$WD/src/hdf5_build"
 
 # Find R
 R_EXE="${R_HOME}/bin${R_ARCH_BIN}/R"
-if test -z "$R_EXE"; then
+if test -f "$R_EXE"; then
   R_EXE="${R_HOME}/bin/R"
-  if test -z "$R_EXE"; then
+  if test -f "$R_EXE"; then
     R_EXE=`which R 2>/dev/null`
-    if test -z "$R_EXE"; then
+    if test -f "$R_EXE"; then
       echo "R was not found on the PATH. Please install R."
       exit 1
     fi
@@ -24,11 +24,11 @@ fi
 
 # Find cmake
 CMAKE_EXE=`which cmake3 2>/dev/null`
-if test -z "$CMAKE_EXE"; then
+if test -f "$CMAKE_EXE"; then
   CMAKE_EXE=`which cmake 2>/dev/null`
-  if test -z "$CMAKE_EXE"; then
+  if test -f "$CMAKE_EXE"; then
     CMAKE_EXE=`which /Applications/CMake.app/Contents/bin/cmake 2>/dev/null`
-    if test -z "$CMAKE_EXE"; then
+    if test -f "$CMAKE_EXE"; then
       echo "CMake was not found on the PATH. Please install CMake."
       exit 1
     fi
