@@ -34,6 +34,12 @@ echo "  R_HOME:    ${R_HOME}"
 echo "  R_EXE:     ${R_EXE}"
 echo "  CMAKE_EXE: ${CMAKE_EXE}"
 
+# Detect OS
+case "$(uname -s)" in
+  CYGWIN*|MINGW*|MSYS*) WIN=1 ;;
+  *) WIN=0 ;;
+esac
+
 # Get R's compiler/linker flags to ensure we respect the build environment
 R_CC=$("$R_EXE" CMD config CC)
 R_CFLAGS=$("$R_EXE" CMD config CFLAGS)
@@ -71,17 +77,15 @@ cd "$WD/src"
 # --- 1. Build static zlib ---
 echo "--- [hdf5lib] Configuring and compiling static zlib..."
 cd "$ZLIB_SRC"
-case "$(uname -s)" in
-  CYGWIN*|MINGW*|MSYS*)
-    echo "--- [hdf5lib] Using win32/Makefile.gcc for zlib."
-    make -f win32/Makefile.gcc libz.a
-    ;;
-  *)
-    chmod +x ./configure
-    ./configure --static
-    make libz.a
-    ;;
-esac
+if [ "$WIN" -eq 1 ]; then
+  echo "--- [hdf5lib] Using win32/Makefile.gcc for zlib (Windows)."
+  make -f win32/Makefile.gcc libz.a
+else
+  echo "--- [hdf5lib] Using configure for zlib (Unix)."
+  chmod +x ./configure
+  ./configure --static
+  make libz.a
+fi
 
 
 # --- 2. Build Static HDF5 2.0 with CMake ---
@@ -122,21 +126,15 @@ ar -x bin/libhdf5.a
 ar -x bin/libhdf5_hl.a
 ar -x "$ZLIB_SRC/libz.a"
 
-# Use the linker to combine all individual .o files into a single object file.
-# This resolves internal symbols and ensures they are correctly exported.
-echo "--- [hdf5lib] Linking object files into a single bundle..."
-ld -r -o libhdf5z.o *.o
-
-# # Safely strip only the debug symbols to reduce size.
-# # Use '-S' for portability (works on GNU and macOS/LLVM strip).
-# # Add '|| true' to prevent the script from exiting if strip fails on an exotic platform.
-# echo "--- [hdf5lib] Stripping debug symbols from bundled object file..."
-# strip -S libhdf5z.o || true
-
-# Create the final static library from the single bundled object file.
-echo "--- [hdf5lib] Creating final static library libhdf5z.a..."
-ar -crs libhdf5z.a libhdf5z.o
-ranlib libhdf5z.a
+# Merge all object files into a single static library
+if [ "$WIN" -eq 1 ]; then
+  ar -crs libhdf5z.a *.o
+else
+  echo "--- [hdf5lib] Linking and striping object files..."
+  ld -r -o libhdf5z.o *.o
+  strip -S libhdf5z.o || true
+  ar -crs libhdf5z.a libhdf5z.o
+fi
 
 
 # --- 5. Install Libraries and Headers for R ---
