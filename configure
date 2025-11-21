@@ -28,10 +28,13 @@ echo "  R_EXE:     ${R_EXE}"
 
 # Find cmake
 CMAKE_EXE=`which cmake3 2>/dev/null`
+echo "  CMAKE_EXE: ${CMAKE_EXE}"
 if ! test -f "$CMAKE_EXE"; then
   CMAKE_EXE=`which cmake 2>/dev/null`
+  echo "  CMAKE_EXE: ${CMAKE_EXE}"
   if ! test -f "$CMAKE_EXE"; then
     CMAKE_EXE="/Applications/CMake.app/Contents/bin/cmake"
+    echo "  CMAKE_EXE: ${CMAKE_EXE}"
     if ! test -f "$CMAKE_EXE"; then
       echo "CMake was not found on the PATH. Please install CMake."
       exit 1
@@ -107,7 +110,7 @@ ${CMAKE_EXE} "$HDF5_SRC" \
 
 # Compile
 echo "--- [hdf5lib] Compiling HDF5..."
-cmake --build . --config Release
+${CMAKE_EXE} --build . --config Release
 
 
 # --- 3. Combine, Link, and Archive ---
