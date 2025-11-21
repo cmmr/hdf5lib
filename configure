@@ -31,7 +31,7 @@ CMAKE_EXE=`which cmake3 2>/dev/null`
 if ! test -f "$CMAKE_EXE"; then
   CMAKE_EXE=`which cmake 2>/dev/null`
   if ! test -f "$CMAKE_EXE"; then
-    CMAKE_EXE=`which /Applications/CMake.app/Contents/bin/cmake 2>/dev/null`
+    CMAKE_EXE="/Applications/CMake.app/Contents/bin/cmake"
     if ! test -f "$CMAKE_EXE"; then
       echo "CMake was not found on the PATH. Please install CMake."
       exit 1
