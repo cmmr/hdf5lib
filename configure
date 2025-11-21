@@ -17,7 +17,7 @@ R_EXE="$R_HOME/bin$R_ARCH_BIN/R"
 if ! test -f "$R_EXE"; then
   R_EXE="$R_HOME/bin/R"
   if ! test -f "$R_EXE"; then
-    R_EXE=`which R 2>/dev/null`
+    R_EXE=$(which R 2>/dev/null)
     if ! test -f "$R_EXE"; then
       echo "R was not found on the PATH. Please install R."
       exit 1
@@ -27,19 +27,10 @@ fi
 echo "  R_EXE:     ${R_EXE}"
 
 # Find cmake
-CMAKE_EXE=`which cmake3 2>/dev/null`
-echo "  CMAKE_EXE: ${CMAKE_EXE}"
+CMAKE_EXE=$(which cmake 2>/dev/null)
 if ! test -f "$CMAKE_EXE"; then
-  CMAKE_EXE=`which cmake 2>/dev/null`
-  echo "  CMAKE_EXE: ${CMAKE_EXE}"
-  if ! test -f "$CMAKE_EXE"; then
-    CMAKE_EXE="/Applications/CMake.app/Contents/bin/cmake"
-    echo "  CMAKE_EXE: ${CMAKE_EXE}"
-    if ! test -f "$CMAKE_EXE"; then
-      echo "CMake was not found on the PATH. Please install CMake."
-      exit 1
-    fi
-  fi
+  echo "CMake was not found on the PATH. Please install CMake."
+  exit 1
 fi
 echo "  CMAKE_EXE: ${CMAKE_EXE}"
 
@@ -93,7 +84,7 @@ mkdir -p "$HDF5_BUILD"
 cd "$HDF5_BUILD"
 
 # CMake Configuration
-${CMAKE_EXE} "$HDF5_SRC" \
+cmake "$HDF5_SRC" \
   -DCMAKE_BUILD_TYPE=Release \
   -DBUILD_SHARED_LIBS=OFF \
   -DBUILD_TESTING=OFF \
@@ -110,7 +101,7 @@ ${CMAKE_EXE} "$HDF5_SRC" \
 
 # Compile
 echo "--- [hdf5lib] Compiling HDF5..."
-${CMAKE_EXE} --build . --config Release
+cmake --build . --config Release
 
 
 # --- 3. Combine, Link, and Archive ---
