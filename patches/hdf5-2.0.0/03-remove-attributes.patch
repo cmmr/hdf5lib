@@ -1,0 +1,67 @@
+diff -ru src/hdf5-orig/hl/src/H5LTanalyze.c src/hdf5-2.0.0/hl/src/H5LTanalyze.c
+--- src/hdf5-orig/hl/src/H5LTanalyze.c	2025-11-11 00:00:34.000000000 +0000
++++ src/hdf5-2.0.0/hl/src/H5LTanalyze.c	2025-11-21 01:38:35.331617900 +0000
+@@ -634,7 +634,7 @@
+ static yy_state_type yy_get_previous_state ( void );
+ static yy_state_type yy_try_NUL_trans ( yy_state_type current_state  );
+ static int yy_get_next_buffer ( void );
+-static void yynoreturn yy_fatal_error ( const char* msg  );
++static void yy_fatal_error ( const char* msg  );
+ 
+ /* Done after the current pattern has been matched and before the
+  * corresponding action - sets up yytext.
+@@ -2469,7 +2469,7 @@
+ #define YY_EXIT_FAILURE 2
+ #endif
+ 
+-static void yynoreturn yy_fatal_error (const char* msg )
++static void yy_fatal_error (const char* msg )
+ {
+ 			fprintf( stderr, "%s\n", msg );
+ 	exit( YY_EXIT_FAILURE );
+diff -ru src/hdf5-orig/src/H5E.c src/hdf5-2.0.0/src/H5E.c
+--- src/hdf5-orig/src/H5E.c	2025-11-11 00:00:34.000000000 +0000
++++ src/hdf5-2.0.0/src/H5E.c	2025-11-21 01:40:36.494868800 +0000
+@@ -520,7 +520,6 @@
+  *
+  *-------------------------------------------------------------------------
+  */
+-H5_ATTR_FORMAT(printf, 8, 9)
+ herr_t
+ H5Epush2(hid_t err_stack, const char *file, const char *func, unsigned line, hid_t cls_id, hid_t maj_id,
+          hid_t min_id, const char *fmt, ...)
+diff -ru src/hdf5-orig/src/H5Eprivate.h src/hdf5-2.0.0/src/H5Eprivate.h
+--- src/hdf5-orig/src/H5Eprivate.h	2025-11-11 00:00:34.000000000 +0000
++++ src/hdf5-2.0.0/src/H5Eprivate.h	2025-11-21 01:41:11.931377300 +0000
+@@ -232,7 +232,7 @@
+ H5_DLL herr_t H5E_init(void);
+ H5_DLL herr_t H5E_get_default_auto_func(H5E_auto2_t *func);
+ H5_DLL herr_t H5E_printf_stack(const char *file, const char *func, unsigned line, hid_t maj_idx,
+-                               hid_t min_idx, const char *fmt, ...) H5_ATTR_FORMAT(printf, 6, 7);
++                               hid_t min_idx, const char *fmt, ...);
+ H5_DLL herr_t H5E_clear_stack(void);
+ H5_DLL herr_t H5E_dump_api_stack(void);
+ H5_DLL void   H5E_pause_stack(void);
+diff -ru src/hdf5-orig/src/H5RS.c src/hdf5-2.0.0/src/H5RS.c
+--- src/hdf5-orig/src/H5RS.c	2025-11-11 00:00:34.000000000 +0000
++++ src/hdf5-2.0.0/src/H5RS.c	2025-11-21 01:41:44.913906200 +0000
+@@ -348,7 +348,6 @@
+  *
+  *-------------------------------------------------------------------------
+  */
+-H5_ATTR_FORMAT(printf, 2, 3)
+ herr_t
+ H5RS_asprintf_cat(H5RS_str_t *rs, const char *fmt, ...)
+ {
+diff -ru src/hdf5-orig/src/H5RSprivate.h src/hdf5-2.0.0/src/H5RSprivate.h
+--- src/hdf5-orig/src/H5RSprivate.h	2025-11-11 00:00:34.000000000 +0000
++++ src/hdf5-2.0.0/src/H5RSprivate.h	2025-11-21 01:42:05.847686400 +0000
+@@ -44,7 +44,7 @@
+ H5_DLL herr_t      H5RS_decr(H5RS_str_t *rs);
+ H5_DLL herr_t      H5RS_incr(H5RS_str_t *rs);
+ H5_DLL H5RS_str_t *H5RS_dup(H5RS_str_t *s);
+-H5_DLL herr_t      H5RS_asprintf_cat(H5RS_str_t *rs, const char *fmt, ...) H5_ATTR_FORMAT(printf, 2, 3);
++H5_DLL herr_t      H5RS_asprintf_cat(H5RS_str_t *rs, const char *fmt, ...);
+ H5_DLL herr_t      H5RS_acat(H5RS_str_t *rs, const char *s);
+ H5_DLL herr_t      H5RS_ancat(H5RS_str_t *rs, const char *s, size_t len);
+ H5_DLL herr_t      H5RS_aputc(H5RS_str_t *rs, int c);

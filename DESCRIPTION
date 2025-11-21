@@ -1,7 +1,7 @@
 Package: hdf5lib
 Type: Package
 Title: Headers and Static Libraries for 'HDF5'
-Version: 1.14.6.9
+Version: 2.0.0.0
 Authors@R: c(
     person("Daniel P.", "Smith", email = "dansmith01@gmail.com", role = c("aut", "cre"), comment = c(ORCID = "0000-0002-2479-2044")),
     person("The HDF Group", role = "cph", comment = "Copyright holder of the HDF5 library"),
@@ -10,7 +10,7 @@ Authors@R: c(
 Description: 'HDF5' (Hierarchical Data Format 5) is a high-performance 
     library and file format for storing and managing large, complex 
     data. This package provides the static libraries and headers for 
-    the 'HDF5' 'C' library (release 1.14.6). It is intended for R 
+    the 'HDF5' 'C' library (release 2.0.0). It is intended for R 
     package developers to use in the 'LinkingTo' field, which 
     eliminates the need for users to install system-level 'HDF5' 
     dependencies. This build is compiled with thread-safety enabled 
@@ -21,8 +21,8 @@ BugReports: https://github.com/cmmr/hdf5lib/issues
 License: MIT + file LICENSE
 Encoding: UTF-8
 Depends: R (>= 4.1.0)
+SystemRequirements: cmake (>= 3.26.0)
 NeedsCompilation: yes
-Suggests: 
-    testthat (>= 3.0.0)
+Suggests: testthat (>= 3.0.0)
 Config/testthat/edition: 3
 RoxygenNote: 7.3.3

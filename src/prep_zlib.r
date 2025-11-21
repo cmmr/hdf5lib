@@ -7,35 +7,44 @@ VER <- '1.3.1'
 
 
 # Download and extract the zlib codebase
-url <- paste0('https://github.com/madler/zlib/releases/download/v', VER, '/zlib-', VER, '.tar.gz')
-tarfile <- basename(url)
-download.file(url, tarfile)
+baseurl <- "https://github.com/madler/zlib/releases/download/"
+url     <- paste0(baseurl, 'v', VER, '/zlib-', VER, '.tar.gz')
+tarfile <- file.path('src', paste0("zlib-", VER, ".tar.gz"))
+exdir   <- file.path('src', paste0("zlib-", VER))
 
-cat('Decompressing', tarfile, '...\n')
-utils::untar(tarfile)
-invisible(file.rename(paste0("zlib-", VER), 'zlib'))
-setwd('zlib')
+cat("Downloading '", tarfile, "'...\n")
+if (file.exists(tarfile)) invisible(file.remove(tarfile))
+download.file(url = url, destfile = tarfile, quiet = TRUE)
+
+cat("Decompressing '", tarfile, "'...\n")
+utils::untar(tarfile = tarfile, exdir = dirname(tarfile))
 
 
 # Remove extraneous files and folders
 cat('Removing extraneous files and folders...\n')
-rm_files <- c(
-  'ChangeLog', 'CMakeLists.txt', 'FAQ', 'INDEX', 'make_vms.com', 
-  'README', 'treebuild.xml', 'zconf.h.cmakein', 'zlib.3.pdf' )
-rm_dirs <- setdiff(list.dirs(recursive = FALSE), './win32')
-invisible(file.remove(rm_files))
-unlink(rm_dirs, recursive = TRUE)
+unlink(
+  recursive = TRUE,
+  expand    = FALSE,
+  x         = file.path(exdir, c(
+    'ChangeLog', 'CMakeLists.txt', 'FAQ', 'INDEX', 'make_vms.com', 
+    'README', 'treebuild.xml', 'zconf.h.cmakein', 'zlib.3.pdf',
+    setdiff(list.dirs(exdir, FALSE, FALSE), 'win32')
+  )))
 
 
 # Create the zlib tarball that will ship with hdf5lib.
-cat('Creating zlib.tar.gz...\n')
+cat(paste0("Creating 'zlib", VER, ".tar.gz'...\n"))
+invisible(file.remove(tarfile))
+setwd('src')
+utils::tar(
+  tarfile = paste0("zlib-", VER, ".tar.gz"), 
+  files   = paste0("zlib-", VER), 
+  compression = "gzip", compression_level = 9 )
 setwd('..')
-utils::tar('zlib.tar.gz', 'zlib', 'gzip', compression_level = 9)
 
 
 # Remove temporary files
 cat('Cleaning up...\n')
-unlink('zlib', recursive = TRUE)
-invisible(file.remove(tarfile))
+unlink(exdir, recursive = TRUE)
 
 cat('Done.\n')

@@ -5,8 +5,8 @@ echo "--- [hdf5lib] Starting Unix configuration (STATIC) ---"
 
 # Input directories
 WD="$(pwd)"
-ZLIB_SRC="$WD/src/zlib"
-HDF5_SRC="$WD/src/hdf5"
+ZLIB_SRC="$WD/src/zlib-1.3.1"
+HDF5_SRC="$WD/src/hdf5-2.0.0"
 
 # Define R executable path for readability
 R_EXE="${R_HOME}/bin/R"
@@ -29,86 +29,88 @@ export CPPFLAGS="${R_CPPFLAGS} -I${R_INCLUDE_DIR} -I${ZLIB_SRC}"
 # Use R's internal untar for cross-platform reliability
 echo "--- [hdf5lib] Decompressing HDF5 and zlib tarballs..."
 cd "$WD/src"
-"$R_EXE" -q -e "utils::untar('hdf5.tar.gz')"
-"$R_EXE" -q -e "utils::untar('zlib.tar.gz')"
-chmod +x hdf5/configure zlib/configure
+"$R_EXE" -q -e "utils::untar('hdf5-2.0.0.tar.gz')"
+"$R_EXE" -q -e "utils::untar('zlib-1.3.1.tar.gz')"
 
 
 # --- 1. Build static zlib ---
 echo "--- [hdf5lib] Configuring and compiling static zlib..."
 cd "$ZLIB_SRC"
-./configure --static
-make libz.a
+case "$(uname -s)" in
+  CYGWIN*|MINGW*|MSYS*)
+    echo "--- [hdf5lib] Using win32/Makefile.gcc for zlib."
+    make -f win32/Makefile.gcc libz.a
+    ;;
+  *)
+    chmod +x ./configure
+    ./configure --static
+    make libz.a
+    ;;
+esac
 
 
-# --- 2. Build static HDF5 ---
-echo "--- [hdf5lib] Starting HDF5 build..."
-cd "$HDF5_SRC"
+# --- 2. Build Static HDF5 2.0 with CMake ---
+echo "--- [hdf5lib] Configuring HDF5 2.0..."
 
-# Configure HDF5 with thread-safety enabled
-echo "--- [hdf5lib] Configuring bundled HDF5 library..."
-./configure \
-  --disable-shared \
-  --enable-static \
-  --enable-threadsafe \
-  --enable-unsupported \
-  --disable-tests \
-  --disable-tools \
-  --disable-dependency-tracking \
-  --without-szlib \
-  LDFLAGS="${R_LDFLAGS} -L${ZLIB_SRC}"
+# Create out-of-source build directory (Required by CMake)
+mkdir -p "$HDF5_BUILD"
+cd "$HDF5_BUILD"
 
-# Fix for Intel compiler warning: '-Wl,-s' is a linker flag, not a C flag.
-# Use a temporary file for portability instead of in-place sed.
-# Find all Makefiles and apply the sed command to each.
-echo "--- [hdf5lib] Patching HDF5 Makefile to remove problematic flags..."
-for makefile in $(find . -type f -name "Makefile"); do
-  sed 's/-Wl,-s//g' "$makefile" > "$makefile.tmp" && mv "$makefile.tmp" "$makefile"
-done
+# CMake Configuration
+cmake "$HDF5_SRC" \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DBUILD_SHARED_LIBS=OFF \
+  -DBUILD_TESTING=OFF \
+  -DHDF5_BUILD_TOOLS=OFF \
+  -DHDF5_BUILD_EXAMPLES=OFF \
+  -DHDF5_ENABLE_PLUGIN_SUPPORT=ON \
+  -DHDF5_ENABLE_ZLIB_SUPPORT=ON \
+  -DZLIB_USE_EXTERNAL=OFF \
+  -DZLIB_LIBRARY="$ZLIB_SRC/libz.a" \
+  -DZLIB_INCLUDE_DIR="$ZLIB_SRC" \
+  -DHDF5_ENABLE_THREADSAFE=ON \
+  -DHDF5_ALLOW_UNSUPPORTED=ON \
+  -Wno-dev
 
-# Compile HDF5 with warning suppressions
-echo "--- [hdf5lib] Compiling HDF5 static library..."
-make \
-  CFLAGS="${CFLAGS} -Wno-deprecated-declarations -Wformat -Wno-format-security -Wno-format-extra-args -Wno-implicit-fallthrough -Wno-unused-parameter -Wno-strict-prototypes -Wno-unused-function -Wno-array-bounds"
+# Compile
+echo "--- [hdf5lib] Compiling HDF5..."
+cmake --build . --config Release
 
 
 # --- 3. Combine, Link, and Archive ---
 echo "--- [hdf5lib] Combining all object files into a single static library..."
 
 # Extract all object files from the compiled archives
-ar -x "$HDF5_SRC/src/.libs/libhdf5.a"
-ar -x "$HDF5_SRC/hl/src/.libs/libhdf5_hl.a"
+ar -x bin/libhdf5.a
+ar -x bin/libhdf5_hl.a
 ar -x "$ZLIB_SRC/libz.a"
 
 # Use the linker to combine all individual .o files into a single object file.
 # This resolves internal symbols and ensures they are correctly exported.
 echo "--- [hdf5lib] Linking object files into a single bundle..."
-ld -r -o hdf5_bundle.o *.o
+ld -r -o libhdf5z.o *.o
 
 # # Safely strip only the debug symbols to reduce size.
 # # Use '-S' for portability (works on GNU and macOS/LLVM strip).
 # # Add '|| true' to prevent the script from exiting if strip fails on an exotic platform.
-# echo "--- [hdf5lib] Stripping debug symbols from bundled object file..."
-# strip -S hdf5_bundle.o || true
+echo "--- [hdf5lib] Stripping debug symbols from bundled object file..."
+strip -S libhdf5z.o || true
 
 # Create the final static library from the single bundled object file.
 echo "--- [hdf5lib] Creating final static library libhdf5z.a..."
-ar -crs libhdf5z.a hdf5_bundle.o
+ar -crs libhdf5z.a libhdf5z.o
 ranlib libhdf5z.a
 
 
-
-# --- 4. Finalize R package ---
+# --- 5. Install Libraries and Headers for R ---
+echo "--- [hdf5lib] Installing to inst/..."
 cd "$WD"
-
-echo "--- [hdf5lib] Exposing minified HDF5 headers..."
-mkdir -p inst/include
-cp "$HDF5_SRC"/src/*.h    inst/include/
-cp "$HDF5_SRC"/hl/src/*.h inst/include/
-
-echo "--- [hdf5lib] Exposing final merged static library..."
 mkdir -p inst/lib
-cp "$HDF5_SRC/libhdf5z.a" inst/lib/
+mkdir -p inst/include
+cp "$HDF5_SRC"/src/*.h      inst/include/
+cp "$HDF5_SRC"/hl/src/*.h   inst/include/
+cp "$HDF5_BUILD"/src/*.h    inst/include/
+cp "$HDF5_BUILD/libhdf5z.a" inst/lib/
 
 echo "--- [hdf5lib] Cleaning up build-time directories..."
 rm -rf src
