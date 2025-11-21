@@ -34,7 +34,7 @@ c_flags <- function() {
   
   # Return the compiler flag
   # Use normalizePath and winslash for robust paths
-  paste0("-I", normalized_path)
+  paste0("-I", normalized_path, " -DH5_BUILT_AS_STATIC_LIB")
 }
 
 
