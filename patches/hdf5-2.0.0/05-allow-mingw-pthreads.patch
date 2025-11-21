@@ -1,0 +1,24 @@
+diff -ru src/hdf5-orig/CMakeLists.txt src/hdf5-2.0.0/CMakeLists.txt
+--- src/hdf5-orig/CMakeLists.txt	2025-11-11 00:00:49.000000000 +0000
++++ src/hdf5-2.0.0/CMakeLists.txt	2025-11-21 21:45:06.126048600 +0000
+@@ -849,7 +849,7 @@
+   # current --std=c99 compile flags at configuration time.  When we switch to
+   # --std=c11, this can be uncommented.
+   #CHECK_INCLUDE_FILE("threads.h" HAVE_THREADS_H)
+-  if (WIN32)
++  if (WIN32 AND NOT MINGW)
+     # When Win32 is available, we use those threads
+     set (H5_HAVE_WIN_THREADS 1)
+   elseif (HAVE_THREADS_H)
+@@ -984,11 +984,6 @@
+ #-----------------------------------------------------------------------------
+ if (HDF5_ENABLE_THREADSAFE)
+   # check for unsupported options
+-  if (WIN32)
+-    if (BUILD_STATIC_LIBS)
+-      message (FATAL_ERROR " **** thread-safety option not supported with static library **** ")
+-    endif ()
+-  endif ()
+   if (HDF_ENABLE_PARALLEL)
+     if (NOT HDF5_ALLOW_UNSUPPORTED)
+       message (FATAL_ERROR " **** Parallel and thread-safety options are not supported, override with HDF5_ALLOW_UNSUPPORTED option **** ")
