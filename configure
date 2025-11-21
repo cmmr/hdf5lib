@@ -128,7 +128,7 @@ ar -x "$ZLIB_SRC/libz.a"
 
 # Merge all object files into a single static library
 if [ "$WIN" -eq 1 ]; then
-  ar -crs libhdf5z.a *.o
+  ar -crs libhdf5z.a *.o *.obj
 else
   echo "--- [hdf5lib] Linking and striping object files..."
   ld -r -o libhdf5z.o *.o
