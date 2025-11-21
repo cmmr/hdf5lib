@@ -1,6 +1,6 @@
 diff -ru src/hdf5-orig/src/H5.c src/hdf5-2.0.0/src/H5.c
---- src/hdf5-orig/src/H5.c	2025-11-11 00:00:34.000000000 +0000
-+++ src/hdf5-2.0.0/src/H5.c	2025-11-21 01:22:35.240460400 +0000
+--- src/hdf5-orig/src/H5.c	2025-11-11 00:00:49.000000000 +0000
++++ src/hdf5-2.0.0/src/H5.c	2025-11-21 20:55:41.322324700 +0000
 @@ -33,6 +33,111 @@
  #include "H5Tprivate.h"  /* Datatypes                                */
  #include "H5TSprivate.h" /* Threadsafety                             */
@@ -113,9 +113,33 @@ diff -ru src/hdf5-orig/src/H5.c src/hdf5-2.0.0/src/H5.c
  /****************/
  /* Local Macros */
  /****************/
+@@ -892,6 +997,7 @@
+                 /* Bail out now. */
+                 fputs("Bye...\n", stderr);
+                 abort();
++                break;
+             case 1:
+                 /* continue with a warning */
+                 /* Note that the warning message is embedded in the format string.*/
+@@ -932,6 +1038,7 @@
+                         /* Bail out now. */
+                         fputs("Bye...\n", stderr);
+                         abort();
++                        break;
+                     case 1:
+                         /* continue with a warning */
+                         /* Note that the warning message is embedded in the format string.*/
+@@ -968,6 +1075,7 @@
+                     /* Bail out now. */
+                     fputs("Bye...\n", stderr);
+                     abort();
++                    break;
+                 case 1:
+                     /* continue with a warning */
+                     /* Note that the warning message is embedded in the format string.*/
 diff -ru src/hdf5-orig/src/H5private.h src/hdf5-2.0.0/src/H5private.h
---- src/hdf5-orig/src/H5private.h	2025-11-11 00:00:34.000000000 +0000
-+++ src/hdf5-2.0.0/src/H5private.h	2025-11-21 01:24:46.699852700 +0000
+--- src/hdf5-orig/src/H5private.h	2025-11-11 00:00:49.000000000 +0000
++++ src/hdf5-2.0.0/src/H5private.h	2025-11-21 20:53:55.987358300 +0000
 @@ -46,6 +46,45 @@
  #include <complex.h>
  #endif
