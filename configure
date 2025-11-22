@@ -59,7 +59,7 @@ esac
 # Combine flags and export them for downstream configure/make
 # We add our own flags to the ones provided by R
 export CC="${R_CC}"
-export CFLAGS="${R_CFLAGS} ${R_CPICFLAGS} -O2 -g0"
+export CFLAGS="${R_CFLAGS} ${R_CPICFLAGS} -O2 -g0 -Wno-deprecated-declarations"
 export CPPFLAGS="${R_CPPFLAGS} -I${R_INCLUDE_DIR} -I${ZLIB_SRC}"
 
 echo "  CC:        ${CC}"
@@ -112,6 +112,12 @@ cmake "$HDF5_SRC" \
   -DHDF5_ENABLE_THREADSAFE=ON \
   -DHDF5_ALLOW_UNSUPPORTED=ON \
   -Wno-dev
+
+# Fix line endings for CRAN compliance (H5pubconf.h often has CRLF)
+if [ "$WIN" -eq 1 ]; then
+  echo "--- [hdf5lib] Fixing line endings in generated H5pubconf.h..."
+  sed -i 's/\r$//' src/H5pubconf.h
+fi
 
 # Compile
 echo "--- [hdf5lib] Compiling HDF5..."

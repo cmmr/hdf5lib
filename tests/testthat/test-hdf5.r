@@ -35,7 +35,10 @@ test_that("HDF5 smoke test", {
   
   if (file.exists(so_file)) {
     succeed("Shared object created successfully.")
-    on.exit(file.remove(o_file, so_file), add = TRUE)
+    on.exit(add = TRUE, {
+      if (is.loaded("C_smoke_test")) dyn.unload(so_file)
+      file.remove(o_file, so_file)
+    })
   } else {
     fail(paste0("Shared object file not created:", so_file))
   }
