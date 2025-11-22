@@ -119,6 +119,9 @@ if [ "$WIN" -eq 1 ]; then
   sed -i 's/\r$//' src/H5pubconf.h
 fi
 
+cat src/H5pubconf.h
+exit 1
+
 # Compile
 echo "--- [hdf5lib] Compiling HDF5..."
 cmake --build . --config Release
