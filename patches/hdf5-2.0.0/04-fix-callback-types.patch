@@ -1,0 +1,184 @@
+diff -ru src/hdf5-orig/src/H5Aint.c src/hdf5-2.0.0/src/H5Aint.c
+--- src/hdf5-orig/src/H5Aint.c	2025-11-11 00:00:34.000000000 +0000
++++ src/hdf5-2.0.0/src/H5Aint.c	2025-11-22 01:26:09.138128700 +0000
+@@ -72,7 +72,7 @@
+ /* Local Prototypes */
+ /********************/
+ 
+-static herr_t H5A__close_cb(H5VL_object_t *attr_vol_obj, void **request);
++static herr_t H5A__close_cb(void *attr_vol_obj, void **request);
+ static herr_t H5A__compact_build_table_cb(H5O_t *oh, H5O_mesg_t *mesg /*in,out*/, unsigned sequence,
+                                           void *_udata /*in,out*/);
+ static herr_t H5A__dense_build_table_cb(const H5A_t *attr, void *_udata);
+@@ -1277,8 +1277,9 @@
+  *-------------------------------------------------------------------------
+  */
+ static herr_t
+-H5A__close_cb(H5VL_object_t *attr_vol_obj, void **request)
++H5A__close_cb(void *_attr_vol_obj, void **request)
+ {
++    H5VL_object_t *attr_vol_obj = (H5VL_object_t *)_attr_vol_obj;
+     herr_t ret_value = SUCCEED; /* Return value */
+ 
+     FUNC_ENTER_PACKAGE
+diff -ru src/hdf5-orig/src/H5Dint.c src/hdf5-2.0.0/src/H5Dint.c
+--- src/hdf5-orig/src/H5Dint.c	2025-11-11 00:00:34.000000000 +0000
++++ src/hdf5-2.0.0/src/H5Dint.c	2025-11-22 01:26:40.965971300 +0000
+@@ -84,7 +84,7 @@
+ static herr_t H5D__open_oid(H5D_t *dataset, hid_t dapl_id);
+ static herr_t H5D__init_storage(H5D_t *dset, bool full_overwrite, hsize_t old_dim[]);
+ static herr_t H5D__append_flush_setup(H5D_t *dset, hid_t dapl_id);
+-static herr_t H5D__close_cb(H5VL_object_t *dset_vol_obj, void **request);
++static herr_t H5D__close_cb(void *dset_vol_obj, void **request);
+ static herr_t H5D__use_minimized_dset_headers(H5F_t *file, bool *minimize);
+ static herr_t H5D__prepare_minimized_oh(H5F_t *file, H5D_t *dset, H5O_loc_t *oloc);
+ static size_t H5D__calculate_minimum_header_size(H5F_t *file, H5D_t *dset, H5O_t *ohdr);
+@@ -332,8 +332,9 @@
+  *-------------------------------------------------------------------------
+  */
+ static herr_t
+-H5D__close_cb(H5VL_object_t *dset_vol_obj, void **request)
++H5D__close_cb(void *_dset_vol_obj, void **request)
+ {
++    H5VL_object_t *dset_vol_obj = (H5VL_object_t *)_dset_vol_obj;
+     herr_t ret_value = SUCCEED; /* Return value */
+ 
+     FUNC_ENTER_PACKAGE
+diff -ru src/hdf5-orig/src/H5FD.c src/hdf5-2.0.0/src/H5FD.c
+--- src/hdf5-orig/src/H5FD.c	2025-11-11 00:00:34.000000000 +0000
++++ src/hdf5-2.0.0/src/H5FD.c	2025-11-22 01:32:15.410813300 +0000
+@@ -52,7 +52,7 @@
+ /********************/
+ /* Local Prototypes */
+ /********************/
+-static herr_t H5FD__free_cls(H5FD_class_t *cls, void **request);
++static herr_t H5FD__free_cls(void *cls, void **request);
+ static herr_t H5FD__query(const H5FD_t *f, unsigned long *flags /*out*/);
+ 
+ /*********************/
+@@ -283,8 +283,9 @@
+  *-------------------------------------------------------------------------
+  */
+ static herr_t
+-H5FD__free_cls(H5FD_class_t *cls, void H5_ATTR_UNUSED **request)
++H5FD__free_cls(void *_cls, void H5_ATTR_UNUSED **request)
+ {
++    H5FD_class_t *cls = (H5FD_class_t *)_cls;
+     herr_t ret_value = SUCCEED;
+ 
+     FUNC_ENTER_PACKAGE
+diff -ru src/hdf5-orig/src/H5Fint.c src/hdf5-2.0.0/src/H5Fint.c
+--- src/hdf5-orig/src/H5Fint.c	2025-11-11 00:00:34.000000000 +0000
++++ src/hdf5-2.0.0/src/H5Fint.c	2025-11-22 01:27:24.701994600 +0000
+@@ -71,7 +71,7 @@
+ /* Local Prototypes */
+ /********************/
+ 
+-static herr_t H5F__close_cb(H5VL_object_t *file_vol_obj, void **request);
++static herr_t H5F__close_cb(void *file_vol_obj, void **request);
+ static herr_t H5F__set_vol_conn(H5F_t *file);
+ static herr_t H5F__get_objects(const H5F_t *f, unsigned types, size_t max_index, hid_t *obj_id_list,
+                                bool app_ref, size_t *obj_id_count_ptr);
+@@ -236,8 +236,9 @@
+  *-------------------------------------------------------------------------
+  */
+ static herr_t
+-H5F__close_cb(H5VL_object_t *file_vol_obj, void **request)
++H5F__close_cb(void *_file_vol_obj, void **request)
+ {
++    H5VL_object_t *file_vol_obj = (H5VL_object_t *)_file_vol_obj;
+     herr_t ret_value = SUCCEED; /* Return value */
+ 
+     FUNC_ENTER_PACKAGE
+diff -ru src/hdf5-orig/src/H5Gint.c src/hdf5-2.0.0/src/H5Gint.c
+--- src/hdf5-orig/src/H5Gint.c	2025-11-11 00:00:34.000000000 +0000
++++ src/hdf5-2.0.0/src/H5Gint.c	2025-11-22 01:27:58.782727100 +0000
+@@ -83,7 +83,7 @@
+ 
+ static herr_t H5G__open_oid(H5G_t *grp);
+ static herr_t H5G__visit_cb(const H5O_link_t *lnk, void *_udata);
+-static herr_t H5G__close_cb(H5VL_object_t *grp_vol_obj, void **request);
++static herr_t H5G__close_cb(void *grp_vol_obj, void **request);
+ 
+ /*********************/
+ /* Package Variables */
+@@ -256,8 +256,9 @@
+  *-------------------------------------------------------------------------
+  */
+ static herr_t
+-H5G__close_cb(H5VL_object_t *grp_vol_obj, void **request)
++H5G__close_cb(void *_grp_vol_obj, void **request)
+ {
++    H5VL_object_t *grp_vol_obj = (H5VL_object_t *)_grp_vol_obj;
+     herr_t ret_value = SUCCEED; /* Return value */
+ 
+     FUNC_ENTER_PACKAGE
+diff -ru src/hdf5-orig/src/H5M.c src/hdf5-2.0.0/src/H5M.c
+--- src/hdf5-orig/src/H5M.c	2025-11-11 00:00:34.000000000 +0000
++++ src/hdf5-2.0.0/src/H5M.c	2025-11-22 01:28:27.864530100 +0000
+@@ -38,7 +38,7 @@
+ /********************/
+ /* Local Prototypes */
+ /********************/
+-static herr_t H5M__close_cb(H5VL_object_t *map_vol_obj, void **request);
++static herr_t H5M__close_cb(void *map_vol_obj, void **request);
+ 
+ #ifdef H5_HAVE_MAP_API
+ static hid_t  H5M__create_api_common(hid_t loc_id, const char *name, hid_t key_type_id, hid_t val_type_id,
+@@ -207,8 +207,9 @@
+  *-------------------------------------------------------------------------
+  */
+ static herr_t
+-H5M__close_cb(H5VL_object_t *map_vol_obj, void **request)
++H5M__close_cb(void *_map_vol_obj, void **request)
+ {
++    H5VL_object_t *map_vol_obj = (H5VL_object_t *)_map_vol_obj;
+     H5VL_optional_args_t vol_cb_args;         /* Arguments to VOL callback */
+     herr_t               ret_value = SUCCEED; /* Return value */
+ 
+diff -ru src/hdf5-orig/src/H5T.c src/hdf5-2.0.0/src/H5T.c
+--- src/hdf5-orig/src/H5T.c	2025-11-11 00:00:34.000000000 +0000
++++ src/hdf5-2.0.0/src/H5T.c	2025-11-22 01:29:06.139925800 +0000
+@@ -440,7 +440,7 @@
+ static herr_t H5T__register(H5T_pers_t pers, const char *name, H5T_t *src, H5T_t *dst, H5T_conv_func_t *conv);
+ static htri_t H5T__compiler_conv(H5T_t *src, H5T_t *dst);
+ static herr_t H5T__set_size(H5T_t *dt, size_t size);
+-static herr_t H5T__close_cb(H5T_t *dt, void **request);
++static herr_t H5T__close_cb(void *dt, void **request);
+ static herr_t H5T__init_path_table(void);
+ static bool   H5T__path_table_search(const H5T_t *src, const H5T_t *dst, int *idx, int *last_cmp);
+ static H5T_path_t *H5T__path_find_real(const H5T_t *src, const H5T_t *dst, const char *name,
+@@ -2420,8 +2420,9 @@
+  *-------------------------------------------------------------------------
+  */
+ static herr_t
+-H5T__close_cb(H5T_t *dt, void **request)
++H5T__close_cb(void *_dt, void **request)
+ {
++    H5T_t *dt = (H5T_t *)_dt;
+     herr_t ret_value = SUCCEED; /* Return value */
+ 
+     FUNC_ENTER_PACKAGE
+diff -ru src/hdf5-orig/src/H5VLint.c src/hdf5-2.0.0/src/H5VLint.c
+--- src/hdf5-orig/src/H5VLint.c	2025-11-11 00:00:34.000000000 +0000
++++ src/hdf5-2.0.0/src/H5VLint.c	2025-11-22 01:33:16.034955200 +0000
+@@ -92,7 +92,7 @@
+ /********************/
+ /* Local Prototypes */
+ /********************/
+-static herr_t            H5VL__free_cls(H5VL_class_t *cls);
++static herr_t            H5VL__free_cls(void *cls);
+ static void             *H5VL__wrap_obj(void *obj, H5I_type_t obj_type);
+ static H5VL_connector_t *H5VL__conn_create(H5VL_class_t *cls);
+ static herr_t            H5VL__conn_find(H5PL_vol_key_t *key, H5VL_connector_t **connector);
+@@ -318,8 +318,9 @@
+  *-------------------------------------------------------------------------
+  */
+ static herr_t
+-H5VL__free_cls(H5VL_class_t *cls)
++H5VL__free_cls(void *_cls)
+ {
++    H5VL_class_t *cls = (H5VL_class_t *)_cls;
+     herr_t ret_value = SUCCEED;
+ 
+     FUNC_ENTER_PACKAGE

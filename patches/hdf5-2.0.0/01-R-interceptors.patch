@@ -186,3 +186,18 @@ diff -ru src/hdf5-orig/src/H5private.h src/hdf5-2.0.0/src/H5private.h
  /* POSIX headers */
  #ifdef H5_HAVE_SYS_TIME_H
  #include <sys/time.h>
+diff -ru src/hdf5-orig/src/H5VLpassthru.c src/hdf5-2.0.0/src/H5VLpassthru.c
+--- src/hdf5-orig/src/H5VLpassthru.c	2025-11-11 00:00:34.000000000 +0000
++++ src/hdf5-2.0.0/src/H5VLpassthru.c	2025-11-21 01:33:12.302210500 +0000
+@@ -41,6 +41,11 @@
+ /* This connector's header */
+ #include "H5VLpassthru.h"
+ 
++/* For Rprintf */
++#define R_NO_REMAP 1
++#include <R_ext/Print.h>
++
++
+ /**********/
+ /* Macros */
+ /**********/

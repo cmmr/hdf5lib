@@ -59,7 +59,7 @@ esac
 # Combine flags and export them for downstream configure/make
 # We add our own flags to the ones provided by R
 export CC="${R_CC}"
-export CFLAGS="${R_CFLAGS} ${R_CPICFLAGS} -O2 -g0 -Wno-deprecated-declarations"
+export CFLAGS="${R_CFLAGS} ${R_CPICFLAGS} -O2 -g0 -w"
 export CPPFLAGS="${R_CPPFLAGS} -I${R_INCLUDE_DIR} -I${ZLIB_SRC}"
 
 echo "  CC:        ${CC}"
