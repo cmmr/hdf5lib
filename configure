@@ -148,10 +148,10 @@ echo "--- [hdf5lib] Installing to inst/..."
 cd "$WD"
 mkdir -p inst/lib
 mkdir -p inst/include
-cp "$HDF5_SRC"/src/*.h      inst/include/
-cp "$HDF5_SRC"/hl/src/*.h   inst/include/
-cp "$HDF5_BUILD"/src/*.h    inst/include/
-cp "$HDF5_BUILD/libhdf5z.a" inst/lib/
+cp "$HDF5_SRC"/src/*.h           inst/include/
+cp "$HDF5_SRC"/hl/src/*.h        inst/include/
+cp "$HDF5_BUILD"/src/H5pubconf.h inst/include/
+cp "$HDF5_BUILD/libhdf5z.a"      inst/lib/
 
 echo "--- [hdf5lib] Cleaning up build-time directories..."
 rm -rf src

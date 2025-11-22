@@ -75,3 +75,8 @@ jobs:
         if: always()
         run: find . -name '00install.out' -exec cat {} +
         shell: bash
+
+      - name: Show H5pubconf.h
+        if: always()
+        run: find . -name 'H5pubconf.h' -exec cat {} +
+        shell: bash
