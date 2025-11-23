@@ -10,35 +10,66 @@ url     <- paste0(baseurl, "hdf5_", VER, "/hdf5-", VER, ".tar.gz")
 tarfile <- file.path('src', paste0("hdf5-", VER, ".tar.gz"))
 exdir   <- file.path('src', paste0("hdf5-", VER))
 
-cat("Downloading '", tarfile, "'...\n")
+cat("Downloading ", shQuote(tarfile), "...\n")
 if (file.exists(tarfile)) invisible(file.remove(tarfile))
 download.file(url = url, destfile = tarfile, quiet = TRUE)
 
-cat("Decompressing '", tarfile, "'...\n")
-utils::untar(tarfile = tarfile, exdir = dirname(tarfile))
+# --- 1. Decompress Only the Core and HL Source Files ---
+cat("Decompressing ", shQuote(tarfile), "...\n")
+utils::untar(
+  tarfile = tarfile, 
+  exdir   = dirname(tarfile),
+  file    = paste0('./hdf5-', VER, c('/LICENSE', '/src', '/hl/src')) )
 
 
-# We've disabled a bunch of features, so no need to bundle that code.
-cat('Removing unneeded files...\n')
-unlink(
-  recursive = TRUE,
-  expand    = FALSE,
-  x         = file.path(exdir, c(
-    "c++", "doxygen", "fortran", "HDF5Examples", "java",
-    "release_docs", "test", "testpar", "tools", "utils",
-    file.path("hl", c("c++", "fortran", "test", "tools"))
-  )))
+# --- 2. Remove Unsupported Driver Files ---
+# We explicitly remove sources for features we know we cannot support in CRAN
+# (MPI, HDFS, S3, etc.) to prevent accidental compilation or header errors.
+cat('Removing unsupported driver source files...\n')
 
 
-# Here's where we apply surgical fixes and add new code.
-cat('Applying hdf5 patches files...\n')
-patch_dir <- file.path('patches', paste0("hdf5-", VER))
-for (patch_file in list.files(patch_dir, full.names = TRUE)) {
-  cat("->", basename(patch_file), "\n")
-  system2(command = 'patch', args = c('-p0', '-i', patch_file))
+# Patterns for files to exclude (matches .c and .h)
+driver_patterns <- paste0("^(", paste(c(
+  "CMakeLists.txt",
+  "H5build_settings.*",
+  "libhdf5.settings.in",
+  "H5FDmpi.*",      "H5ACmpio.*",    # MPI Drivers
+  "H5FDhdfs.*",                      # Hadoop HDFS
+  "H5FDros3.*",     "H5FDs3comms.*", # Read-Only S3 (requires Curl/OpenSSL)
+  "H5FDdirect.*",                    # Linux Direct I/O (O_DIRECT)
+  "H5FDsubfiling.*","H5FDioc.*",     # Subfiling & IO Concentrator
+  "H5FDmirror.*"                     # Mirror VFD
+), collapse = "|"), ")$")
+
+# Locate them in the extracted directory
+driver_files <- list.files(
+  path         = exdir,
+  pattern      = driver_patterns,
+  recursive    = TRUE,
+  include.dirs = TRUE,
+  full.names   = TRUE
+)
+
+if (length(driver_files) > 0) {
+  cat("-> Removing", length(driver_files), "driver files (MPI, S3, HDFS, etc.)...\n")
+  unlink(driver_files, recursive = TRUE, expand = FALSE)
+} else {
+  warning("No driver files found to remove. Check directory structure?")
 }
 
 
+# --- 3. Apply Patches ---
+cat('Applying hdf5 patches files...\n')
+patch_dir <- file.path('patches', paste0("hdf5-", VER))
+if (dir.exists(patch_dir)) {
+  for (patch_file in list.files(patch_dir, ".patch$", full.names = TRUE)) {
+    cat("->", basename(patch_file), "\n")
+    system2(command = 'patch', args = c('-p0', '-i', patch_file))
+  }
+}
+
+
+# --- 4. Minify Headers ---
 # Remove block comments from header files, but retain copyright/license.
 h_files <- list.files(exdir, "\\.h$", full.names = TRUE, recursive = TRUE)
 cat('Minifying', length(h_files), 'header files...\n')
@@ -50,6 +81,7 @@ for (h_file in h_files) {
 }
 
 
+# --- 5. Convert C Files to R API ---
 # Global search and replace incompatible C functions.
 # Also remove block comments.
 c_files <- list.files(exdir, "\\.c$", full.names = TRUE, recursive = TRUE)
@@ -69,6 +101,7 @@ for (c_file in c_files) {
 }
 
 
+# --- 6. Repackage ---
 # Create the HDF5 tarball that will ship with hdf5lib.
 invisible(file.remove(tarfile))
 setwd('src')

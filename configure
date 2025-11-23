@@ -7,7 +7,6 @@ echo "--- [hdf5lib] Starting Windows/Unix configuration (STATIC) ---"
 WD="$(pwd)"
 ZLIB_SRC="$WD/src/zlib-1.3.1"
 HDF5_SRC="$WD/src/hdf5-2.0.0"
-HDF5_BUILD="$WD/src/hdf5_build"
 
 # Find R
 R_EXE="$R_HOME/bin$R_ARCH_BIN/R"
@@ -34,10 +33,16 @@ echo "  R_HOME:    ${R_HOME}"
 echo "  R_EXE:     ${R_EXE}"
 echo "  CMAKE_EXE: ${CMAKE_EXE}"
 
-# Detect OS
+# Detect OS and set executable extension
+EXE=""
 case "$(uname -s)" in
-  CYGWIN*|MINGW*|MSYS*) WIN=1 ;;
-  *) WIN=0 ;;
+  CYGWIN*|MINGW*|MSYS*) 
+    WIN=1 
+    EXE=".exe"
+    ;;
+  *) 
+    WIN=0 
+    ;;
 esac
 
 # Get R's compiler/linker flags to ensure we respect the build environment
@@ -49,25 +54,22 @@ R_LDFLAGS=$("$R_EXE" CMD config LDFLAGS)
 R_INCLUDE_DIR=$("$R_EXE" -s -e "cat(R.home('include'))")
 
 # Conditionally quote R_INCLUDE_DIR if it contains whitespace.
-# This prevents the path from being split into multiple arguments by the shell.
 case "$R_INCLUDE_DIR" in
-  *\ *)
-    R_INCLUDE_DIR="\"$R_INCLUDE_DIR\""
-    ;;
+  *\ *) R_INCLUDE_DIR="\"$R_INCLUDE_DIR\"" ;;
 esac
 
-# Combine flags and export them for downstream configure/make
-# We add our own flags to the ones provided by R
+# Combine flags
+# Note: -w disables warnings which is cleaner for the console output
 export CC="${R_CC}"
 export CFLAGS="${R_CFLAGS} ${R_CPICFLAGS} -O2 -g0 -w"
-export CPPFLAGS="${R_CPPFLAGS} -I${R_INCLUDE_DIR} -I${ZLIB_SRC}"
+# Critical: Add -I includes for HDF5 internal headers and ZLIB
+export CPPFLAGS="${R_CPPFLAGS} -I${R_INCLUDE_DIR} -I${ZLIB_SRC} -I. -Isrc -Ihl/src"
 
 echo "  CC:        ${CC}"
 echo "  CFLAGS:    ${CFLAGS}"
 echo "  CPPFLAGS:  ${CPPFLAGS}"
 
 # Extract hdf5 and zlib tarballs
-# Use R's internal untar for cross-platform reliability
 echo "--- [hdf5lib] Decompressing HDF5 and zlib tarballs..."
 cd "$WD/src"
 "$R_EXE" -q -e "utils::untar('hdf5-2.0.0.tar.gz')"
@@ -88,62 +90,70 @@ else
 fi
 
 
-# --- 2. Build Static HDF5 2.0 with CMake ---
+# --- 2. Build Static HDF5 2.0 (Manual Compilation) ---
 echo "--- [hdf5lib] Configuring HDF5 2.0..."
+cd "$HDF5_SRC"
 
-# Create out-of-source build directory (Required by CMake)
-mkdir -p "$HDF5_BUILD"
-cd "$HDF5_BUILD"
+# Move the pre-configured header into place
+# This header must use __has_include logic and #include "H5_sizeof.h"
+mv ../H5pubconf.h .
 
-# CMake Configuration
-cmake "$HDF5_SRC" \
-  -DCMAKE_C_FLAGS="${CFLAGS} ${CPPFLAGS}" \
-  -DCMAKE_BUILD_TYPE=Release \
-  -DBUILD_SHARED_LIBS=OFF \
-  -DBUILD_TESTING=OFF \
-  -DHDF5_BUILD_TOOLS=OFF \
-  -DHDF5_BUILD_EXAMPLES=OFF \
-  -DHDF5_ENABLE_NONSTANDARD_FEATURE_FLOAT16=OFF \
-  -DHDF5_ENABLE_ZLIB_SUPPORT=ON \
-  -DZLIB_USE_EXTERNAL=OFF \
-  -DZLIB_LIBRARY="$ZLIB_SRC/libz.a" \
-  -DZLIB_INCLUDE_DIR="$ZLIB_SRC" \
-  -DCMAKE_USE_PTHREADS_INIT=ON \
-  -DHDF5_ENABLE_THREADSAFE=ON \
-  -DHDF5_ALLOW_UNSUPPORTED=ON \
-  -Wno-dev
+# --- A. GENERATOR PHASE ---
 
-# Fix line endings for CRAN compliance (H5pubconf.h often has CRLF)
-if [ "$WIN" -eq 1 ]; then
-  echo "--- [hdf5lib] Fixing line endings in generated H5pubconf.h..."
-  sed -i 's/\r$//' src/H5pubconf.h
-fi
+# 1. Generate H5_sizeof.h (Type Sizes)
+echo "--- [hdf5lib] Generating H5_sizeof.h..."
+"${CC}" ${CFLAGS} ${CPPFLAGS} -o gen_sizeof${EXE} gen_sizeof.c
+./gen_sizeof${EXE} > src/H5_sizeof.h
 
-cat src/H5pubconf.h
-exit 1
+# 2. Generate H5Tinit.c (Floating Point detection - REQUIRED)
+# HDF5 cannot compile without this file.
+echo "--- [hdf5lib] Generating H5Tinit.c..."
+"${CC}" ${CFLAGS} ${CPPFLAGS} -o H5detect${EXE} src/H5detect.c
+./H5detect${EXE} > src/H5Tinit.c
 
-# Compile
-echo "--- [hdf5lib] Compiling HDF5..."
-cmake --build . --config Release
+# 3. Generate H5lib_settings.c (Library Settings - REQUIRED)
+echo "--- [hdf5lib] Generating H5lib_settings.c..."
+"${CC}" ${CFLAGS} ${CPPFLAGS} -o H5make_libsettings${EXE} src/H5make_libsettings.c
+./H5make_libsettings${EXE} > src/H5lib_settings.c
+
+
+# --- B. COMPILATION PHASE ---
+echo "--- [hdf5lib] Compiling HDF5 Sources..."
+
+# Gather all .c files from:
+# 1. src/ (Core library)
+# 2. hl/src/ (High Level library)
+# 3. The generated H5Tinit.c and H5lib_settings.c are already in src/
+FILES=$(ls src/*.c hl/src/*.c)
+
+# Filter out the generator tools themselves so we don't try to link 'main' twice
+# (H5detect.c and H5make_libsettings.c contain main() functions)
+FILES=$(echo "$FILES" | grep -v "H5detect.c" | grep -v "H5make_libsettings.c")
+
+for f in $FILES; do
+    # Flatten output: src/H5F.c -> H5F.o
+    obj_name=$(basename "${f%.c}.o")
+    
+    # Compile
+    # Note: CPPFLAGS already includes -I. -Isrc -Ihl/src from above
+    "${CC}" ${CFLAGS} ${CPPFLAGS} -c "$f" -o "$obj_name"
+done
 
 
 # --- 3. Combine, Link, and Archive ---
 echo "--- [hdf5lib] Combining all object files into a single static library..."
 
-# Extract all object files from the compiled archives
-ar -x bin/libhdf5.a
-ar -x bin/libhdf5_hl.a
+# Extract zlib objects
 ar -x "$ZLIB_SRC/libz.a"
 
-# Merge all object files into a single static library
-if [ "$WIN" -eq 1 ]; then
-  ar -crs libhdf5z.a *.o *.obj
-else
-  echo "--- [hdf5lib] Linking and striping object files..."
-  ld -r -o libhdf5z.o *.o
-  strip -S libhdf5z.o || true
-  ar -crs libhdf5z.a libhdf5z.o
-fi
+# Merge all object files (HDF5 + ZLIB) into a single static library
+echo "--- [hdf5lib] Linking and stripping object files..."
+
+# Note: We use *.o to grab both the HDF5 objects we just built 
+# AND the zlib objects we just extracted.
+ld -r -o libhdf5z.o *.o
+strip -S libhdf5z.o || true
+ar -crs libhdf5z.a libhdf5z.o
 
 
 # --- 5. Install Libraries and Headers for R ---
@@ -151,13 +161,20 @@ echo "--- [hdf5lib] Installing to inst/..."
 cd "$WD"
 mkdir -p inst/lib
 mkdir -p inst/include
-cp "$HDF5_SRC"/src/*.h           inst/include/
-cp "$HDF5_SRC"/hl/src/*.h        inst/include/
-cp "$HDF5_BUILD"/src/H5pubconf.h inst/include/
-cp "$HDF5_BUILD/libhdf5z.a"      inst/lib/
+
+# Copy headers
+cp "$HDF5_SRC"/src/*.h    inst/include/
+cp "$HDF5_SRC"/hl/src/*.h inst/include/
+
+# Copy the manual headers we generated/moved
+cp "$HDF5_SRC"/H5pubconf.h inst/include/
+cp "$HDF5_SRC"/src/H5_sizeof.h inst/include/
+
+# Copy the static lib
+cp "$HDF5_SRC"/libhdf5z.a inst/lib/
 
 echo "--- [hdf5lib] Cleaning up build-time directories..."
 rm -rf src
 
-echo "--- [hdf5lib] Unix configuration complete. ---"
+echo "--- [hdf5lib] Configuration complete. ---"
 exit 0

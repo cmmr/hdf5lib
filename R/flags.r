@@ -78,7 +78,7 @@ ld_flags <- function() {
     lib_dir_flag, # Pass the full path hdf5lib's /lib directory
     "-lhdf5z",    # Link to our libhdf5z.a static library
     "-lpthread",  # HDF5 dependency for thread-safety
-    if (.Platform$OS.type == "unix") "-ldl" # HDF5 dependency on Unix
+    if (.Platform$OS.type == "unix") "-ldl" else '-lws2_32'
   )
   
   # Collapse all flags into a single, space-separated string
