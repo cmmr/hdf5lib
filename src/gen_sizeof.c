@@ -41,7 +41,7 @@ int main(void) {
     } else {
         printf("#define WORDS_BIGENDIAN 1\n");
     }
-
+    
     printf("\n#endif\n");
     return 0;
 }
