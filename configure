@@ -95,7 +95,7 @@ echo "--- [hdf5lib] Configuring HDF5 2.0..."
 cd "$HDF5_SRC"
 
 # Move the pre-configured header into place
-# This header must use __has_include logic and #include "H5_sizeof.h"
+# This header uses __has_include logic and "H5_sizeof.h"
 mv ../H5pubconf.h src/
 
 # --- A. GENERATOR PHASE ---
@@ -149,10 +149,6 @@ mkdir -p inst/include
 # Copy headers
 cp "$HDF5_SRC"/src/*.h    inst/include/
 cp "$HDF5_SRC"/hl/src/*.h inst/include/
-
-# Copy the manual headers we generated/moved
-cp "$HDF5_SRC"/H5pubconf.h inst/include/
-cp "$HDF5_SRC"/src/H5_sizeof.h inst/include/
 
 # Copy the static lib
 cp "$HDF5_SRC"/libhdf5z.a inst/lib/
