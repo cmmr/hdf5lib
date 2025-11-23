@@ -96,13 +96,13 @@ cd "$HDF5_SRC"
 
 # Move the pre-configured header into place
 # This header must use __has_include logic and #include "H5_sizeof.h"
-mv ../H5pubconf.h .
+mv ../H5pubconf.h src/
 
 # --- A. GENERATOR PHASE ---
 
 # 1. Generate H5_sizeof.h (Type Sizes)
 echo "--- [hdf5lib] Generating H5_sizeof.h..."
-${CC} ${CFLAGS} ${CPPFLAGS} -o gen_sizeof${EXE} gen_sizeof.c
+${CC} ${CFLAGS} ${CPPFLAGS} -o gen_sizeof${EXE} ../gen_sizeof.c
 ./gen_sizeof${EXE} > src/H5_sizeof.h
 
 # 2. Generate H5Tinit.c (Floating Point detection - REQUIRED)
@@ -110,11 +110,13 @@ ${CC} ${CFLAGS} ${CPPFLAGS} -o gen_sizeof${EXE} gen_sizeof.c
 echo "--- [hdf5lib] Generating H5Tinit.c..."
 ${CC} ${CFLAGS} ${CPPFLAGS} -o H5detect${EXE} src/H5detect.c
 ./H5detect${EXE} > src/H5Tinit.c
+rm src/H5detect.c
 
 # 3. Generate H5lib_settings.c (Library Settings - REQUIRED)
 echo "--- [hdf5lib] Generating H5lib_settings.c..."
 ${CC} ${CFLAGS} ${CPPFLAGS} -o H5make_libsettings${EXE} src/H5make_libsettings.c
 ./H5make_libsettings${EXE} > src/H5lib_settings.c
+rm src/H5make_libsettings.c
 
 
 # --- B. COMPILATION PHASE ---
@@ -125,10 +127,6 @@ echo "--- [hdf5lib] Compiling HDF5 Sources..."
 # 2. hl/src/ (High Level library)
 # 3. The generated H5Tinit.c and H5lib_settings.c are already in src/
 FILES=$(ls src/*.c hl/src/*.c)
-
-# Filter out the generator tools themselves so we don't try to link 'main' twice
-# (H5detect.c and H5make_libsettings.c contain main() functions)
-FILES=$(echo "$FILES" | grep -v "H5detect.c" | grep -v "H5make_libsettings.c")
 
 for f in $FILES; do
     # Flatten output: src/H5F.c -> H5F.o

@@ -6,3 +6,5 @@
 hdf5lib.Rproj
 CRAN-SUBMISSION
 cran-comments.md
+src/hdf5-*/
+src/zlib-*/
