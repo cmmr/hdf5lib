@@ -24,39 +24,18 @@ utils::untar(
 
 # --- 2. Remove Unsupported Driver Files ---
 # We explicitly remove sources for features we know we cannot support in CRAN
-# (MPI, HDFS, S3, etc.) to prevent accidental compilation or header errors.
+# (MPI, HDFS, S3, etc.) to prevent accidental compilation.
+# NOTE: We must ONLY remove the .c files. The .h files are often included
+# by H5FDprivate.h (even if guarded by #ifdefs), so they must exist.
 cat('Removing unsupported driver source files...\n')
-
-
-# Patterns for files to exclude (matches .c and .h)
-driver_patterns <- paste0("^(", paste(c(
-  "CMakeLists.txt",
-  "H5build_settings.*",
-  "libhdf5.settings.in",
-  "H5FDmpi.*",      "H5ACmpio.*",    # MPI Drivers
-  "H5FDhdfs.*",                      # Hadoop HDFS
-  "H5FDros3.*",     "H5FDs3comms.*", # Read-Only S3 (requires Curl/OpenSSL)
-  "H5FDdirect.*",                    # Linux Direct I/O (O_DIRECT)
-  "H5FDsubfiling.*","H5FDioc.*",     # Subfiling & IO Concentrator
-  "H5FDmirror.*"                     # Mirror VFD
-), collapse = "|"), ")$")
-
-# Locate them in the extracted directory
-driver_files <- list.files(
-  path         = exdir,
-  pattern      = driver_patterns,
-  recursive    = TRUE,
-  include.dirs = TRUE,
-  full.names   = TRUE
-)
-
-if (length(driver_files) > 0) {
-  cat("-> Removing", length(driver_files), "driver files (MPI, S3, HDFS, etc.)...\n")
-  unlink(driver_files, recursive = TRUE, expand = FALSE)
-} else {
-  warning("No driver files found to remove. Check directory structure?")
-}
-
+file.remove(c(
+  "src/hdf5-2.0.0/src/CMakeLists.txt", "src/hdf5-2.0.0/hl/src/CMakeLists.txt",
+  "src/hdf5-2.0.0/src/H5ACmpio.c",     "src/hdf5-2.0.0/src/H5build_settings.cmake.c.in",
+  "src/hdf5-2.0.0/src/H5FDdirect.c",   "src/hdf5-2.0.0/src/H5build_settings.off.c.in",
+  "src/hdf5-2.0.0/src/H5FDhdfs.c",     "src/hdf5-2.0.0/src/H5FDsubfiling/CMakeLists.txt",
+  "src/hdf5-2.0.0/src/H5FDmirror.c",   "src/hdf5-2.0.0/src/H5FDsubfiling/H5FDioc.c",
+  "src/hdf5-2.0.0/src/H5FDmpi.c",      "src/hdf5-2.0.0/src/H5FDsubfiling/H5FDsubfiling.c",
+  "src/hdf5-2.0.0/src/H5FDros3.c",     "src/hdf5-2.0.0/src/libhdf5.settings.in" ))
 
 # --- 3. Apply Patches ---
 cat('Applying hdf5 patches files...\n')
