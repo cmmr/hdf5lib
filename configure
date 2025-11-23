@@ -21,13 +21,6 @@ if ! test -f "$R_EXE"; then
   fi
 fi
 
-# Find cmake
-CMAKE_EXE=$(which cmake 2>/dev/null)
-if ! test -f "$CMAKE_EXE"; then
-  echo "CMake was not found on the PATH. Please install CMake."
-  exit 1
-fi
-
 echo "  WD:        ${WD}"
 echo "  R_HOME:    ${R_HOME}"
 echo "  R_EXE:     ${R_EXE}"
