@@ -114,6 +114,7 @@
 #endif
 #if __has_include(<stdatomic.h>)
     #define H5_HAVE_STDATOMIC_H 1
+    #define H5_HAVE_CONCURRENCY 1
 #endif
 #if __has_include(<netdb.h>)
     #define H5_HAVE_NETDB_H 1
@@ -169,6 +170,7 @@
     #undef H5_HAVE_FLOCK
     #undef H5_HAVE_ASPRINTF   /* Fixes implicit declaration of vasprintf */
     #undef H5_HAVE_VASPRINTF
+    #undef H5_HAVE_CONCURRENCY  /* CONCURRENCY is problematic for Win32 static builds. */
 
 /* --- POSIX Specifics (Linux / macOS / Solaris / BSD) --- */
 #else
