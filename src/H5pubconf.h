@@ -60,9 +60,20 @@
 #define H5_HAVE_C99_COMPLEX_NUMBERS 1
 #define H5_HAVE_COMPLEX_NUMBERS 1
 
-/* B. Conditional POSIX Headers */
+/* B. Conditional Headers (POSIX & Windows) */
+/* These use __has_include to be platform-agnostic */
+
 #if __has_include(<unistd.h>)
     #define H5_HAVE_UNISTD_H 1
+#endif
+#if __has_include(<sys/types.h>)
+    #define H5_HAVE_SYS_TYPES_H 1
+#endif
+#if __has_include(<sys/stat.h>)
+    #define H5_HAVE_SYS_STAT_H 1
+#endif
+#if __has_include(<io.h>)
+    #define H5_HAVE_IO_H 1
 #endif
 #if __has_include(<sys/time.h>)
     #define H5_HAVE_SYS_TIME_H 1
@@ -72,6 +83,9 @@
 #endif
 #if __has_include(<sys/file.h>)
     #define H5_HAVE_SYS_FILE_H 1
+#endif
+#if __has_include(<dirent.h>)
+    #define H5_HAVE_DIRENT_H 1
 #endif
 #if __has_include(<dlfcn.h>)
     #define H5_HAVE_DLFCN_H 1
