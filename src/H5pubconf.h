@@ -4,8 +4,6 @@
 /* ========================================================================== */
 /* 1. Runtime / Generator Definitions                                       */
 /* ========================================================================== */
-/* Expects H5_SIZEOF_* macros and Endianness definitions from gen_config.c.
-   If gen_config.c fails or is skipped, we provide fallbacks below. */
 #include "H5_sizeof.h"
 
 
@@ -21,7 +19,6 @@
 #define H5_PACKAGE_URL "https://www.hdfgroup.org"
 #define H5_VERSION "2.0.0"
 
-/* Core HDF5 Policies (Enabled in all reference builds) */
 #define H5_USE_FILE_LOCKING 1
 #define H5_IGNORE_DISABLED_FILE_LOCKS 1
 #define H5_HAVE_EMBEDDED_LIBINFO 1
@@ -37,24 +34,17 @@
     #error "Your compiler is too old to build this package. GCC >= 5.0 or Clang >= 3.0 is required."
 #endif
 
-/* Compiler Attributes */
 #define H5_HAVE_ATTRIBUTE 1
-
-/* C99/C11 Features */
 #define H5_HAVE_C99_COMPLEX_NUMBERS 1
 #define H5_HAVE_COMPLEX_NUMBERS 1
 #define H5_STDC_HEADERS 1
+#define H5_HAVE_IEEE_754 1
 
-/* High Precision Float Support (HDF5 2.0+) */
-/* Detects __float128 support (common on GCC/Clang for x86_64) */
 #ifdef __SIZEOF_FLOAT128__
     #define H5_HAVE_FLOAT128 1
 #endif
 
-/* Data Representation */
-#define H5_HAVE_IEEE_754 1
-
-/* Endianness Fallback (If H5_sizeof.h didn't define it) */
+/* Endianness Fallback */
 #ifndef WORDS_BIGENDIAN
     #if defined(__BYTE_ORDER__) && defined(__ORDER_BIG_ENDIAN__) && \
         __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
@@ -66,7 +56,6 @@
 /* ========================================================================== */
 /* 4. Threading Support                                                     */
 /* ========================================================================== */
-/* We enforce Pthreads on all R platforms (including Windows via Rtools) */
 #if __has_include(<pthread.h>)
     #define H5_HAVE_PTHREAD_H 1
     #define H5_HAVE_THREADSAFE 1
@@ -75,9 +64,8 @@
 
 
 /* ========================================================================== */
-/* 5. Header Availability (Robust __has_include checks)                     */
+/* 5. Header Availability                                                   */
 /* ========================================================================== */
-
 #if __has_include(<unistd.h>)
     #define H5_HAVE_UNISTD_H 1
 #endif
@@ -132,7 +120,6 @@
 /* ========================================================================== */
 /* 6. Filter & Compression Support                                          */
 /* ========================================================================== */
-/* We bundle zlib, so these are always true for hdf5lib */
 #define H5_HAVE_FILTER_DEFLATE 1
 #define H5_HAVE_ZLIB_H 1
 #define H5_HAVE_LIBZ 1
@@ -143,9 +130,7 @@
 /* 7. Platform Specifics                                                    */
 /* ========================================================================== */
 
-/* --- Universal Functions (Available on MinGW, Linux, and macOS) --- */
-#define H5_HAVE_ASPRINTF 1
-#define H5_HAVE_VASPRINTF 1
+/* Truly Universal (MinGW + POSIX) */
 #define H5_HAVE_STRDUP 1
 #define H5_HAVE_GETTIMEOFDAY 1
 #define H5_HAVE_TIMEZONE 1
@@ -162,13 +147,16 @@
     #define H5_HAVE_WINDOW_PATH 1
     #define H5_HAVE_GETCONSOLESCREENBUFFERINFO 1
     
-    /* Default Plugin Path for Windows */
     #define H5_DEFAULT_PLUGINDIR "%ALLUSERSPROFILE%\\hdf5\\lib\\plugin"
     
-    /* Explicitly Deny Win32 Threads (We use Pthreads via Rtools) */
+    /* Use Pthreads, not Win32 threads */
     #undef H5_HAVE_WIN_THREADS 
+    
+    /* MinGW lacks these, so HDF5 must provide replacements */
+    #undef H5_HAVE_ASPRINTF
+    #undef H5_HAVE_VASPRINTF
 
-/* --- POSIX Specifics (Linux / macOS / Solaris / BSD) --- */
+/* --- POSIX Specifics (Linux / macOS) --- */
 #else
     #define H5_HAVE_ALARM 1
     #define H5_HAVE_FORK 1
@@ -183,12 +171,14 @@
     #define H5_HAVE_STAT_ST_BLOCKS 1
     #define H5_HAVE_QSORT_REENTRANT 1
     
-    /* IOCTL Support */
+    /* These exist on POSIX */
+    #define H5_HAVE_ASPRINTF 1
+    #define H5_HAVE_VASPRINTF 1
+
     #define H5_HAVE_IOCTL 1
     #define H5_HAVE_TIOCGETD 1
     #define H5_HAVE_TIOCGWINSZ 1
 
-    /* Default Plugin Path for POSIX */
     #define H5_DEFAULT_PLUGINDIR "/usr/local/hdf5/lib/plugin"
     
     #if defined(__APPLE__)
