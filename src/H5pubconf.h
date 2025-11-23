@@ -136,7 +136,6 @@
     #define H5_HAVE_UNISTD_H 1
     #define H5_HAVE_ALARM 1
     #define H5_HAVE_FORK 1
-    #define H5_HAVE_WAITPID 1
     #define H5_HAVE_GETHOSTNAME 1
     #define H5_HAVE_SYMLINK 1
     #define H5_HAVE_PREADWRITE 1
@@ -157,6 +156,7 @@
 
 #if __has_include(<sys/wait.h>)
     #define H5_HAVE_SYS_WAIT_H 1
+    #define H5_HAVE_WAITPID 1
 #endif
 
 #if __has_include(<sys/file.h>)
@@ -242,7 +242,7 @@
 /* ========================================================================== */
 
 /* --- Windows Specifics (Rtools / MinGW) --- */
-#if defined(_WIN32)|| defined(__MINGW32__)
+#if defined(_WIN32) || defined(__MINGW32__)
     #define H5_HAVE_WINDOWS 1
     #define H5_HAVE_WIN32_API 1
     #define H5_HAVE_MINGW 1
@@ -265,8 +265,6 @@
     #undef H5_HAVE_FLOCK
     #undef H5_HAVE_SYMLINK
     #undef H5_HAVE_PREADWRITE
-    #undef H5_HAVE_WAITPID
-    #undef H5_HAVE_SYS_WAIT_H
 
     /* String/Time/System: Missing GNU/BSD extensions on Windows */
     #undef H5_HAVE_ASPRINTF
