@@ -96,8 +96,7 @@ cd "$HDF5_SRC"
 
 # Move the pre-configured header into place
 # This header must use __has_include logic and #include "H5_sizeof.h"
-mv ../H5pubconf.h      src/
-mv ../H5lib_settings.c src/
+mv ../H5pubconf.h src/
 
 # --- A. GENERATOR PHASE ---
 
