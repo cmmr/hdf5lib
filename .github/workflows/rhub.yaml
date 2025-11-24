@@ -61,7 +61,6 @@ jobs:
 
       - uses: r-hub/actions/setup-deps@v1
         with:
-          cache: false
           token: ${{ secrets.RHUB_TOKEN }}
           job-config: ${{ matrix.config.job-config }}
 
@@ -102,7 +101,6 @@ jobs:
 
       - uses: r-hub/actions/setup-deps@v1
         with:
-          cache: false
           job-config: ${{ matrix.config.job-config }}
           token: ${{ secrets.RHUB_TOKEN }}
 
