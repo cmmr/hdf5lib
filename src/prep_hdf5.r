@@ -38,6 +38,7 @@ invisible(file.remove(c(
   "src/hdf5-2.0.0/src/H5FDmirror.c",   "src/hdf5-2.0.0/src/H5FDmpi.c",
   "src/hdf5-2.0.0/src/H5FDros3.c",     "src/hdf5-2.0.0/src/libhdf5.settings.in" )))
 
+
 # --- 3. Apply Patches ---
 cat('Applying hdf5 patches files...\n')
 patch_dir   <- file.path('patches', paste0("hdf5-", VER))
@@ -132,6 +133,10 @@ writeLines(makefile_lines, con = file.path(exdir, "Makefile"))
 # Create the HDF5 tarball that will ship with hdf5lib.
 invisible(file.remove(tarfile))
 setwd('src')
+
+# Add in our custom H5pubconf.h file
+file.copy("H5pubconf.h", paste0("hdf5-", VER, "/src/"))
+
 utils::tar(
   tarfile = paste0("hdf5-", VER, ".tar.gz"), 
   files   = paste0("hdf5-", VER), 

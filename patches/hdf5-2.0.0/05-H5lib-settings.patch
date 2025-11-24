@@ -1,0 +1,21 @@
+diff -ru src/hdf5-orig/src/H5.c src/hdf5-2.0.0/src/H5.c
+--- src/hdf5-orig/src/H5.c	2025-11-11 00:00:34.000000000 +0000
++++ src/hdf5-2.0.0/src/H5.c	2025-11-24 20:47:32.448116300 +0000
+@@ -68,6 +68,17 @@
+ /* Package initialization variable */
+ bool H5_PKG_INIT_VAR = false;
+ 
++const char H5libhdf5_settings[] = 
++    "HDF5 Library Version: 2.0.0\n"
++    "   configured on: R-Package-Build\n"
++    "   configured by: R-User\n"
++    "      build mode: C-Only\n"
++    "support: none";
++
++const char H5build_settings[] = 
++    "HDF5 Library Version: 2.0.0\n"
++    "   configured on: R-Package-Build\n";
++
+ /*****************************/
+ /* Library Private Variables */
+ /*****************************/
