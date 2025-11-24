@@ -7,4 +7,3 @@
 ^src/prep_zlib\.r$
 ^cran-comments\.md$
 ^CRAN-SUBMISSION$
-^\.Rproj\.user$
