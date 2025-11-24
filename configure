@@ -149,5 +149,7 @@ cp "$HDF5_SRC"/libhdf5z.a inst/lib/
 # Cleanup
 rm -rf src
 
+echo "  Final install size: $(du -sh inst/ | cut -f1)"
+
 echo "--- [hdf5lib] Done. ---"
 exit 0
