@@ -1,0 +1,5 @@
+# Set default behavior to automatically detect text files and force them to LF
+* text=auto eol=lf
+
+# Explicitly force the configure script to use LF (just to be safe)
+configure text eol=lf
