@@ -14,13 +14,13 @@ if [ ! -f "$R_EXE" ]; then
   R_EXE="${R_HOME}/bin/R"
   if [ ! -f "$R_EXE" ]; then
     R_EXE=$(which R 2>/dev/null || true)
-    if [ -z "$R_EXE" ]; then
-      echo "Error: R not found. Please ensure R is installed and in your PATH."
-      exit 1
-    fi
   fi
 fi
 
+if [ -z "$R_EXE" ]; then
+  echo "Error: R not found. Please ensure R is installed and in your PATH."
+  exit 1
+fi
 
 # Detect OS (Windows vs Unix) for logic branching
 case "$(uname -s)" in
@@ -87,6 +87,7 @@ cd "$HDF5_SRC"
 
 # A. Generators
 # Compile and run generator to detect system type sizes (creates src/H5_sizeof.h)
+# Use unquoted $CC to allow arguments like -std=gnu11
 $CC $CPPFLAGS $CFLAGS -o gen_sizeof$EXE ../gen_sizeof.c
 ./gen_sizeof$EXE | tr -d '\r' > src/H5_sizeof.h
 
@@ -98,6 +99,7 @@ case " $MAKEFLAGS " in
 esac
 
 # Use the pre-generated Makefile (from prep_hdf5.r) to build all objects
+# Explicitly passing CC/CFLAGS overrides the defaults in the Makefile
 "$R_MAKE" $N_JOBS CC="$CC" CFLAGS="$CFLAGS" CPPFLAGS="$CPPFLAGS" >/dev/null
 
 
@@ -109,7 +111,7 @@ echo "--- [hdf5lib] Linking static library..."
 
 # Logic: Use partial linking (ld -r) on non-Windows systems to reduce size.
 # On Windows, or if 'ld' is missing, fallback to standard archiving.
-if [ "$WIN" -eq 0 && command -v "$R_LD" >/dev/null 2>&1 ]; then
+if [ "$WIN" -eq 0 ] && command -v "$R_LD" >/dev/null 2>&1; then
   # Merge all .o files into one big object (deduplicates symbols/sections)
   "$R_LD" -r -o libhdf5.obj *.o
   rm *.o
