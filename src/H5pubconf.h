@@ -126,11 +126,11 @@
     #define H5_HAVE_PTHREAD_H 1
     #define H5_HAVE_THREADSAFE 1
     #define H5_HAVE_THREADS 1
+    #define H5_HAVE_CONCURRENCY 1
 #endif
 
 #if __has_include(<stdatomic.h>)
     #define H5_HAVE_STDATOMIC_H 1
-    #define H5_HAVE_CONCURRENCY 1
 #endif
 
 /* --- System Headers & Features --- */
@@ -260,8 +260,7 @@
      */
 
     /* Threading: Use Pthreads (already enabled above), explicit deny Win32 threads */
-    #undef H5_HAVE_WIN_THREADS 
-    #undef H5_HAVE_CONCURRENCY /* Static builds on Windows cannot support concurrency/atomics */
+    #undef H5_HAVE_WIN_THREADS
 
     /* File I/O & Locking: MinGW has headers but lacks struct flock or correct fcntl behavior */
     #undef H5_HAVE_FCNTL
