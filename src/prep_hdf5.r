@@ -28,20 +28,21 @@ utils::untar(
 # NOTE: We must ONLY remove the .c files. The .h files are often included
 # by H5FDprivate.h (even if guarded by #ifdefs), so they must exist.
 cat('Removing unsupported driver source files...\n')
-file.remove(c(
+invisible(file.remove(c(
   "src/hdf5-2.0.0/src/CMakeLists.txt", "src/hdf5-2.0.0/hl/src/CMakeLists.txt",
   "src/hdf5-2.0.0/src/H5ACmpio.c",     "src/hdf5-2.0.0/src/H5build_settings.cmake.c.in",
   "src/hdf5-2.0.0/src/H5FDdirect.c",   "src/hdf5-2.0.0/src/H5build_settings.off.c.in",
   "src/hdf5-2.0.0/src/H5FDhdfs.c",     "src/hdf5-2.0.0/src/H5FDsubfiling/CMakeLists.txt",
   "src/hdf5-2.0.0/src/H5FDmirror.c",   "src/hdf5-2.0.0/src/H5FDsubfiling/H5FDioc.c",
   "src/hdf5-2.0.0/src/H5FDmpi.c",      "src/hdf5-2.0.0/src/H5FDsubfiling/H5FDsubfiling.c",
-  "src/hdf5-2.0.0/src/H5FDros3.c",     "src/hdf5-2.0.0/src/libhdf5.settings.in" ))
+  "src/hdf5-2.0.0/src/H5FDros3.c",     "src/hdf5-2.0.0/src/libhdf5.settings.in" )))
 
 # --- 3. Apply Patches ---
 cat('Applying hdf5 patches files...\n')
-patch_dir <- file.path('patches', paste0("hdf5-", VER))
+patch_dir   <- file.path('patches', paste0("hdf5-", VER))
+patch_files <- list.files(patch_dir, ".patch$", full.names = TRUE)
 if (dir.exists(patch_dir)) {
-  for (patch_file in list.files(patch_dir, ".patch$", full.names = TRUE)) {
+  for (patch_file in patch_files) {
     cat("->", basename(patch_file), "\n")
     system2(command = 'patch', args = c('-p0', '-i', patch_file))
   }

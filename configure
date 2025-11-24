@@ -53,10 +53,14 @@ esac
 
 # Combine flags
 # Note: -w disables warnings which is cleaner for the console output
+# 1. Added -DH5_BUILT_AS_STATIC_LIB to inform HDF5 internals we are static.
+# 2. Explicitly defined -DH5_DLL="" and -DH5HL_DLL="" to empty. 
+#    This fixes "unknown type name 'H5HL_DLL'" errors by ensuring the macro 
+#    always exists and adds no attributes (correct for static libs).
+# 3. Add -I includes for HDF5 internal headers and ZLIB
 export CC="${R_CC}"
 export CFLAGS="${R_CFLAGS} ${R_CPICFLAGS} -O2 -g0 -w"
-# Critical: Add -I includes for HDF5 internal headers and ZLIB
-export CPPFLAGS="${R_CPPFLAGS} -I${R_INCLUDE_DIR} -I${ZLIB_SRC} -I. -Isrc -Ihl/src"
+export CPPFLAGS="${R_CPPFLAGS} -I${R_INCLUDE_DIR} -I${ZLIB_SRC} -I. -Isrc -Ihl/src -DH5_BUILT_AS_STATIC_LIB -DH5_DLL=\"\" -DH5HL_DLL=\"\""
 
 echo "  CC:        ${CC}"
 echo "  CFLAGS:    ${CFLAGS}"

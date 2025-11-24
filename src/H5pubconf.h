@@ -77,7 +77,6 @@
 #define H5_PACKAGE_URL "https://www.hdfgroup.org"
 #define H5_VERSION "2.0.0"
 
-#define H5_BUILT_AS_STATIC_LIB 1
 #define H5_USE_FILE_LOCKING 1
 #define H5_IGNORE_DISABLED_FILE_LOCKS 1
 #define H5_HAVE_EMBEDDED_LIBINFO 1
