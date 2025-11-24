@@ -60,7 +60,7 @@ esac
 # 3. Add -I includes for HDF5 internal headers and ZLIB
 export CC="${R_CC}"
 export CFLAGS="${R_CFLAGS} ${R_CPICFLAGS} -O2 -g0 -w"
-export CPPFLAGS="${R_CPPFLAGS} -I${R_INCLUDE_DIR} -I${ZLIB_SRC} -I. -Isrc -Ihl/src -DH5_BUILT_AS_STATIC_LIB -DH5_DLL=\"\" -DH5HL_DLL=\"\""
+export CPPFLAGS="${R_CPPFLAGS} -I${R_INCLUDE_DIR} -I${ZLIB_SRC} -I. -Isrc -Ihl/src -DH5_BUILT_AS_STATIC_LIB -DH5_DLL= -DH5HL_DLL="
 
 echo "  CC:        ${CC}"
 echo "  CFLAGS:    ${CFLAGS}"
