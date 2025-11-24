@@ -29,6 +29,7 @@ utils::untar(
 # by H5FDprivate.h (even if guarded by #ifdefs), so they must exist.
 cat('Removing unsupported driver source files...\n')
 invisible(file.remove(c(
+  "src/hdf5-2.0.0/src/H5pubconf.h.in",
   "src/hdf5-2.0.0/src/CMakeLists.txt", "src/hdf5-2.0.0/hl/src/CMakeLists.txt",
   "src/hdf5-2.0.0/src/H5ACmpio.c",     "src/hdf5-2.0.0/src/H5build_settings.cmake.c.in",
   "src/hdf5-2.0.0/src/H5FDdirect.c",   "src/hdf5-2.0.0/src/H5build_settings.off.c.in",
