@@ -35,6 +35,12 @@ if [ -z "$R_AR" ];     then R_AR="ar";         fi
 if [ -z "$R_RANLIB" ]; then R_RANLIB="ranlib"; fi
 if [ -z "$R_MAKE" ];   then R_MAKE="make";     fi
 
+# Determine parallelism
+case " $MAKEFLAGS " in
+  *\ -j*|*\ --jobs*) ;;
+  *)                 R_MAKE="$R_MAKE -j4";;
+esac
+
 # Conditionally quote R_INCLUDE_DIR if it contains whitespace.
 R_INCLUDE_DIR=$("$R_EXE" -s -e "cat(R.home('include'))")
 case "$R_INCLUDE_DIR" in
@@ -109,42 +115,10 @@ $CC $CPPFLAGS $CFLAGS -o gen_sizeof$EXE ../gen_sizeof.c
 # --- B. COMPILATION PHASE ---
 echo "--- [hdf5lib] Compiling HDF5 Sources (Parallel)..."
 
-# 1. Create a temporary Makefile
-# We define a generic rule (.c.o) to compile source files.
-cat > Makefile.h5 <<EOF
-CC = $CC
-CFLAGS = $CFLAGS
-CPPFLAGS = $CPPFLAGS
-
-.c.o:
-	\$(CC) \$(CFLAGS) \$(CPPFLAGS) -c \$< -o \$@
-EOF
-
-# 2. Append file targets to the Makefile
-# We construct the 'all' target and specific file mappings.
-OBJS=""
-FILES=$(ls src/*.c hl/src/*.c)
-for f in $FILES; do
-    obj_name=$(basename "${f%.c}.o")
-    OBJS="$OBJS $obj_name"
-    echo "${obj_name}: $f" >> Makefile.h5
-done
-echo "all: $OBJS" >> Makefile.h5
-
-# 3. Smart Parallelism Detection
-# If MAKEFLAGS contains '-j' or '--jobs', trust the user/R.
-# Otherwise, default to '-j4' to speed up Windows builds.
-case " $MAKEFLAGS " in
-  *\ -j*|*\ --jobs*) N_JOBS="";;
-  *)                 N_JOBS="-j4";;
-esac
-
-# 4. Run Make
-echo "Running $R_MAKE -f Makefile.h5 $N_JOBS ..."
-$R_MAKE -f Makefile.h5 $N_JOBS
-
-# 5. Cleanup
-rm Makefile.h5
+# Run Make using the pre-generated Makefile
+# We inject the R-configured compiler flags here
+echo "Running $R_MAKE ..."
+$R_MAKE CC="$CC" CFLAGS="$CFLAGS" CPPFLAGS="$CPPFLAGS"
 
 
 # --- 3. Combine, Link, and Archive ---
