@@ -29,11 +29,9 @@ R_CPPFLAGS=$("$R_EXE" CMD config CPPFLAGS)
 R_LDFLAGS=$("$R_EXE" CMD config LDFLAGS)
 
 R_AR=$("$R_EXE" CMD config AR)
-R_RANLIB=$("$R_EXE" CMD config RANLIB)
 R_MAKE=$("$R_EXE" CMD config MAKE)
-if [ -z "$R_AR" ];     then R_AR="ar";         fi
-if [ -z "$R_RANLIB" ]; then R_RANLIB="ranlib"; fi
-if [ -z "$R_MAKE" ];   then R_MAKE="make";     fi
+if [ -z "$R_AR" ];   then R_AR="ar";     fi
+if [ -z "$R_MAKE" ]; then R_MAKE="make"; fi
 
 # Determine parallelism
 case " $MAKEFLAGS " in
@@ -119,16 +117,11 @@ $R_MAKE CC="$CC" CFLAGS="$CFLAGS" CPPFLAGS="$CPPFLAGS"
 # --- 3. Combine, Link, and Archive ---
 echo "--- [hdf5lib] Combining all object files into a single static library..."
 
-# Extract zlib objects
-$R_AR -x "$ZLIB_SRC/libz.a"
-
-# Merge all object files (HDF5 + ZLIB) into a single static library
-echo "--- [hdf5lib] Linking and stripping object files..."
-
-# Note: We use *.o to grab both the HDF5 objects we just built 
-# AND the zlib objects we just extracted.
+$R_AR -x  "$ZLIB_SRC/libz.a"
 $R_AR -crs libhdf5z.a *.o
-
+if command -v strip >/dev/null 2>&1; then
+    strip -S libhdf5z.a || true
+fi
 
 # --- 5. Install Libraries and Headers for R ---
 echo "--- [hdf5lib] Installing to inst/..."

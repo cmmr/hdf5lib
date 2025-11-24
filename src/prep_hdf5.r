@@ -47,6 +47,12 @@ for (patch_file in patch_files) {
   cat("->", basename(patch_file), "\n")
   system2(command = 'patch', args = c('-p0', '-i', patch_file))
 }
+# Two modifications to the same file generates a *.orig file
+invisible(file.remove(list.files(
+  path       = 'src/hdf5-2.0.0/src',
+  pattern    = '*.orig',
+  full.names = TRUE,
+  recursive  = TRUE )))
 
 
 # --- 4. Minify Headers ---
@@ -116,11 +122,13 @@ for (i in seq_along(src_files)) {
   obj <- obj_files[i]
   
   # Rule: foo.o: src/foo.c
-  # Note: We use \t for the recipe indentation
+  # 1. @echo "CC src/foo.c"  -> Prints friendly message
+  # 2. @$(CC) ...            -> Runs command silently
   makefile_lines <- c(
     makefile_lines,
     paste0(obj, ": ", src),
-    paste0("\t$(CC) $(CFLAGS) $(CPPFLAGS) -c ", src, " -o ", obj),
+    paste0("\t@echo CC ", src),
+    paste0("\t@$(CC) $(CFLAGS) $(CPPFLAGS) -c ", src, " -o ", obj),
     ""
   )
 }
@@ -135,7 +143,7 @@ invisible(file.remove(tarfile))
 setwd('src')
 
 # Add in our custom H5pubconf.h file
-file.copy("H5pubconf.h", paste0("hdf5-", VER, "/src/"))
+invisible(file.copy("H5pubconf.h", paste0("hdf5-", VER, "/src/")))
 
 utils::tar(
   tarfile = paste0("hdf5-", VER, ".tar.gz"), 
