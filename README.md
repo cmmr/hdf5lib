@@ -3,7 +3,7 @@
 
 [![cran](https://www.r-pkg.org/badges/version/hdf5lib)](https://CRAN.R-project.org/package=hdf5lib)
 
-`hdf5lib` is an R package that provides a self-contained, static build of the [HDF5 C library](https://www.hdfgroup.org/solutions/hdf5/) ([release 1.14.6](https://github.com/HDFGroup/hdf5)). Its **sole purpose** is to allow other R packages to easily link against HDF5 without requiring users to install system-level dependencies, thereby ensuring a consistent and reliable build process across all major platforms.
+`hdf5lib` is an R package that provides a self-contained, static build of the [HDF5 C library](https://www.hdfgroup.org/solutions/hdf5/) ([release 2.0.0](https://github.com/HDFGroup/hdf5)). Its **sole purpose** is to allow other R packages to easily link against HDF5 without requiring users to install system-level dependencies, thereby ensuring a consistent and reliable build process across all major platforms.
 
 This package provides **no R functions** and is intended for R package developers to use in the `LinkingTo` field of their `DESCRIPTION` file.
 
@@ -18,7 +18,10 @@ This package provides **no R functions** and is intended for R package developer
 
 -   **Includes High-Level API:** Provides the convenient HDF5 High-Level (HL) APIs, including H5LT (Lite), H5IM (Image), and H5TB (Table), alongside the core low-level API.
 
--   **Safe for Parallel Code:** Compiled with thread-safety enabled. This prevents data corruption and crashes by ensuring that library calls from multiple threads (e.g., via `RcppParallel`) are safely serialized..
+-   **Safe for Parallel Code:** Compiled with thread-safety enabled. This prevents data corruption and crashes by ensuring that library calls from multiple threads (e.g., via `RcppParallel`) are safely serialized.
+    -   **Important:** Thread-safety is **only supported for the low-level HDF5 APIs** (e.g., `H5F...`, `H5D...`). The High-Level (HL) APIs (`H5LT`, `H5IM`, `H5TB`) are **not** thread-safe and should not be used in parallel code.
+    -   This feature protects against concurrent access from multiple **threads**, not multiple **processes**. Accessing the same HDF5 file from different processes without a file locking mechanism can still lead to file corruption.
+
 
 -   **Extensible Filter Support:** Enables the HDF5 library to dynamically load external filter plugins (e.g., for Blosc, LZ4, Bzip2) at runtime via `H5Pset_filter_path()`, provided the user has installed those plugins separately.
 
@@ -138,7 +141,7 @@ The [`Rhdf5lib`](https://doi.org/doi:10.18129/B9.bioc.Rhdf5lib) package also pro
 
 -   **Zero Configuration Installation:** `hdf5lib` is designed for simplicity. Installation via `install.packages()` requires no user configuration and reliably provides a modern HDF5 build with important features enabled by default. `Rhdf5lib`, while flexible, requires users to manage compile-time configuration options for a customized build.
 
--   **Modern HDF5 Version:** `hdf5lib` bundles HDF5 v1.14.6, providing access to more recent features and fixes compared to the version typically bundled in `Rhdf5lib` (v1.12.2 as of Bioconductor 3.19).
+-   **Modern HDF5 Version:** `hdf5lib` bundles HDF5 v2.0.0, providing access to the latest features and fixes, including native complex number support and improved UTF-8 handling on Windows. This is more recent than the version typically bundled in `Rhdf5lib` (v1.12.2 as of Bioconductor 3.19).
 
 -   **Thread-Safety Enabled:** `hdf5lib` builds HDF5 with thread-safety enabled, ensuring safe use with parallel R packages (like `RcppParallel`). `Rhdf5lib` does not support building with this feature.
 

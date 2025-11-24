@@ -16,12 +16,16 @@ Description: 'HDF5' (Hierarchical Data Format 5) is a high-performance
     dependencies. This build is compiled with thread-safety enabled 
     and supports dynamic loading of external compression filters. 
     'HDF5' is developed by 'The HDF Group' <https://www.hdfgroup.org/>.
-URL: https://github.com/cmmr/hdf5lib
+URL: https://github.com/cmmr/hdf5lib, https://cmmr.github.io/hdf5lib/
 BugReports: https://github.com/cmmr/hdf5lib/issues
 License: MIT + file LICENSE
 Encoding: UTF-8
 Depends: R (>= 4.1.0)
 NeedsCompilation: yes
-Suggests: testthat (>= 3.0.0)
+Suggests: 
+    knitr,
+    rmarkdown,
+    testthat (>= 3.0.0)
 Config/testthat/edition: 3
 RoxygenNote: 7.3.3
+VignetteBuilder: knitr

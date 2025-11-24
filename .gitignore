@@ -9,3 +9,5 @@ cran-comments.md
 src/hdf5-*/
 src/zlib-*/
 src/H5pubconf
+docs
+inst/doc
