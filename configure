@@ -112,9 +112,9 @@ for f in $FILES; do
     # Flatten output: src/H5F.c -> H5F.o
     obj_name=$(basename "${f%.c}.o")
     
-    # Compile
-    # Note: CPPFLAGS already includes -I. -Isrc -Ihl/src from above
+    # Compile and strip debug symbols to reduce size
     ${CC} ${CFLAGS} ${CPPFLAGS} -c "$f" -o "$obj_name"
+    strip -S "$obj_name" || true
 done
 
 
@@ -129,9 +129,7 @@ echo "--- [hdf5lib] Linking and stripping object files..."
 
 # Note: We use *.o to grab both the HDF5 objects we just built 
 # AND the zlib objects we just extracted.
-ld -r -o libhdf5z.o *.o
-strip -S libhdf5z.o || true
-ar -crs libhdf5z.a libhdf5z.o
+ar -crs libhdf5z.a *.o
 
 
 # --- 5. Install Libraries and Headers for R ---

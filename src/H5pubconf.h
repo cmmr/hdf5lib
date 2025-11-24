@@ -227,11 +227,12 @@
     #define H5_HAVE_STRCASESTR 1
 #endif
 
+/* Never enable H5_HAVE_ASPRINTF and H5_HAVE_VASPRINTF */
 #if __has_include(<stdio.h>)
     #define H5_HAVE_TMPFILE 1
-    #define H5_HAVE_ASPRINTF 1
-    #define H5_HAVE_VASPRINTF 1
 #endif
+#undef H5_HAVE_ASPRINTF
+#undef H5_HAVE_VASPRINTF
 
 #if __has_include(<stdlib.h>)
     #define H5_HAVE_QSORT_REENTRANT 1
@@ -268,8 +269,6 @@
     #undef H5_HAVE_PREADWRITE
 
     /* String/Time/System: Missing GNU/BSD extensions on Windows */
-    #undef H5_HAVE_ASPRINTF
-    #undef H5_HAVE_VASPRINTF
     #undef H5_HAVE_STRCASESTR
     #undef H5_HAVE_TM_GMTOFF
     #undef H5_HAVE_GETRUSAGE
