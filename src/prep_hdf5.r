@@ -29,13 +29,13 @@ utils::untar(
 # by H5FDprivate.h (even if guarded by #ifdefs), so they must exist.
 cat('Removing unsupported driver source files...\n')
 invisible(file.remove(c(
+  list.files("src/hdf5-2.0.0/src/H5FDsubfiling/", "*.c", full.names = TRUE),
   "src/hdf5-2.0.0/src/H5pubconf.h.in",
   "src/hdf5-2.0.0/src/CMakeLists.txt", "src/hdf5-2.0.0/hl/src/CMakeLists.txt",
   "src/hdf5-2.0.0/src/H5ACmpio.c",     "src/hdf5-2.0.0/src/H5build_settings.cmake.c.in",
   "src/hdf5-2.0.0/src/H5FDdirect.c",   "src/hdf5-2.0.0/src/H5build_settings.off.c.in",
   "src/hdf5-2.0.0/src/H5FDhdfs.c",     "src/hdf5-2.0.0/src/H5FDsubfiling/CMakeLists.txt",
-  "src/hdf5-2.0.0/src/H5FDmirror.c",   "src/hdf5-2.0.0/src/H5FDsubfiling/H5FDioc.c",
-  "src/hdf5-2.0.0/src/H5FDmpi.c",      "src/hdf5-2.0.0/src/H5FDsubfiling/H5FDsubfiling.c",
+  "src/hdf5-2.0.0/src/H5FDmirror.c",   "src/hdf5-2.0.0/src/H5FDmpi.c",
   "src/hdf5-2.0.0/src/H5FDros3.c",     "src/hdf5-2.0.0/src/libhdf5.settings.in" )))
 
 # --- 3. Apply Patches ---
