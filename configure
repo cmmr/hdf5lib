@@ -38,12 +38,10 @@ R_CPPFLAGS=$("$R_EXE" CMD config CPPFLAGS)
 R_LDFLAGS=$("$R_EXE" CMD config LDFLAGS)
 R_AR=$("$R_EXE" CMD config AR)
 R_MAKE=$("$R_EXE" CMD config MAKE)
-R_LD=$("$R_EXE" CMD config LD)
 
 # Set defaults if R config returns empty
 : "${R_AR:=ar}"
 : "${R_MAKE:=make}"
-: "${R_LD:=ld}"
 
 # Handle R_INCLUDE_DIR potentially containing spaces
 R_INC=$("$R_EXE" -s -e "cat(R.home('include'))")
@@ -111,9 +109,9 @@ echo "--- [hdf5lib] Linking static library..."
 
 # Logic: Use partial linking (ld -r) on non-Windows systems to reduce size.
 # On Windows, or if 'ld' is missing, fallback to standard archiving.
-if [ "$WIN" -eq 0 ] && command -v "$R_LD" >/dev/null 2>&1; then
+if [ "$WIN" -eq 0 ] && command -v ld >/dev/null 2>&1; then
   # Merge all .o files into one big object (deduplicates symbols/sections)
-  "$R_LD" -r -o libhdf5.obj *.o
+  ld -r -o libhdf5.obj *.o
   rm *.o
   mv libhdf5.obj libhdf5.o
 fi
