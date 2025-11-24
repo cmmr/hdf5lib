@@ -61,7 +61,7 @@ diff -ru src/hdf5-orig/src/H5Eint.c src/hdf5-2.0.0/src/H5Eint.c
   */
  static herr_t
 -H5E__unregister_class(H5E_cls_t *cls, void H5_ATTR_UNUSED **request)
-+H5E__unregister_class(H5E_cls_t *_cls, void H5_ATTR_UNUSED **request)
++H5E__unregister_class(void *_cls, void H5_ATTR_UNUSED **request)
  {
 +    H5E_cls_t *cls = (H5E_cls_t *)_cls;
      herr_t ret_value = SUCCEED; /* Return value */
