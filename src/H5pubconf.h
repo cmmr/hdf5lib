@@ -227,12 +227,11 @@
     #define H5_HAVE_STRCASESTR 1
 #endif
 
-/* Never enable H5_HAVE_ASPRINTF and H5_HAVE_VASPRINTF */
 #if __has_include(<stdio.h>)
     #define H5_HAVE_TMPFILE 1
+    #define H5_HAVE_ASPRINTF
+    #define H5_HAVE_VASPRINTF
 #endif
-#undef H5_HAVE_ASPRINTF
-#undef H5_HAVE_VASPRINTF
 
 #if __has_include(<stdlib.h>)
     #define H5_HAVE_QSORT_REENTRANT 1
@@ -288,5 +287,36 @@
         #define H5_HAVE_DARWIN 1
     #endif
 #endif
+
+
+/* ========================================================================== */
+/* 7. Disable GNU Extensions and other non-Portable functions.                */
+/* ========================================================================== */
+
+/* --- String Handling --- */
+/* Force standard C string functions. 
+   Disable extensions like strcasestr, asprintf, vasprintf to ensure 
+   portability without _GNU_SOURCE. */
+#undef H5_HAVE_STRCASESTR
+#undef H5_HAVE_ASPRINTF
+#undef H5_HAVE_VASPRINTF
+
+/* --- Sorting --- */
+/* Disable qsort_r because signatures differ between GNU and BSD/macOS */
+#undef H5_HAVE_QSORT_REENTRANT
+
+/* --- Time & Date --- */
+/* Rely on standard time functions, avoiding BSD/SysV extensions */
+#undef H5_HAVE_TM_GMTOFF
+#undef H5_HAVE_TIMEZONE
+#undef H5_HAVE_STRUCT_TIMEZONE
+
+/* --- System / IOCTL --- */
+/* Disable terminal IOCTLs (not needed for library usage) */
+#undef H5_HAVE_IOCTL
+#undef H5_HAVE_TIOCGETD
+#undef H5_HAVE_TIOCGWINSZ
+#undef H5_HAVE_GETCONSOLESCREENBUFFERINFO
+
 
 #endif /* H5_PUBCONF_H */
