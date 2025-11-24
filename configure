@@ -117,10 +117,9 @@ if [ "$WIN" -eq 0 ] && command -v "$R_LD" >/dev/null 2>&1; then
 fi
 
 # Create the final static library
-rm -f libhdf5z.a
 "$R_AR" -crs libhdf5z.a *.o
 
-# Strip debug symbols to reduce installed package size (CRAN requirement)
+# Strip debug symbols to reduce installed package size
 if command -v strip >/dev/null 2>&1; then
   strip -S libhdf5z.a || true
 fi
