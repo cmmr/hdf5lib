@@ -14,13 +14,13 @@ if [ ! -f "$R_EXE" ]; then
   R_EXE="${R_HOME}/bin/R"
   if [ ! -f "$R_EXE" ]; then
     R_EXE=$(which R 2>/dev/null || true)
+    if [ -z "$R_EXE" ]; then
+      echo "Error: R not found. Please ensure R is installed and in your PATH."
+      exit 1
+    fi
   fi
 fi
 
-if [ -z "$R_EXE" ]; then
-  echo "Error: R not found. Please ensure R is installed and in your PATH."
-  exit 1
-fi
 
 # Detect OS (Windows vs Unix) for logic branching
 case "$(uname -s)" in
@@ -109,7 +109,7 @@ echo "--- [hdf5lib] Linking static library..."
 
 # Logic: Use partial linking (ld -r) on non-Windows systems to reduce size.
 # On Windows, or if 'ld' is missing, fallback to standard archiving.
-if [ "$WIN" -eq 0 ] && command -v "$R_LD" >/dev/null 2>&1; then
+if [ "$WIN" -eq 0 && command -v "$R_LD" >/dev/null 2>&1 ]; then
   # Merge all .o files into one big object (deduplicates symbols/sections)
   "$R_LD" -r -o libhdf5.obj *.o
   rm *.o
