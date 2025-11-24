@@ -21,22 +21,22 @@ if ! test -f "$R_EXE"; then
   fi
 fi
 
-
-# Detect OS and set executable extension
-case "$(uname -s)" in
-  CYGWIN*|MINGW*|MSYS*) WIN=1; EXE=".exe";;
-  *)                    WIN=0; EXE="";;
-esac
-
 # Get R's compiler/linker flags to ensure we respect the build environment
 R_CC=$("$R_EXE" CMD config CC)
 R_CFLAGS=$("$R_EXE" CMD config CFLAGS)
 R_CPICFLAGS=$("$R_EXE" CMD config CPICFLAGS)
 R_CPPFLAGS=$("$R_EXE" CMD config CPPFLAGS)
 R_LDFLAGS=$("$R_EXE" CMD config LDFLAGS)
-R_INCLUDE_DIR=$("$R_EXE" -s -e "cat(R.home('include'))")
+
+R_AR=$("$R_EXE" CMD config AR)
+R_RANLIB=$("$R_EXE" CMD config RANLIB)
+R_MAKE=$("$R_EXE" CMD config MAKE)
+if [ -z "$R_AR" ];     then R_AR="ar";         fi
+if [ -z "$R_RANLIB" ]; then R_RANLIB="ranlib"; fi
+if [ -z "$R_MAKE" ];   then R_MAKE="make";     fi
 
 # Conditionally quote R_INCLUDE_DIR if it contains whitespace.
+R_INCLUDE_DIR=$("$R_EXE" -s -e "cat(R.home('include'))")
 case "$R_INCLUDE_DIR" in
   *\ *) R_INCLUDE_DIR="\"$R_INCLUDE_DIR\"" ;;
 esac
@@ -48,23 +48,30 @@ esac
 #    This fixes "unknown type name 'H5HL_DLL'" errors by ensuring the macro 
 #    always exists and adds no attributes (correct for static libs).
 # 3. Add -I includes for HDF5 internal headers and ZLIB
-export CC="${R_CC}"
-export CFLAGS="${R_CFLAGS} ${R_CPICFLAGS} -O2 -g0 -w"
-export CPPFLAGS="-I. -Isrc -Ihl/src -I${ZLIB_SRC} -I${R_INCLUDE_DIR} ${R_CPPFLAGS} -DH5_BUILT_AS_STATIC_LIB -DH5_DLL= -DH5HL_DLL="
+export CC="$R_CC"
+export CFLAGS="$R_CFLAGS $R_CPICFLAGS -O2 -g0 -w"
+export CPPFLAGS="-I. -Isrc -Ihl/src -I$ZLIB_SRC -I$R_INCLUDE_DIR $R_CPPFLAGS -DH5_BUILT_AS_STATIC_LIB -DH5_DLL= -DH5HL_DLL="
 
-echo "          WD: ${WD}"
-echo "      R_HOME: ${R_HOME}"
-echo "       R_EXE: ${R_EXE}"
-echo "          CC: ${CC}"
-echo "      CFLAGS: ${CFLAGS}"
-echo "    CPPFLAGS: ${CPPFLAGS}"
+echo "          WD: $WD"
+echo "      R_HOME: $R_HOME"
+echo "       R_EXE: $R_EXE"
+echo "          CC: $CC"
+echo "      CFLAGS: $CFLAGS"
+echo "    CPPFLAGS: $CPPFLAGS"
+
+
+# Detect OS and set executable extension
+case "$(uname -s)" in
+  CYGWIN*|MINGW*|MSYS*) WIN=1; EXE=".exe";;
+  *)                    WIN=0; EXE="";;
+esac
 
 
 # Extract hdf5 and zlib tarballs
 echo "--- [hdf5lib] Decompressing HDF5 and zlib tarballs..."
 cd "$WD/src"
-"$R_EXE" -q -e "utils::untar('hdf5-2.0.0.tar.gz')"
-"$R_EXE" -q -e "utils::untar('zlib-1.3.1.tar.gz')"
+$R_EXE -q -e "utils::untar('hdf5-2.0.0.tar.gz')"
+$R_EXE -q -e "utils::untar('zlib-1.3.1.tar.gz')"
 
 
 # --- 1. Build static zlib ---
@@ -90,46 +97,68 @@ cd "$HDF5_SRC"
 mv ../H5pubconf.h      src/
 mv ../H5lib_settings.c src/
 
+
 # --- A. GENERATOR PHASE ---
 
 # 1. Generate H5_sizeof.h (Type Sizes)
 echo "--- [hdf5lib] Generating H5_sizeof.h..."
-${CC} ${CPPFLAGS} ${CFLAGS} -o gen_sizeof${EXE} ../gen_sizeof.c
+$CC $CPPFLAGS $CFLAGS -o gen_sizeof$EXE ../gen_sizeof.c
 ./gen_sizeof${EXE} > src/H5_sizeof.h
 
 
 # --- B. COMPILATION PHASE ---
-echo "--- [hdf5lib] Compiling HDF5 Sources..."
+echo "--- [hdf5lib] Compiling HDF5 Sources (Parallel)..."
 
-# Gather all .c files from:
-# 1. src/ (Core library)
-# 2. hl/src/ (High Level library)
+# 1. Create a temporary Makefile
+# We define a generic rule (.c.o) to compile source files.
+cat > Makefile.h5 <<EOF
+CC = $CC
+CFLAGS = $CFLAGS
+CPPFLAGS = $CPPFLAGS
+
+.c.o:
+	\$(CC) \$(CFLAGS) \$(CPPFLAGS) -c \$< -o \$@
+EOF
+
+# 2. Append file targets to the Makefile
+# We construct the 'all' target and specific file mappings.
+OBJS=""
 FILES=$(ls src/*.c hl/src/*.c)
-
 for f in $FILES; do
-    echo "  $f"
-
-    # Flatten output: src/H5F.c -> H5F.o
     obj_name=$(basename "${f%.c}.o")
-    
-    # Compile and strip debug symbols to reduce size
-    ${CC} ${CPPFLAGS} ${CFLAGS} -c "$f" -o "$obj_name"
-    strip -S "$obj_name" || true
+    OBJS="$OBJS $obj_name"
+    echo "${obj_name}: $f" >> Makefile.h5
 done
+echo "all: $OBJS" >> Makefile.h5
+
+# 3. Smart Parallelism Detection
+# If MAKEFLAGS contains '-j' or '--jobs', trust the user/R.
+# Otherwise, default to '-j4' to speed up Windows builds.
+case " $MAKEFLAGS " in
+  *\ -j*|*\ --jobs*) N_JOBS="";;
+  *)                 N_JOBS="-j4";;
+esac
+
+# 4. Run Make
+echo "Running $R_MAKE -f Makefile.h5 $N_JOBS ..."
+$R_MAKE -f Makefile.h5 $N_JOBS
+
+# 5. Cleanup
+rm Makefile.h5
 
 
 # --- 3. Combine, Link, and Archive ---
 echo "--- [hdf5lib] Combining all object files into a single static library..."
 
 # Extract zlib objects
-ar -x "$ZLIB_SRC/libz.a"
+$R_AR -x "$ZLIB_SRC/libz.a"
 
 # Merge all object files (HDF5 + ZLIB) into a single static library
 echo "--- [hdf5lib] Linking and stripping object files..."
 
 # Note: We use *.o to grab both the HDF5 objects we just built 
 # AND the zlib objects we just extracted.
-ar -crs libhdf5z.a *.o
+$R_AR -crs libhdf5z.a *.o
 
 
 # --- 5. Install Libraries and Headers for R ---

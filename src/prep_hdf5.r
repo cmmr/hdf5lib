@@ -42,11 +42,9 @@ invisible(file.remove(c(
 cat('Applying hdf5 patches files...\n')
 patch_dir   <- file.path('patches', paste0("hdf5-", VER))
 patch_files <- list.files(patch_dir, ".patch$", full.names = TRUE)
-if (dir.exists(patch_dir)) {
-  for (patch_file in patch_files) {
-    cat("->", basename(patch_file), "\n")
-    system2(command = 'patch', args = c('-p0', '-i', patch_file))
-  }
+for (patch_file in patch_files) {
+  cat("->", basename(patch_file), "\n")
+  system2(command = 'patch', args = c('-p0', '-i', patch_file))
 }
 
 
