@@ -44,9 +44,9 @@ R_MAKE=$("$R_EXE" CMD config MAKE)
 : "${R_MAKE:=make}"
 
 # Construct final flags
-# -w: Disable warnings to keep build logs clean
+# -O2: Prepended so R's flags will override.
 export CC="$R_CC"
-export CFLAGS="$R_CFLAGS $R_CPICFLAGS -O2 -g0 -w"
+export CFLAGS="-O2 $R_CFLAGS $R_CPICFLAGS -g0 -w"
 echo "  CC:     $CC"
 echo "  CFLAGS: $CFLAGS"
 
@@ -56,7 +56,6 @@ echo "--- [hdf5lib] Decompressing sources..."
 
 BUILD_DIR="$PKG_DIR/build"
 mkdir -p "$BUILD_DIR"
-echo "Entering directory $BUILD_DIR"
 cd "$BUILD_DIR"
 
 "$R_EXE" -q -e "utils::untar('../src/zlib-$ZLIB_VER.tar.gz')"
@@ -65,7 +64,6 @@ ZLIB_DIR="$BUILD_DIR/zlib-$ZLIB_VER"
 HDF5_DIR="$BUILD_DIR/hdf5-$HDF5_VER"
 
 echo "--- [hdf5lib] Building ZLIB..."
-echo "Entering directory $ZLIB_DIR"
 cd "$ZLIB_DIR"
 export CPPFLAGS="-I. $R_CPPFLAGS"
 echo "  CPPFLAGS: $CPPFLAGS"
@@ -81,7 +79,6 @@ fi
 
 # 4. Build HDF5 ----------------------------------------------------------------
 echo "--- [hdf5lib] Building HDF5..."
-echo "Entering directory $HDF5_DIR"
 cd "$HDF5_DIR"
 cp "$PKG_DIR/src/H5pubconf.h" src/
 cp "$PKG_DIR/src/query_byte_widths.c" .
@@ -102,8 +99,6 @@ esac
 
 # Use the pre-generated Makefile (from prep_hdf5.r) to build all objects
 # Explicitly passing CC/CFLAGS overrides the defaults in the Makefile
-# -DH5_BUILT_AS_STATIC_LIB: Inform HDF5 we are building statically
-# -DH5_DLL="": Ensure export macros are empty
 "$R_EXE" -s -e "invisible(file.copy(R.home('include'), '.', recursive = TRUE))"
 export CPPFLAGS="-I./src -I./hl/src -I./include -I../zlib-$ZLIB_VER $R_CPPFLAGS -DH5_BUILT_AS_STATIC_LIB -DH5_DLL= -DH5HL_DLL="
 echo "  CPPFLAGS: $CPPFLAGS"
@@ -116,7 +111,7 @@ echo "--- [hdf5lib] Linking static library..."
 # Extract ZLIB objects to merge them into the final library
 "$R_AR" -x "$ZLIB_DIR/libz.a"
 
-# Detect LTO (Link Time Optimization) flags [cite: 732, 786]
+# Detect LTO (Link Time Optimization) flags
 # LTO objects contain bytecode that standard 'strip' and 'ld -r' often corrupt
 # without specific plugins. We skip optimization steps if -flto is detected.
 case "$CFLAGS" in
@@ -138,7 +133,7 @@ fi
 "$R_AR" -crs libhdf5z.a *.o
 
 # Strip debug symbols to reduce installed package size
-# We guard this with LTO=0 because 'strip' often corrupts LTO objects [cite: 1022]
+# We guard this with LTO=0 because 'strip' often corrupts LTO objects
 if [ "$LTO" -eq 0 ] && command -v strip >/dev/null 2>&1; then
   echo "  Stripping debug symbols..."
   strip -S libhdf5z.a || true
@@ -147,7 +142,6 @@ fi
 
 # 6. Installation --------------------------------------------------------------
 echo "--- [hdf5lib] Installing..."
-echo "Entering directory $PKG_DIR"
 cd "$PKG_DIR"
 mkdir -p inst/lib inst/include
 
