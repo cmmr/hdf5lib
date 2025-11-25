@@ -1,7 +1,7 @@
 # Get C/C++ Compiler Flags for hdf5lib
 
 Provides the required C/C++ compiler flags to find the HDF5 header files
-bundled with the \`hdf5lib\` package.
+bundled with the `hdf5lib` package.
 
 ## Usage
 
@@ -14,21 +14,21 @@ c_flags(api = "latest")
 - api:
 
   A character string specifying the HDF5 API version to use. This adds a
-  preprocessor directive like \`-DH5_USE_114_API_DEFAULT\` to ensure
-  that the compiled code uses symbols compatible with a specific version
-  of the HDF5 API. This is useful for maintaining compatibility with
-  older HDF5 versions. Supported values are \`200\`, \`114\`, \`112\`,
-  \`110\`, \`18\`,and \`16\`. Defaults to \`"latest"\`, which
-  corresponds to the newest supported API version.
+  preprocessor directive like `-DH5_USE_114_API_DEFAULT` to ensure that
+  the compiled code uses symbols compatible with a specific version of
+  the HDF5 API. This is useful for maintaining compatibility with older
+  HDF5 versions. Supported values are `200`, `114`, `112`, `110`,
+  `18`,and `16`. Defaults to `"latest"`, which corresponds to the newest
+  supported API version.
 
 ## Value
 
-A scalar character vector containing the compiler flags (e.g., the
-\`-I\` path to the package's \`inst/include\` directory).
+A scalar character vector containing the compiler flags (e.g., the `-I`
+path to the package's `inst/include` directory).
 
 ## See also
 
-\[ld_flags()\]
+[`ld_flags()`](https://cmmr.github.io/hdf5lib/reference/ld_flags.md)
 
 ## Examples
 

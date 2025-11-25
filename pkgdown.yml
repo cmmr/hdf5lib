@@ -8,7 +8,7 @@ articles:
   articles/cookbook: cookbook.html
   articles/hdf5lib: hdf5lib.html
   articles/parallelism: parallelism.html
-last_built: 2025-11-25T20:34Z
+last_built: 2025-11-25T20:53Z
 urls:
   reference: https://cmmr.github.io/hdf5lib/reference
   article: https://cmmr.github.io/hdf5lib/articles
