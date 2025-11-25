@@ -157,7 +157,7 @@ cp "$HDF5_DIR"/hl/src/*.h inst/include/
 cp "$HDF5_DIR"/libhdf5z.a inst/lib/
 
 # Cleanup
-rm -rf "$BUILD_DIR"
+rm -rf src "$BUILD_DIR"
 
 echo "  Final install size: $(du -sh inst/ | cut -f1)"
 

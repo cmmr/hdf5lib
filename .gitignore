@@ -12,6 +12,7 @@ src/H5pubconf
 build
 doc
 docs
-inst
+inst/include
+inst/lib
 Meta
 pkgdown/favicon
