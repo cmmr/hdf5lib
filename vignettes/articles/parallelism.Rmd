@@ -4,7 +4,7 @@ title: "Parallel Programming"
 
 A key feature of `hdf5lib` is that it is compiled with HDF5's thread-safety mode enabled. This prevents data corruption when multiple threads make calls to the HDF5 library simultaneously.
 
-<div style="padding: 15px; border: 2px solid #e31818; border-radius: 5px; background-color: #fef2f2;">
+<div style="padding: 15px; border: 2px solid #e31818; border-radius: 5px;">
 <h4 style="color: #c51010; margin-top:0;">Important Limitations of Thread-Safety</h4>
 <ul>
   <li><b>Only Low-Level APIs are Thread-Safe:</b> The HDF5 library's thread-safety guarantee <strong>only applies to the low-level (LL) functions</strong> (e.g., <code>H5F...</code>, <code>H5D...</code>, <code>H5P...</code>). The High-Level (HL) APIs, such as <code>H5LT</code>, <code>H5IM</code>, and <code>H5TB</code>, are <strong>not</strong> thread-safe and must not be called from multiple threads.</li>

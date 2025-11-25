@@ -24,7 +24,6 @@ This package provides **no R functions** and is intended for R package developer
     -   **Important:** Thread-safety is **only supported for the low-level HDF5 APIs** (e.g., `H5F...`, `H5D...`). The High-Level (HL) APIs (`H5LT`, `H5IM`, `H5TB`) are **not** thread-safe and should not be used in parallel code.
     -   This feature protects against concurrent access from multiple **threads**, not multiple **processes**. Accessing the same HDF5 file from different processes without a file locking mechanism can still lead to file corruption.
 
-
 -   **Extensible Filter Support:** Enables the HDF5 library to dynamically load external filter plugins (e.g., for Blosc, LZ4, Bzip2) at runtime via `H5Pset_filter_path()`, provided the user has installed those plugins separately.
 
 
