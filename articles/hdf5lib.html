@@ -5,14 +5,14 @@
 <meta charset="utf-8">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-<title>Using hdf5lib in Your R Package • hdf5lib</title>
+<title>Getting Started • hdf5lib</title>
 <script src="../deps/jquery-3.6.0/jquery-3.6.0.min.js"></script><meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 <link href="../deps/bootstrap-5.3.1/bootstrap.min.css" rel="stylesheet">
 <script src="../deps/bootstrap-5.3.1/bootstrap.bundle.min.js"></script><link href="../deps/Noto_Sans-0.4.10/font.css" rel="stylesheet">
 <link href="../deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
 <link href="../deps/font-awesome-6.5.2/css/v4-shims.min.css" rel="stylesheet">
 <script src="../deps/headroom-0.11.0/headroom.min.js"></script><script src="../deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="../deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="../deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="../deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="../deps/search-1.0.0/fuse.min.js"></script><script src="../deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="../pkgdown.js"></script><link href="../extra.css" rel="stylesheet">
-<meta property="og:title" content="Using hdf5lib in Your R Package">
+<meta property="og:title" content="Getting Started">
 </head>
 <body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
@@ -36,7 +36,11 @@
 <li class="nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles">
-<li><a class="dropdown-item" href="../articles/advanced.html">Parallelism and Direct C-level Access</a></li>
+<li><a class="dropdown-item" href="../articles/api-versioning.html">API Versioning</a></li>
+    <li><a class="dropdown-item" href="../articles/comparison.html">Comparison</a></li>
+    <li><a class="dropdown-item" href="../articles/compression.html">Compression &amp; Filters</a></li>
+    <li><a class="dropdown-item" href="../articles/cookbook.html">Cookbook</a></li>
+    <li><a class="dropdown-item" href="../articles/parallelism.html">Parallel Programming</a></li>
   </ul>
 </li>
 <li class="nav-item"><a class="nav-link" href="../news/index.html">Changelog</a></li>
@@ -58,10 +62,10 @@
 
 <div class="row">
   <main id="main" class="col-md-9"><div class="page-header">
-      <img src="../logo.png" class="logo" alt=""><h1>Using hdf5lib in Your R Package</h1>
+      <img src="../logo.png" class="logo" alt=""><h1>Getting Started</h1>
             
       
-      <small class="dont-index">Source: <a href="https://github.com/cmmr/hdf5lib/blob/main/vignettes/hdf5lib.Rmd" class="external-link"><code>vignettes/hdf5lib.Rmd</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/cmmr/hdf5lib/blob/main/vignettes/articles/hdf5lib.Rmd" class="external-link"><code>vignettes/articles/hdf5lib.Rmd</code></a></small>
       <div class="d-none name"><code>hdf5lib.Rmd</code></div>
     </div>
 
@@ -70,7 +74,7 @@
 <div class="section level2">
 <h2 id="introduction">Introduction<a class="anchor" aria-label="anchor" href="#introduction"></a>
 </h2>
-<p>This vignette is for R package developers who want to use the HDF5 C
+<p>This article is for R package developers who want to use the HDF5 C
 library in their own package. <code>hdf5lib</code> makes this easy by
 providing a reliable, self-contained HDF5 build that you can link to
 without requiring your users to install any system dependencies.</p>
@@ -110,13 +114,17 @@ compiler. <code>hdf5lib</code> provides two helper functions,
 exact strings needed.</p>
 <p>Add the following lines to <code>src/Makevars</code>:</p>
 <div class="sourceCode" id="cb2"><pre class="sourceCode makefile"><code class="sourceCode makefile"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a><span class="co"># Get compiler flags (e.g., -I/path/to/headers)</span></span>
-<span id="cb2-2"><a href="#cb2-2" tabindex="-1"></a><span class="dt">PKG_CPPFLAGS</span> <span class="ch">=</span><span class="st"> `</span><span class="ch">$(</span><span class="dt">R_HOME</span><span class="ch">)</span><span class="st">/bin/Rscript -e "cat(hdf5lib::c_flags())"`</span></span>
+<span id="cb2-2"><a href="#cb2-2" tabindex="-1"></a><span class="dt">PKG_CPPFLAGS</span> <span class="ch">=</span><span class="st"> `</span><span class="ch">$(</span><span class="dt">R_HOME</span><span class="ch">)</span><span class="st">/bin/Rscript -e "cat(hdf5lib::c_flags(api = 200))"`</span></span>
 <span id="cb2-3"><a href="#cb2-3" tabindex="-1"></a></span>
 <span id="cb2-4"><a href="#cb2-4" tabindex="-1"></a><span class="co"># Get linker flags (e.g., -L/path/to/libs -lhdf5)</span></span>
-<span id="cb2-5"><a href="#cb2-5" tabindex="-1"></a><span class="dt">PKG_LIBS</span>     <span class="ch">=</span><span class="st"> `</span><span class="ch">$(</span><span class="dt">R_HOME</span><span class="ch">)</span><span class="st">/bin/Rscript -e "cat(hdf5lib::ld_flags())"`</span></span></code></pre></div>
-<p>These commands run a short R script during compilation to fetch the
-correct flags. This approach is platform-independent and works on
-Windows, macOS, and Linux without any changes.</p>
+<span id="cb2-5"><a href="#cb2-5" tabindex="-1"></a><span class="dt">PKG_LIBS</span>     <span class="ch">=</span><span class="st"> `</span><span class="ch">$(</span><span class="dt">R_HOME</span><span class="ch">)</span><span class="st">/bin/Rscript -e "cat(hdf5lib::ld_flags(api = 200))"`</span></span></code></pre></div>
+<p>The <code>api</code> argument shown here offers a powerful stability
+feature. By locking your package to a specific HDF5 API version (e.g.,
+<code>api = 200</code>), you ensure that future updates to
+<code>hdf5lib</code> will not introduce breaking changes. This gives you
+control over when to adopt newer HDF5 features. For a detailed
+explanation of API versioning, see the <a href="api-versioning.html">API
+Versioning</a> article.</p>
 </div>
 <div class="section level3">
 <h3 id="step-3-include-hdf5-headers">Step 3: Include HDF5 Headers<a class="anchor" aria-label="anchor" href="#step-3-include-hdf5-headers"></a>
@@ -175,11 +183,11 @@ returns it as a string.</p>
 <span id="cb5-4"><a href="#cb5-4" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;vector&gt;</span></span>
 <span id="cb5-5"><a href="#cb5-5" tabindex="-1"></a></span>
 <span id="cb5-6"><a href="#cb5-6" tabindex="-1"></a><span class="co">//' Get the version of the linked HDF5 library</span></span>
-<span id="cb5-7"><a href="#cb5-7" tabindex="-1"></a> <span class="co">//'</span></span>
-<span id="cb5-8"><a href="#cb5-8" tabindex="-1"></a> <span class="co">//' This function calls the HDF5 C API to retrieve the library version</span></span>
-<span id="cb5-9"><a href="#cb5-9" tabindex="-1"></a> <span class="co">//' and returns it as a character string (e.g., "2.0.0").</span></span>
-<span id="cb5-10"><a href="#cb5-10" tabindex="-1"></a> <span class="co">//' @export</span></span>
-<span id="cb5-11"><a href="#cb5-11" tabindex="-1"></a> <span class="co">// [[Rcpp::export]]</span></span>
+<span id="cb5-7"><a href="#cb5-7" tabindex="-1"></a><span class="co">//'</span></span>
+<span id="cb5-8"><a href="#cb5-8" tabindex="-1"></a><span class="co">//' This function calls the HDF5 C API to retrieve the library version</span></span>
+<span id="cb5-9"><a href="#cb5-9" tabindex="-1"></a><span class="co">//' and returns it as a character string (e.g., "2.0.0").</span></span>
+<span id="cb5-10"><a href="#cb5-10" tabindex="-1"></a><span class="co">//' @export</span></span>
+<span id="cb5-11"><a href="#cb5-11" tabindex="-1"></a><span class="co">// [[Rcpp::export]]</span></span>
 <span id="cb5-12"><a href="#cb5-12" tabindex="-1"></a>Rcpp<span class="op">::</span>String get_hdf5_version<span class="op">()</span> <span class="op">{</span></span>
 <span id="cb5-13"><a href="#cb5-13" tabindex="-1"></a>    <span class="dt">unsigned</span> <span class="dt">int</span> majnum<span class="op">,</span> minnum<span class="op">,</span> relnum<span class="op">;</span></span>
 <span id="cb5-14"><a href="#cb5-14" tabindex="-1"></a></span>

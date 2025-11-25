@@ -16,6 +16,8 @@ Useful links:
 
 - <https://github.com/cmmr/hdf5lib>
 
+- <https://cmmr.github.io/hdf5lib/>
+
 - Report bugs at <https://github.com/cmmr/hdf5lib/issues>
 
 ## Author
@@ -25,5 +27,11 @@ Useful links:
 
 Other contributors:
 
-- Alkek Center for Metagenomics and Microbiome Research \[copyright
-  holder, funder\]
+- The HDF Group (Copyright holder of the HDF5 library) \[copyright
+  holder\]
+
+- Jean-loup Mark (Copyright holder of the zlib library) \[copyright
+  holder\]
+
+- Gailly Adler (Copyright holder of the zlib library) \[copyright
+  holder\]

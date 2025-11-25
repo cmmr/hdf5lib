@@ -1,8 +1,8 @@
-# Using hdf5lib in Your R Package
+# Getting Started
 
 ## Introduction
 
-This vignette is for R package developers who want to use the HDF5 C
+This article is for R package developers who want to use the HDF5 C
 library in their own package. `hdf5lib` makes this easy by providing a
 reliable, self-contained HDF5 build that you can link to without
 requiring your users to install any system dependencies.
@@ -45,15 +45,19 @@ Add the following lines to `src/Makevars`:
 
 ``` makefile
 # Get compiler flags (e.g., -I/path/to/headers)
-PKG_CPPFLAGS = `$(R_HOME)/bin/Rscript -e "cat(hdf5lib::c_flags())"`
+PKG_CPPFLAGS = `$(R_HOME)/bin/Rscript -e "cat(hdf5lib::c_flags(api = 200))"`
 
 # Get linker flags (e.g., -L/path/to/libs -lhdf5)
-PKG_LIBS     = `$(R_HOME)/bin/Rscript -e "cat(hdf5lib::ld_flags())"`
+PKG_LIBS     = `$(R_HOME)/bin/Rscript -e "cat(hdf5lib::ld_flags(api = 200))"`
 ```
 
-These commands run a short R script during compilation to fetch the
-correct flags. This approach is platform-independent and works on
-Windows, macOS, and Linux without any changes.
+The `api` argument shown here offers a powerful stability feature. By
+locking your package to a specific HDF5 API version (e.g., `api = 200`),
+you ensure that future updates to `hdf5lib` will not introduce breaking
+changes. This gives you control over when to adopt newer HDF5 features.
+For a detailed explanation of API versioning, see the [API
+Versioning](https://cmmr.github.io/hdf5lib/articles/api-versioning.md)
+article.
 
 ### Step 3: Include HDF5 Headers
 
@@ -112,11 +116,11 @@ string.
 #include <vector>
 
 //' Get the version of the linked HDF5 library
- //'
- //' This function calls the HDF5 C API to retrieve the library version
- //' and returns it as a character string (e.g., "2.0.0").
- //' @export
- // [[Rcpp::export]]
+//'
+//' This function calls the HDF5 C API to retrieve the library version
+//' and returns it as a character string (e.g., "2.0.0").
+//' @export
+// [[Rcpp::export]]
 Rcpp::String get_hdf5_version() {
     unsigned int majnum, minnum, relnum;
 

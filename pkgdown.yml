@@ -2,9 +2,13 @@ pandoc: 3.1.11
 pkgdown: 2.2.0
 pkgdown_sha: ~
 articles:
-  advanced: advanced.html
-  hdf5lib: hdf5lib.html
-last_built: 2025-11-25T00:27Z
+  articles/api-versioning: api-versioning.html
+  articles/comparison: comparison.html
+  articles/compression: compression.html
+  articles/cookbook: cookbook.html
+  articles/hdf5lib: hdf5lib.html
+  articles/parallelism: parallelism.html
+last_built: 2025-11-25T19:11Z
 urls:
   reference: https://cmmr.github.io/hdf5lib/reference
   article: https://cmmr.github.io/hdf5lib/articles
