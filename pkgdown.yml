@@ -4,7 +4,7 @@ pkgdown_sha: ~
 articles:
   advanced: advanced.html
   hdf5lib: hdf5lib.html
-last_built: 2025-11-25T00:12Z
+last_built: 2025-11-25T00:19Z
 urls:
   reference: https://cmmr.github.io/hdf5lib/reference
   article: https://cmmr.github.io/hdf5lib/articles
