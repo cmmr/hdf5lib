@@ -2,17 +2,12 @@
 ^hdf5lib\.Rproj$
 ^LICENSE\.md$
 ^patches$
-^src/H5pubconf.h$
 ^src/prep_hdf5\.r$
 ^src/prep_zlib\.r$
 ^cran-comments\.md$
 ^CRAN-SUBMISSION$
-^_pkgdown\.yml$
-^docs$
 ^pkgdown$
-^\.github$
 ^doc$
 ^docs$
-^inst$
 ^Meta$
 ^vignettes$
