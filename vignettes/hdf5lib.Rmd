@@ -137,11 +137,7 @@ Rcpp::String get_hdf5_version() {
 
 Now, you can use your new function from R:
 
-```{r, eval=TRUE, echo=TRUE}
-# This is a mock implementation for vignette purposes.
-# In your actual package, this would call the C++ code.
-get_hdf5_version <- function() { "2.0.0" }
-
+```r
 library(myhdf5package)
 get_hdf5_version()
 #> "2.0.0"

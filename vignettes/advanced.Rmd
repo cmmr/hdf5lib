@@ -1,8 +1,8 @@
 ---
-title: "Advanced Usage: Parallelism and Direct C-level Access"
+title: "Parallelism and Direct C-level Access"
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{Advanced Usage}
+  %\VignetteIndexEntry{Parallelism and Direct C-level Access}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
@@ -11,7 +11,7 @@ vignette: >
 knitr::opts_chunk$set(
   collapse = TRUE,
   comment = "#>",
-  eval = FALSE # Most chunks are for illustration and shouldn't be run
+  eval = FALSE # Chunks are for illustration and shouldn't be run
 )
 ```
 
@@ -203,4 +203,3 @@ dyn.unload(so_file)
 ```
 
 This powerful technique gives you direct access to the full HDF5 C API from a simple R script, which is ideal for one-off tasks, debugging, or accessing niche functions not exposed by other R packages.
-
