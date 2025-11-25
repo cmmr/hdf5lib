@@ -1,5 +1,5 @@
 
-# **hdf5lib: Standalone HDF5 C Library for R** <img src="man/figures/logo.png" align="right" width="172" height="200" alt="hdf5lib logo" />
+# **HDF5 C Library for R** <img src="man/figures/logo.png" align="right" width="172" height="200" alt="hdf5lib logo" />
 
 [![cran](https://www.r-pkg.org/badges/version/hdf5lib)](https://CRAN.R-project.org/package=hdf5lib)
 
