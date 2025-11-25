@@ -1,8 +1,17 @@
+api_options <- c('200', '114', '112', '110', '18', '16')
+
 #' Get C/C++ Compiler Flags for hdf5lib
 #'
 #' @description
 #' Provides the required C/C++ compiler flags to find the HDF5 header
 #' files bundled with the `hdf5lib` package.
+#'
+#' @param api A character string specifying the HDF5 API version to use.
+#'   This adds a preprocessor directive like `-DH5_USE_114_API_DEFAULT` to ensure
+#'   that the compiled code uses symbols compatible with a specific version of
+#'   the HDF5 API. This is useful for maintaining compatibility with older HDF5
+#'   versions. Supported values are `200`, `114`, `112`, `110`, `18`,and `16`. 
+#'   Defaults to `"latest"`, which corresponds to the newest supported API version.
 #'
 #' @return A scalar character vector containing the compiler flags (e.g., the
 #'   `-I` path to the package's `inst/include` directory).
@@ -11,8 +20,12 @@
 #' @seealso [ld_flags()]
 #' @examples
 #' c_flags()
+#' c_flags(api = "114")
 #' 
-c_flags <- function() {
+c_flags <- function(api = "latest") {
+  
+  if (api == "latest") api <- api_options[[1]]
+  api <- match.arg(as.character(api), api_options)
 
   # Find the directory /path/to/R/library/hdf5lib/include
   include_dir <- system.file("include", package = "hdf5lib")
@@ -34,7 +47,10 @@ c_flags <- function() {
   
   # Return the compiler flag
   # Use normalizePath and winslash for robust paths
-  paste0("-I", normalized_path, " -DH5_BUILT_AS_STATIC_LIB")
+  paste(
+    paste0("-I", normalized_path), 
+    "-DH5_BUILT_AS_STATIC_LIB", 
+    paste0("-DH5_USE_", api, "_API_DEFAULT"))
 }
 
 
@@ -44,6 +60,12 @@ c_flags <- function() {
 #' Provides the required linker flags to link against the static HDF5
 #' library (`libhdf5z.a`) bundled with the `hdf5lib` package.
 #'
+#' @param api A character string specifying the HDF5 API version. This
+#'   parameter is included for consistency with [c_flags()] and is reserved for
+#'   future use. It currently has no effect on the linker flags. Supported
+#'   values are `200`, `114`, `112`, `110`, `18`, and `16`.
+#'   Defaults to `"latest"`.
+#'
 #' @return A scalar character vector containing the linker flags.
 #'
 #' @export
@@ -51,7 +73,10 @@ c_flags <- function() {
 #' @examples
 #' ld_flags()
 #' 
-ld_flags <- function() {
+ld_flags <- function(api = "latest") {
+  
+  if (api == "latest") api <- api_options[[1]]
+  api <- match.arg(as.character(api), api_options)
 
   # Find the package's 'lib' directory (e.g., /path/to/R/library/hdf5lib/lib)
   # This corresponds to the 'inst/lib' directory in the source package.

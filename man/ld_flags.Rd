@@ -4,7 +4,14 @@
 \alias{ld_flags}
 \title{Get C/C++ Linker Flags for hdf5lib}
 \usage{
-ld_flags()
+ld_flags(api = "latest")
+}
+\arguments{
+\item{api}{A character string specifying the HDF5 API version. This
+parameter is included for consistency with [c_flags()] and is reserved for
+future use. It currently has no effect on the linker flags. Supported
+values are `200`, `114`, `112`, `110`, `18`, and `16`.
+Defaults to `"latest"`.}
 }
 \value{
 A scalar character vector containing the linker flags.
@@ -12,14 +19,10 @@ A scalar character vector containing the linker flags.
 \description{
 Provides the required linker flags to link against the static HDF5
 library (`libhdf5z.a`) bundled with the `hdf5lib` package.
-
-This function is intended to be called from a `Makevars` file by
-other R packages that link to `hdf5lib`. It returns the `-L` path
-to the library directory and the `-l` flags for `libhdf5` and
-its system dependencies (like `pthread` and `dl`).
 }
 \examples{
 ld_flags()
+
 }
 \seealso{
 [c_flags()]

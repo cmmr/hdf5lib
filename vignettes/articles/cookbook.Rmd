@@ -1,0 +1,106 @@
+---
+title: "Cookbook"
+---
+
+This article contains a collection of practical examples for more specialized use cases of `hdf5lib`.
+
+## 1. Using `cpp11`
+
+`cpp11` is a modern alternative to `Rcpp` for creating C++ bindings for R. The setup to use `hdf5lib` with `cpp11` is very similar to the `Rcpp` setup.
+
+1.  **`DESCRIPTION`**: Add `cpp11` to the `LinkingTo` field.
+2.  **`src/Makevars`**: The file remains identical to the one shown in the "Getting Started" guide.
+3.  **C++ Code**: Write your code using `cpp11` headers and conventions.
+
+Here is the version-checking function from the "Getting Started" guide, rewritten for `cpp11`.
+
+```cpp
+#include "cpp11/strings.hpp"
+#include "cpp11/function.hpp"
+#include <hdf5.h>
+#include <vector>
+
+[[cpp11::register]]
+cpp11::strings get_hdf5_version_cpp11() {
+    unsigned int majnum, minnum, relnum;
+    H5get_libversion(&majnum, &minnum, &relnum);
+
+    std::vector<char> version_str(20);
+    snprintf(version_str.data(), version_str.size(), "%u.%u.%u", majnum, minnum, relnum);
+
+    return { std::string(version_str.data()) };
+}
+```
+
+After running `cpp11::cpp_register()`, you can build the package and call the function from R just as you would with an `Rcpp`-based package.
+
+## 2. Direct Dynamic Loading (No Package Needed)
+
+Sometimes you may want to run a small piece of C code that uses HDF5 without the overhead of creating a full R package. You can do this by compiling the C code into a shared library (`.so` or `.dll`) on the fly and loading it directly into your R session.
+
+This is exactly how `hdf5lib`'s own internal tests work.
+
+### Step 1: Write the C Source File
+
+Save your C code to a file, for example, `get_version.c`. This function must be compatible with R's `.Call()` interface, meaning it must take `SEXP` arguments and return a `SEXP`.
+
+```c
+// In file: get_version.c
+#include <R.h>
+#include <Rinternals.h>
+#include <hdf5.h>
+#include <stdio.h> // for snprintf
+
+SEXP get_version_c() {
+    unsigned maj, min, rel;
+    char version_str;
+
+    H5get_libversion(&maj, &min, &rel);
+    snprintf(version_str, sizeof(version_str), "%u.%u.%u", maj, min, rel);
+
+    SEXP result = PROTECT(Rf_allocVector(STRSXP, 1));
+    SET_STRING_ELT(result, 0, Rf_mkChar(version_str));
+    UNPROTECT(1);
+
+    return result;
+}
+```
+
+### Step 2: Compile and Load in R
+
+In your R script, use `system()` to call `R CMD SHLIB`. The key is to set the `PKG_CPPFLAGS` and `PKG_LIBS` environment variables for the `system()` call, using the helper functions from `hdf5lib`.
+
+```r
+# Ensure hdf5lib is installed
+if (!require("hdf5lib")) install.packages("hdf5lib")
+
+c_file <- "get_version.c"
+so_file <- paste0("get_version", .Platform$dynlib.ext)
+
+# Set environment variables for the compiler
+Sys.setenv(
+  PKG_CPPFLAGS = hdf5lib::c_flags(),
+  PKG_LIBS = hdf5lib::ld_flags()
+)
+
+# Construct and run the compilation command
+R_EXE <- file.path(R.home("bin"), "R")
+compile_cmd <- sprintf('%s CMD SHLIB %s', shQuote(R_EXE), shQuote(c_file))
+
+cat("Compiling with command:\n", compile_cmd, "\n")
+system(compile_cmd)
+
+# Clean up environment variables
+Sys.unsetenv(c("PKG_CPPFLAGS", "PKG_LIBS"))
+
+# Load the shared library and call the C function
+dyn.load(so_file)
+version <- .Call("get_version_c")
+
+print(version)
+
+# Unload the library
+dyn.unload(so_file)
+```
+
+This powerful technique gives you direct access to the full HDF5 C API from a simple R script, which is ideal for one-off tasks, debugging, or accessing niche functions not exposed by other R packages.

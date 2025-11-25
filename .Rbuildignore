@@ -11,3 +11,8 @@
 ^docs$
 ^pkgdown$
 ^\.github$
+^doc$
+^docs$
+^inst$
+^Meta$
+^vignettes$

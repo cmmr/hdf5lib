@@ -142,9 +142,6 @@ writeLines(makefile_lines, con = file.path(exdir, "Makefile"))
 invisible(file.remove(tarfile))
 setwd('src')
 
-# Add in our custom H5pubconf.h file
-invisible(file.copy("H5pubconf.h", paste0("hdf5-", VER, "/src/")))
-
 utils::tar(
   tarfile = paste0("hdf5-", VER, ".tar.gz"), 
   files   = paste0("hdf5-", VER), 

@@ -4,7 +4,15 @@
 \alias{c_flags}
 \title{Get C/C++ Compiler Flags for hdf5lib}
 \usage{
-c_flags()
+c_flags(api = "latest")
+}
+\arguments{
+\item{api}{A character string specifying the HDF5 API version to use.
+This adds a preprocessor directive like `-DH5_USE_114_API_DEFAULT` to ensure
+that the compiled code uses symbols compatible with a specific version of
+the HDF5 API. This is useful for maintaining compatibility with older HDF5
+versions. Supported values are `200`, `114`, `112`, `110`, `18`,and `16`. 
+Defaults to `"latest"`, which corresponds to the newest supported API version.}
 }
 \value{
 A scalar character vector containing the compiler flags (e.g., the
@@ -13,12 +21,11 @@ A scalar character vector containing the compiler flags (e.g., the
 \description{
 Provides the required C/C++ compiler flags to find the HDF5 header
 files bundled with the `hdf5lib` package.
-
-This function is intended to be called from a `Makevars` file by
-other R packages that link to `hdf5lib`.
 }
 \examples{
 c_flags()
+c_flags(api = "114")
+
 }
 \seealso{
 [ld_flags()]

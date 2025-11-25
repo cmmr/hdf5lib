@@ -19,6 +19,7 @@ requiring users to install any system-level dependencies.
 Useful links:
 \itemize{
   \item \url{https://github.com/cmmr/hdf5lib}
+  \item \url{https://cmmr.github.io/hdf5lib/}
   \item Report bugs at \url{https://github.com/cmmr/hdf5lib/issues}
 }
 
@@ -28,7 +29,9 @@ Useful links:
 
 Other contributors:
 \itemize{
-  \item Alkek Center for Metagenomics and Microbiome Research [copyright holder, funder]
+  \item The HDF Group (Copyright holder of the HDF5 library) [copyright holder]
+  \item Jean-loup Mark (Copyright holder of the zlib library) [copyright holder]
+  \item Gailly Adler (Copyright holder of the zlib library) [copyright holder]
 }
 
 }

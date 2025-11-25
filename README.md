@@ -18,6 +18,8 @@ This package provides **no R functions** and is intended for R package developer
 
 -   **Includes High-Level API:** Provides the convenient HDF5 High-Level (HL) APIs, including H5LT (Lite), H5IM (Image), and H5TB (Table), alongside the core low-level API.
 
+-   **Flexible API Versioning:** Downstream packages can compile their code against a specific HDF5 API version (e.g., v1.14, v1.12). This allows developers to lock their package to a specific API, ensuring that future updates to `hdf5lib` do not introduce breaking changes.
+
 -   **Safe for Parallel Code:** Compiled with thread-safety enabled. This prevents data corruption and crashes by ensuring that library calls from multiple threads (e.g., via `RcppParallel`) are safely serialized.
     -   **Important:** Thread-safety is **only supported for the low-level HDF5 APIs** (e.g., `H5F...`, `H5D...`). The High-Level (HL) APIs (`H5LT`, `H5IM`, `H5TB`) are **not** thread-safe and should not be used in parallel code.
     -   This feature protects against concurrent access from multiple **threads**, not multiple **processes**. Accessing the same HDF5 file from different processes without a file locking mechanism can still lead to file corruption.
@@ -65,13 +67,13 @@ This step ensures the R build system can find the HDF5 header files in `hdf5lib`
 
 ### **2. Create `src/Makevars`**
 
-Create a file named `Makevars` inside your package's `src/` directory. This tells the build system how to find and link your package against the static HDF5 library.
+Create a file named `Makevars` inside your package's `src/` directory. This tells the build system how to find and link your package against the static HDF5 library. You can optionally use the `api` parameter to lock in a specific HDF5 API version (e.g., 200, 114, 112, 110, 18, 16) to prevent future updates to HDF5 from breaking your package.
 
 Add the following lines to `src/Makevars`:
 
 ``` makefile
-PKG_CPPFLAGS = `$(R_HOME)/bin/Rscript -e "cat(hdf5lib::c_flags())"`
-PKG_LIBS     = `$(R_HOME)/bin/Rscript -e "cat(hdf5lib::ld_flags())"`
+PKG_CPPFLAGS = `$(R_HOME)/bin/Rscript -e "cat(hdf5lib::c_flags(api = 200))"`
+PKG_LIBS     = `$(R_HOME)/bin/Rscript -e "cat(hdf5lib::ld_flags(api = 200))"`
 ```
 
 *(Note: You only need this one `src/Makevars` file. The R build system on Windows will use `src/Makevars.win` if it exists, but will fall back to using `src/Makevars` if it's not found. Since these commands are platform-independent, this single file works for all operating systems.)*

@@ -4,8 +4,8 @@
 /* ========================================================================== */
 /* 1. Runtime / Generator Definitions & Overrides                           */
 /* ========================================================================== */
-/* Expects H5_SIZEOF_* macros and Endianness definitions from gen_config.c */
-#include "H5_sizeof.h"
+/* Expects H5_SIZEOF_* macros and Endianness definitions from query_byte_widths.c */
+#include "H5_byte_widths.h"
 
 /* Compiler Override Strategy:
  * If the compiler defines standard size macros (GCC/Clang), prefer those
