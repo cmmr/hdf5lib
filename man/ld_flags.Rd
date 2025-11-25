@@ -8,22 +8,22 @@ ld_flags(api = "latest")
 }
 \arguments{
 \item{api}{A character string specifying the HDF5 API version. This
-parameter is included for consistency with [c_flags()] and is reserved for
+parameter is included for consistency with \code{\link[=c_flags]{c_flags()}} and is reserved for
 future use. It currently has no effect on the linker flags. Supported
-values are `200`, `114`, `112`, `110`, `18`, and `16`.
-Defaults to `"latest"`.}
+values are \code{200}, \code{114}, \code{112}, \code{110}, \code{18}, and \code{16}.
+Defaults to \code{"latest"}.}
 }
 \value{
 A scalar character vector containing the linker flags.
 }
 \description{
 Provides the required linker flags to link against the static HDF5
-library (`libhdf5z.a`) bundled with the `hdf5lib` package.
+library (\code{libhdf5z.a}) bundled with the \code{hdf5lib} package.
 }
 \examples{
 ld_flags()
 
 }
 \seealso{
-[c_flags()]
+\code{\link[=c_flags]{c_flags()}}
 }

@@ -8,19 +8,19 @@ c_flags(api = "latest")
 }
 \arguments{
 \item{api}{A character string specifying the HDF5 API version to use.
-This adds a preprocessor directive like `-DH5_USE_114_API_DEFAULT` to ensure
+This adds a preprocessor directive like \code{-DH5_USE_114_API_DEFAULT} to ensure
 that the compiled code uses symbols compatible with a specific version of
 the HDF5 API. This is useful for maintaining compatibility with older HDF5
-versions. Supported values are `200`, `114`, `112`, `110`, `18`,and `16`. 
-Defaults to `"latest"`, which corresponds to the newest supported API version.}
+versions. Supported values are \code{200}, \code{114}, \code{112}, \code{110}, \code{18},and \code{16}.
+Defaults to \code{"latest"}, which corresponds to the newest supported API version.}
 }
 \value{
 A scalar character vector containing the compiler flags (e.g., the
-  `-I` path to the package's `inst/include` directory).
+\code{-I} path to the package's \code{inst/include} directory).
 }
 \description{
 Provides the required C/C++ compiler flags to find the HDF5 header
-files bundled with the `hdf5lib` package.
+files bundled with the \code{hdf5lib} package.
 }
 \examples{
 c_flags()
@@ -28,5 +28,5 @@ c_flags(api = "114")
 
 }
 \seealso{
-[ld_flags()]
+\code{\link[=ld_flags]{ld_flags()}}
 }

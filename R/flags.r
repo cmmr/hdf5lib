@@ -10,7 +10,7 @@ api_options <- c('200', '114', '112', '110', '18', '16')
 #'   This adds a preprocessor directive like `-DH5_USE_114_API_DEFAULT` to ensure
 #'   that the compiled code uses symbols compatible with a specific version of
 #'   the HDF5 API. This is useful for maintaining compatibility with older HDF5
-#'   versions. Supported values are `200`, `114`, `112`, `110`, `18`,and `16`. 
+#'   versions. Supported values are `200`, `114`, `112`, `110`, `18`,and `16`.
 #'   Defaults to `"latest"`, which corresponds to the newest supported API version.
 #'
 #' @return A scalar character vector containing the compiler flags (e.g., the
