@@ -1,4 +1,4 @@
-# **hdf5lib: Standalone HDF5 C Library for R**
+# **HDF5 C Library for R**
 
 [![cran](https://www.r-pkg.org/badges/version/hdf5lib)](https://CRAN.R-project.org/package=hdf5lib)
 
