@@ -115,7 +115,6 @@
 #define H5_HAVE_DIRENT_H 1
 #define H5_HAVE_FCNTL_H 1
 #define H5_HAVE_NETDB_H 1
-#define H5_HAVE_PWD_H 1
 #define H5_HAVE_SYS_STAT_H 1
 #define H5_HAVE_SYS_TIME_H 1
 #define H5_HAVE_SYS_TYPES_H 1
@@ -163,14 +162,20 @@
     
     /* Disable features not reliably available or functional on MinGW */
     #undef H5_HAVE_WIN_THREADS
+    #undef H5_HAVE_FCNTL
     #undef H5_HAVE_FLOCK
     #undef H5_HAVE_GETRUSAGE
     #undef H5_HAVE_FORK
-    #undef H5_HAVE_SYMLINK /* Use Windows-specific implementation */
+    #undef H5_HAVE_WAITPID
+    #undef H5_HAVE_SYMLINK
+    #undef H5_HAVE_ALARM
+    #undef H5_HAVE_PREADWRITE
+    #undef H5_HAVE_STAT_ST_BLOCKS
 
 /* --- POSIX Specifics (Linux / macOS / BSD) --- */
 #else
     #define H5_DEFAULT_PLUGINDIR "/usr/local/hdf5/lib/plugin"
+    #define H5_HAVE_PWD_H 1
     
     #if defined(__APPLE__)
         #define H5_HAVE_DARWIN 1
