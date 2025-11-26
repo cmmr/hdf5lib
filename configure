@@ -44,12 +44,12 @@ R_MAKE=$("$R_EXE" CMD config MAKE)
 : "${R_MAKE:=make}"
 
 # Construct final flags
-# -O2: Prepended so R's flags will override.
+# Add optimization flag if not already present
 export CC="$R_CC"
-export CFLAGS="-O2 $R_CFLAGS $R_CPICFLAGS -g0 -Wall"
-echo "  CC:     $CC"
-echo "  CFLAGS: $CFLAGS"
-
+case " $R_CFLAGS " in
+  * -O*) export CFLAGS="$R_CFLAGS $R_CPICFLAGS" ;;
+  *)     export CFLAGS="$R_CFLAGS $R_CPICFLAGS -O2" ;;
+esac
 
 # 3. Build Dependencies --------------------------------------------------------
 echo "--- [hdf5lib] Decompressing sources..."
@@ -66,6 +66,8 @@ HDF5_DIR="$BUILD_DIR/hdf5-$HDF5_VER"
 echo "--- [hdf5lib] Building ZLIB..."
 cd "$ZLIB_DIR"
 export CPPFLAGS="-I. $R_CPPFLAGS"
+echo "  CC:       $CC"
+echo "  CFLAGS:   $CFLAGS"
 echo "  CPPFLAGS: $CPPFLAGS"
 
 if [ "$WIN" -eq 1 ]; then
@@ -94,7 +96,9 @@ $CC $CPPFLAGS $CFLAGS -o find_byte_widths$EXE ./find_byte_widths.c
 # Use the pre-generated Makefile (from prep_hdf5.r) to build all objects
 # Explicitly passing CC/CFLAGS overrides the defaults in the Makefile
 "$R_EXE" -s -e "invisible(file.copy(R.home('include'), '.', recursive = TRUE))"
-export CPPFLAGS="-I./src -I./hl/src -I./include -I../zlib-$ZLIB_VER $R_CPPFLAGS -DH5_BUILT_AS_STATIC_LIB -DH5_DLL= -DH5HL_DLL="
+export CPPFLAGS="-Werror -Wall -Isrc -Ihl/src -Iinclude -I../zlib-$ZLIB_VER $R_CPPFLAGS -DH5_BUILT_AS_STATIC_LIB -DH5_DLL= -DH5HL_DLL="
+echo "  CC:       $CC"
+echo "  CFLAGS:   $CFLAGS"
 echo "  CPPFLAGS: $CPPFLAGS"
 "$R_MAKE" CC="$CC" CFLAGS="$CFLAGS" CPPFLAGS="$CPPFLAGS"
 
