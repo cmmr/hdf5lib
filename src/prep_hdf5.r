@@ -137,8 +137,7 @@ for (i in seq_along(src_files)) {
   makefile_lines <- c(
     makefile_lines,
     paste0(obj, ": ", src),
-    paste0("\t@echo CC ", src),
-    paste0("\t@$(CC) $(CFLAGS) $(CPPFLAGS) -c ", src, " -o ", obj),
+    paste0("\t$(CC) $(CFLAGS) $(CPPFLAGS) -c ", src, " -o ", obj),
     ""
   )
 }
