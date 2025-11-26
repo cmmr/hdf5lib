@@ -20,12 +20,12 @@ Source:
 [`DESCRIPTION`](https://github.com/cmmr/hdf5lib/blob/main/DESCRIPTION)
 
 Smith D (2025). *hdf5lib: Headers and Static Libraries for 'HDF5'*. R
-package version 2.0.0.0, <https://github.com/cmmr/hdf5lib>.
+package version 2.0.0.1, <https://github.com/cmmr/hdf5lib>.
 
     @Manual{,
       title = {hdf5lib: Headers and Static Libraries for 'HDF5'},
       author = {Daniel P. Smith},
       year = {2025},
-      note = {R package version 2.0.0.0},
+      note = {R package version 2.0.0.1},
       url = {https://github.com/cmmr/hdf5lib},
     }

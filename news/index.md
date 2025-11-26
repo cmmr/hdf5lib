@@ -1,10 +1,10 @@
 # Changelog
 
-## hdf5lib 2.0.0.0
+## hdf5lib 2.0.0.1
 
 - Updated to HDF5 2.0.0
 - Added `api` argument to `c_flags` to control exposed HDF5 API.
-- Custom HDF5 build configuration for R environment.
+- Customized HDF5 build configuration for R environment.
 
 ## hdf5lib 1.14.6.9
 
