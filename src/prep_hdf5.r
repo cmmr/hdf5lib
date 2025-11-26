@@ -12,7 +12,7 @@ exdir   <- file.path('src', paste0("hdf5-", VER))
 cached  <- file.path('src', paste0("hdf5-", VER, "-orig.tar.gz"))
 
 if (file.exists(cached)) {
-  file.copy(from = cached, to = tarfile)
+  file.copy(from = cached, to = tarfile, overwrite = TRUE)
 } else {
   cat("Downloading ", shQuote(tarfile), "...\n")
   if (file.exists(tarfile)) invisible(file.remove(tarfile))
@@ -44,6 +44,7 @@ invisible(file.remove(c(
   "src/hdf5-2.0.0/src/H5Cmpio.c",      "src/hdf5-2.0.0/src/H5Dmpio.c",
   "src/hdf5-2.0.0/src/H5FDmpio.c",     "src/hdf5-2.0.0/src/H5Fmpi.c",
   "src/hdf5-2.0.0/src/H5Smpio.c",      "src/hdf5-2.0.0/src/H5mpi.c",
+  "src/hdf5-2.0.0/src/H5Obogus.c",     "src/hdf5-2.0.0/src/H5TSc11.c",
   "src/hdf5-2.0.0/src/H5FDros3.c",     "src/hdf5-2.0.0/src/H5FDros3_s3comms.c",
   "src/hdf5-2.0.0/src/H5Zszip.c",      "src/hdf5-2.0.0/src/libhdf5.settings.in" )))
 
