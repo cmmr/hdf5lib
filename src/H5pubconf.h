@@ -114,7 +114,6 @@
 /* --- Standard Headers --- */
 #define H5_HAVE_DIRENT_H 1
 #define H5_HAVE_FCNTL_H 1
-#define H5_HAVE_NETDB_H 1
 #define H5_HAVE_SYS_STAT_H 1
 #define H5_HAVE_SYS_TIME_H 1
 #define H5_HAVE_SYS_TYPES_H 1
@@ -176,6 +175,7 @@
 #else
     #define H5_DEFAULT_PLUGINDIR "/usr/local/hdf5/lib/plugin"
     #define H5_HAVE_PWD_H 1
+    #define H5_HAVE_NETDB_H 1
     
     #if defined(__APPLE__)
         #define H5_HAVE_DARWIN 1
