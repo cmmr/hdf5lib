@@ -95,7 +95,7 @@ $CC $CPPFLAGS $CFLAGS -o find_byte_widths$EXE ./find_byte_widths.c
 # Explicitly passing CC/CFLAGS overrides the defaults in the Makefile
 "$R_EXE" -s -e "invisible(file.copy(R.home('include'), '.', recursive = TRUE))"
 
-cp ../find_hdf5_deps.sh .
+cp "$PKG_DIR/src/find_hdf5_deps.sh" .
 chmod a+x find_hdf5_deps.sh
 ./find_hdf5_deps.sh
 echo "-------------------"
