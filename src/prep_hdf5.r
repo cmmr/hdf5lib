@@ -100,7 +100,7 @@ for (c_file in c_files) {
 # --- 6. Pre-generate Makefile ---
 # We generate a static Makefile that uses standard Make variables (CC, CFLAGS, etc.)
 # which 'configure' will override at build time.
-cat('Generating Makefile.h5...\n')
+cat('Generating Makefile...\n')
 
 # Find all source files relative to the hdf5 root
 # Note: exdir is "src/hdf5-2.0.0"
