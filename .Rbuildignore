@@ -4,7 +4,8 @@
 ^patches$
 ^src/prep_hdf5\.r$
 ^src/prep_zlib\.r$
-^src/hdf5-2.0.0-orig.tar.gz
+^src/find_hdf5_deps.sh$
+^src/hdf5-2.0.0-orig.tar.gz$
 ^cran-comments\.md$
 ^CRAN-SUBMISSION$
 ^pkgdown$
