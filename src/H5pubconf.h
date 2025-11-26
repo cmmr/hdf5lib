@@ -71,143 +71,117 @@
 /* ========================================================================== */
 /* 2. Project Metadata & Policy                                             */
 /* ========================================================================== */
-#define H5_PACKAGE_NAME "HDF5"
-#define H5_PACKAGE_VERSION "2.0.0"
-#define H5_PACKAGE_STRING "HDF5 2.0.0"
-#define H5_PACKAGE_BUGREPORT "help@hdfgroup.org"
-#define H5_PACKAGE "hdf5"
-#define H5_PACKAGE_TARNAME "hdf5"
-#define H5_PACKAGE_URL "https://www.hdfgroup.org"
-#define H5_VERSION "2.0.0"
+/* These settings define package info and enable core library policies. */
+#define H5_PACKAGE_NAME                 "HDF5"
+#define H5_PACKAGE_VERSION              "2.0.0"
+#define H5_PACKAGE_STRING               "HDF5 2.0.0"
+#define H5_PACKAGE_BUGREPORT            "help@hdfgroup.org"
+#define H5_PACKAGE                      "hdf5"
+#define H5_PACKAGE_TARNAME              "hdf5"
+#define H5_PACKAGE_URL                  "https://www.hdfgroup.org"
+#define H5_VERSION                      "2.0.0"
 
-#define H5_USE_FILE_LOCKING 1
-#define H5_IGNORE_DISABLED_FILE_LOCKS 1
-#define H5_HAVE_EMBEDDED_LIBINFO 1
-#define H5_WANT_DATA_ACCURACY 1
-#define H5_WANT_DCONV_EXCEPTION 1
-#define H5_INCLUDE_HL 1
-
-
-/* ========================================================================== */
-/* 3. Compiler & Feature Detection                                          */
-/* ========================================================================== */
-#define H5_HAVE_ATTRIBUTE 1
-#define H5_HAVE_C99_COMPLEX_NUMBERS 1
-#define H5_HAVE_COMPLEX_NUMBERS 1
-#define H5_STDC_HEADERS 1
-#define H5_HAVE_IEEE_754 1
+#define H5_USE_FILE_LOCKING             1
+#define H5_IGNORE_DISABLED_FILE_LOCKS   1
+#define H5_HAVE_EMBEDDED_LIBINFO        1
+#define H5_WANT_DATA_ACCURACY           1
+#define H5_WANT_DCONV_EXCEPTION         1
+#define H5_INCLUDE_HL                   1
 
 /* ========================================================================== */
-/* 4. Filter & Compression Support                                          */
+/* 3. Universal Compiler & Language Features                                */
 /* ========================================================================== */
-#define H5_HAVE_FILTER_DEFLATE 1
-#define H5_HAVE_ZLIB_H 1
-#define H5_HAVE_LIBZ 1
-
-/* ========================================================================== */
-/* 5. Lowest Common Denominator Feature Set for CRAN                        */
-/* ========================================================================== */
-/* These features are conservatively assumed to be present and functional
-   across all CRAN build environments (R >= 4.1), including Windows (MinGW),
-   macOS, and various Linux distributions. */
-
-/* --- Standard Headers --- */
-#define H5_HAVE_DIRENT_H 1
-#define H5_HAVE_FCNTL_H 1
-#define H5_HAVE_SYS_STAT_H 1
-#define H5_HAVE_SYS_TIME_H 1
-#define H5_HAVE_SYS_TYPES_H 1
-#define H5_HAVE_UNISTD_H 1
-#define H5_HAVE_TIME_H 1
-
-/* --- Threading --- */
-/* R >= 4.0 provides pthreads on Windows, making this safe. */
-#define H5_HAVE_PTHREAD_H 1
-#define H5_HAVE_THREADSAFE 1
-#define H5_HAVE_THREADS 1
-
-/* --- Dynamic Loading --- */
-/* Required for HDF5 filter plugins. Available on all target platforms. */
-#define H5_HAVE_DLFCN_H 1
-#define H5_HAVE_LIBDL 1
-
-/* --- System Functions --- */
-#define H5_HAVE_ALARM 1
-#define H5_HAVE_CLOCK_GETTIME 1
-#define H5_HAVE_FORK 1
-#define H5_HAVE_GETHOSTNAME 1
-#define H5_HAVE_GETTIMEOFDAY 1
-#define H5_HAVE_PREADWRITE 1
-#define H5_HAVE_STAT_ST_BLOCKS 1
-#define H5_HAVE_STRDUP 1
-#define H5_HAVE_SYMLINK 1
-#define H5_HAVE_SYSTEM 1
-#define H5_HAVE_TMPFILE 1
-#define H5_HAVE_WAITPID 1
+/* Features guaranteed by a C99/C11 compliant compiler. */
+#define H5_HAVE_ATTRIBUTE               1
+#define H5_HAVE_C99_COMPLEX_NUMBERS     1
+#define H5_HAVE_COMPLEX_NUMBERS         1
+#define H5_STDC_HEADERS                 1
+#define H5_HAVE_IEEE_754                1
 
 /* ========================================================================== */
-/* 6. Platform Specifics (Overrides & Exceptions)                           */
+/* 4. Universal Library & Header Availability                               */
+/* ========================================================================== */
+/* Headers and libraries present on all CRAN platforms (R >= 4.1). */
+#define H5_HAVE_FILTER_DEFLATE          1
+#define H5_HAVE_ZLIB_H                  1
+#define H5_HAVE_LIBZ                    1
+#define H5_HAVE_DIRENT_H                1
+#define H5_HAVE_SYS_STAT_H              1
+#define H5_HAVE_SYS_TIME_H              1
+#define H5_HAVE_SYS_TYPES_H             1
+#define H5_HAVE_UNISTD_H                1
+#define H5_HAVE_TIME_H                  1
+#define H5_HAVE_PTHREAD_H               1 /* pthreads are standard in R's toolchain */
+#define H5_HAVE_THREADSAFE              1
+#define H5_HAVE_THREADS                 1
+#define H5_HAVE_DLFCN_H                 1 /* For dynamic filter plugins */
+#define H5_HAVE_LIBDL                   1
+
+/* ========================================================================== */
+/* 5. Universal System Function Availability                                */
+/* ========================================================================== */
+/* C functions present on all CRAN platforms (POSIX and MinGW). */
+#define H5_HAVE_CLOCK_GETTIME           1
+#define H5_HAVE_GETHOSTNAME             1
+#define H5_HAVE_GETTIMEOFDAY            1
+#define H5_HAVE_STRDUP                  1
+#define H5_HAVE_SYSTEM                  1
+#define H5_HAVE_TMPFILE                 1
+
+/* ========================================================================== */
+/* 6. Platform-Specific Features (Additive Only)                            */
 /* ========================================================================== */
 
 /* --- Windows Specifics (Rtools / MinGW) --- */
 #if defined(_WIN32) || defined(__MINGW32__)
-    #define H5_HAVE_WINDOWS 1
-    #define H5_HAVE_WIN32_API 1
-    #define H5_HAVE_MINGW 1
-    #define H5_HAVE_LIBWS2_32 1
-    #define H5_HAVE_WINDOW_PATH 1
-    #define H5_HAVE_GETCONSOLESCREENBUFFERINFO 1
-    #define H5_DEFAULT_PLUGINDIR "%ALLUSERSPROFILE%\\hdf5\\lib\\plugin"
-    
-    /* Disable features not reliably available or functional on MinGW */
-    #undef H5_HAVE_WIN_THREADS
-    #undef H5_HAVE_FCNTL
-    #undef H5_HAVE_FLOCK
-    #undef H5_HAVE_GETRUSAGE
-    #undef H5_HAVE_FORK
-    #undef H5_HAVE_WAITPID
-    #undef H5_HAVE_SYMLINK
-    #undef H5_HAVE_ALARM
-    #undef H5_HAVE_PREADWRITE
-    #undef H5_HAVE_STAT_ST_BLOCKS
+    #define H5_HAVE_WINDOWS                     1
+    #define H5_HAVE_WIN32_API                   1
+    #define H5_HAVE_MINGW                       1
+    #define H5_HAVE_LIBWS2_32                   1
+    #define H5_HAVE_WINDOW_PATH                 1
+    #define H5_DEFAULT_PLUGINDIR                "%ALLUSERSPROFILE%\\hdf5\\lib\\plugin"
 
 /* --- POSIX Specifics (Linux / macOS / BSD) --- */
 #else
-    #define H5_DEFAULT_PLUGINDIR "/usr/local/hdf5/lib/plugin"
-    #define H5_HAVE_PWD_H 1
-    #define H5_HAVE_NETDB_H 1
+    #define H5_DEFAULT_PLUGINDIR                "/usr/local/hdf5/lib/plugin"
+    #define H5_HAVE_PWD_H                       1
+    #define H5_HAVE_NETDB_H                     1
+    #define H5_HAVE_FCNTL_H                     1
+    #define H5_HAVE_ALARM                       1
+    #define H5_HAVE_FORK                        1
+    #define H5_HAVE_WAITPID                     1
+    #define H5_HAVE_SYMLINK                     1
+    #define H5_HAVE_STAT_ST_BLOCKS              1
+    #define H5_HAVE_FLOCK                       1
+    #define H5_HAVE_GETRUSAGE                   1
     
     #if defined(__APPLE__)
-        #define H5_HAVE_DARWIN 1
+        #define H5_HAVE_DARWIN                  1
+        #define H5_HAVE_PREADWRITE              1
     #elif defined(__sun)
-        #undef H5_HAVE_PREADWRITE /* Missing on older Solaris */
+        /* pread/pwrite may be missing on older Solaris */
+    #else
+        #define H5_HAVE_PREADWRITE              1
     #endif
 #endif
 
 
 /* ========================================================================== */
-/* 7. Disable GNU Extensions and other non-Portable functions.                */
+/* 7. Explicitly Disabled Features                                          */
 /* ========================================================================== */
-/* To ensure maximum portability and avoid reliance on specific toolchain
-   extensions (e.g., GNU vs. BSD), the following features are disabled
-   unconditionally across all platforms. */
-
-/* --- Non-portable String/Memory functions --- */
-#undef H5_HAVE_STRCASESTR
-#undef H5_HAVE_ASPRINTF
-#undef H5_HAVE_VASPRINTF
-
-/* --- Non-portable System functions --- */
-#undef H5_HAVE_QSORT_REENTRANT
-#undef H5_HAVE_TM_GMTOFF
-#undef H5_HAVE_TIMEZONE
-#undef H5_HAVE_STRUCT_TIMEZONE
-#undef H5_HAVE_GETRUSAGE
-
-/* --- Terminal/Device specific I/O (not needed for the library) --- */
-#undef H5_HAVE_IOCTL
-#undef H5_HAVE_TIOCGETD
-#undef H5_HAVE_TIOCGWINSZ
-#undef H5_HAVE_GETCONSOLESCREENBUFFERINFO
+/* These features are explicitly disabled on all platforms to ensure maximum
+   portability and avoid reliance on non-standard or problematic extensions. */
+#undef H5_HAVE_WIN_THREADS          /* Use pthreads instead */
+#undef H5_HAVE_STRCASESTR           /* Non-standard string function */
+#undef H5_HAVE_ASPRINTF             /* Non-standard string function */
+#undef H5_HAVE_VASPRINTF            /* Non-standard string function */
+#undef H5_HAVE_QSORT_REENTRANT      /* Incompatible signatures (GNU vs BSD) */
+#undef H5_HAVE_TM_GMTOFF            /* Non-standard time.h member */
+#undef H5_HAVE_TIMEZONE             /* Non-standard time.h member */
+#undef H5_HAVE_STRUCT_TIMEZONE      /* Non-standard time.h struct */
+#undef H5_HAVE_IOCTL                /* Terminal/device specific I/O */
+#undef H5_HAVE_TIOCGETD             /* Terminal/device specific I/O */
+#undef H5_HAVE_TIOCGWINSZ           /* Terminal/device specific I/O */
+#undef H5_HAVE_GETCONSOLESCREENBUFFERINFO /* Windows-specific console I/O */
 
 #endif /* H5_PUBCONF_H */
