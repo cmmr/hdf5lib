@@ -1,0 +1,56 @@
+diff -ru src/hdf5-orig/src/H5.c src/hdf5-2.0.0/src/H5.c
+--- src/hdf5-orig/src/H5.c	2025-11-11 00:00:49.000000000 +0000
++++ src/hdf5-2.0.0/src/H5.c	2025-11-26 22:00:55.459870300 +0000
+@@ -366,8 +366,8 @@
+      */
+ #define DOWN(F)                                                                                              \
+     (((n = H5##F##_term_package()) && (at + 8) < sizeof loop)                                                \
+-         ? (sprintf(loop + at, "%s%s", (at ? "," : ""), #F), at += strlen(loop + at), n)                     \
+-         : ((n > 0 && (at + 5) < sizeof loop) ? (sprintf(loop + at, "..."), at += strlen(loop + at), n)      \
++         ? (snprintf(loop + at, sizeof(loop) - at, "%s%s", (at ? "," : ""), #F), at += strlen(loop + at), n) \
++         : ((n > 0 && (at + 5) < sizeof loop) ? (snprintf(loop + at, sizeof(loop) - at, "..."), at += strlen(loop + at), n) \
+                                               : n))
+ 
+     do {
+diff -ru src/hdf5-orig/src/H5Eint.c src/hdf5-2.0.0/src/H5Eint.c
+--- src/hdf5-orig/src/H5Eint.c	2025-11-11 00:00:49.000000000 +0000
++++ src/hdf5-2.0.0/src/H5Eint.c	2025-11-26 21:39:35.278794100 +0000
+@@ -1474,7 +1474,7 @@
+ H5E_get_default_auto_func(H5E_auto2_t *func)
+ {
+     H5E_stack_t  *estack;              /* Error stack to operate on */
+-    H5E_auto_op_t op;                  /* Error stack function */
++    H5E_auto_op_t op        = {0};     /* Error stack function */
+     herr_t        ret_value = SUCCEED; /* Return value */
+ 
+     FUNC_ENTER_NOAPI(FAIL)
+diff -ru src/hdf5-orig/src/H5FDmulti.c src/hdf5-2.0.0/src/H5FDmulti.c
+--- src/hdf5-orig/src/H5FDmulti.c	2025-11-11 00:00:49.000000000 +0000
++++ src/hdf5-2.0.0/src/H5FDmulti.c	2025-11-26 21:52:25.486878400 +0000
+@@ -26,12 +26,14 @@
+ 
+ #include "H5warnings.h"
+ 
++#if __STDC_VERSION__ < 202311L
+ #ifndef false
+ #define false 0
+ #endif
+ #ifndef true
+ #define true 1
+ #endif
++#endif
+ 
+ /* Windows doesn't like some POSIX names and redefines them with an
+  * underscore
+diff -ru src/hdf5-orig/src/H5system.c src/hdf5-2.0.0/src/H5system.c
+--- src/hdf5-orig/src/H5system.c	2025-11-11 00:00:49.000000000 +0000
++++ src/hdf5-2.0.0/src/H5system.c	2025-11-26 21:41:43.161208800 +0000
+@@ -316,7 +316,7 @@
+     return (int)_putenv_s(name, value);
+ } /* end Wsetenv() */
+ 
+-#ifdef H5_HAVE_WIN32_API
++#ifdef _MSC_VER
+ #pragma comment(lib, "advapi32.lib")
+ #endif
+ 

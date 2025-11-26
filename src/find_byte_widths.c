@@ -90,7 +90,8 @@ int main(void) {
 
     /* 8. Feature Detection: _Float16 */
 #if defined(__FLT16_MAX__) || defined(__FLT16_MANT_DIG__)
-    printf("#define H5_SIZEOF__FLOAT16 %zu\n", sizeof(_Float16));
+    /* Use __extension__ to silence -Wpedantic warning about _Float16 type */
+    printf("#define H5_SIZEOF__FLOAT16 %zu\n", sizeof(__extension__ _Float16));
 #else
     printf("#define H5_SIZEOF__FLOAT16 0\n");
 #endif
