@@ -47,8 +47,8 @@ R_MAKE=$("$R_EXE" CMD config MAKE)
 # Add optimization flag if not already present
 export CC="$R_CC"
 case " $R_CFLAGS " in
-  * -O*) export CFLAGS="$R_CFLAGS $R_CPICFLAGS" ;;
-  *)     export CFLAGS="$R_CFLAGS $R_CPICFLAGS -O2" ;;
+  *" -O"*) export CFLAGS="$R_CFLAGS $R_CPICFLAGS" ;;
+  *)       export CFLAGS="$R_CFLAGS $R_CPICFLAGS -O2" ;;
 esac
 
 # 3. Build Dependencies --------------------------------------------------------
