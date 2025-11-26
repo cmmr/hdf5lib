@@ -94,21 +94,14 @@ $CC $CPPFLAGS $CFLAGS -o find_byte_widths$EXE ./find_byte_widths.c
 # Use the pre-generated Makefile (from prep_hdf5.r) to build all objects
 # Explicitly passing CC/CFLAGS overrides the defaults in the Makefile
 "$R_EXE" -s -e "invisible(file.copy(R.home('include'), '.', recursive = TRUE))"
+export CPPFLAGS="-I./src -I./hl/src -I./include -I../zlib-$ZLIB_VER $R_CPPFLAGS -DH5_BUILT_AS_STATIC_LIB -DH5_DLL= -DH5HL_DLL="
+echo "  CPPFLAGS: $CPPFLAGS"
 
 cp "$PKG_DIR/src/find_hdf5_deps.sh" .
 chmod a+x find_hdf5_deps.sh
 ./find_hdf5_deps.sh
-echo "-------------------"
-echo "--- Required Files:"
-cat required_sources.txt
-echo "-------------------"
-echo "--- Excluded Files:"
-cat excluded_sources.txt
 exit 1
 
-
-export CPPFLAGS="-I./src -I./hl/src -I./include -I../zlib-$ZLIB_VER $R_CPPFLAGS -DH5_BUILT_AS_STATIC_LIB -DH5_DLL= -DH5HL_DLL="
-echo "  CPPFLAGS: $CPPFLAGS"
 "$R_MAKE" CC="$CC" CFLAGS="$CFLAGS" CPPFLAGS="$CPPFLAGS" >/dev/null
 
 

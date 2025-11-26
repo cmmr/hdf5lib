@@ -9,16 +9,14 @@ SRC_DIR="${ROOT_DIR}/src"
 HL_SRC_DIR="${ROOT_DIR}/hl/src"
 BUILD_DIR="${ROOT_DIR}/build_temp"
 
-# Include paths (Adjust if your H5pubconf.h is elsewhere)
-INCLUDE_DIRS="-I./src -I./hl/src -I./include -I../zlib-1.3.1"
-
 # Output files
 REQUIRED_FILE="${ROOT_DIR}/required_sources.txt"
 EXCLUDED_FILE="${ROOT_DIR}/excluded_sources.txt"
 
-# Compiler Flags
+# Compile Command
+# CC, CPPFLAGS, CFLAGS: exported by parent script
 # -ffunction-sections -fdata-sections: Crucial for fine-grained pruning
-CFLAGS="-O2 -ffunction-sections -fdata-sections ${INCLUDE_DIRS}"
+COMPILE="$CC $CPPFLAGS $CFLAGS -ffunction-sections -fdata-sections"
 
 # ==========================================
 # 1. SETUP
@@ -48,7 +46,7 @@ compile_dir() {
         # Store full path in specific attribute for later retrieval
         echo "${obj_name}|${c_file}" >> "$BUILD_DIR/file_map.txt"
         
-        gcc $CFLAGS -c "$c_file" -o "$BUILD_DIR/$obj_name"
+        $COMPILE -c "$c_file" -o "$BUILD_DIR/$obj_name"
     done
 }
 
@@ -111,7 +109,7 @@ done < file_map.txt
 # 6. SUMMARY
 # ==========================================
 cd "$ROOT_DIR"
-# rm -rf "$BUILD_DIR" # Uncomment to clean up automatically
+rm -rf "$BUILD_DIR" # Uncomment to clean up automatically
 
 req_count=$(wc -l < "$REQUIRED_FILE")
 excl_count=$(wc -l < "$EXCLUDED_FILE")
@@ -121,3 +119,5 @@ echo "Analysis Complete."
 echo "Required files: $req_count (See required_sources.txt)"
 echo "Excluded files: $excl_count (See excluded_sources.txt)"
 echo "=========================================="
+echo "--- Excluded Files:"
+cat excluded_sources.txt
