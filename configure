@@ -81,28 +81,35 @@ fi
 echo "--- [hdf5lib] Building HDF5..."
 cd "$HDF5_DIR"
 cp "$PKG_DIR/src/H5pubconf.h" src/
-cp "$PKG_DIR/src/query_byte_widths.c" .
+cp "$PKG_DIR/src/find_byte_widths.c" .
 
 
 # A. Generators
 # Compile and run generator to detect system type sizes (creates src/H5_byte_widths.h)
 # Use unquoted $CC to allow arguments like -std=gnu11
-$CC $CPPFLAGS $CFLAGS -o query_byte_widths$EXE ./query_byte_widths.c
-./query_byte_widths$EXE | tr -d '\r' > src/H5_byte_widths.h
+$CC $CPPFLAGS $CFLAGS -o find_byte_widths$EXE ./find_byte_widths.c
+./find_byte_widths$EXE | tr -d '\r' > src/H5_byte_widths.h
 
 # B. Compilation
-# Determine parallelism (default to -j4 if not specified by user)
-case " $MAKEFLAGS " in
-  *\ -j*|*\ --jobs*) N_JOBS="" ;;
-  *)                 N_JOBS="-j4" ;;
-esac
-
 # Use the pre-generated Makefile (from prep_hdf5.r) to build all objects
 # Explicitly passing CC/CFLAGS overrides the defaults in the Makefile
 "$R_EXE" -s -e "invisible(file.copy(R.home('include'), '.', recursive = TRUE))"
+
+cp ../find_hdf5_deps.sh .
+chmod a+x find_hdf5_deps.sh
+./find_hdf5_deps.sh
+echo "-------------------"
+echo "--- Required Files:"
+cat required_sources.txt
+echo "-------------------"
+echo "--- Excluded Files:"
+cat excluded_sources.txt
+exit 1
+
+
 export CPPFLAGS="-I./src -I./hl/src -I./include -I../zlib-$ZLIB_VER $R_CPPFLAGS -DH5_BUILT_AS_STATIC_LIB -DH5_DLL= -DH5HL_DLL="
 echo "  CPPFLAGS: $CPPFLAGS"
-"$R_MAKE" $N_JOBS CC="$CC" CFLAGS="$CFLAGS" CPPFLAGS="$CPPFLAGS" >/dev/null
+"$R_MAKE" CC="$CC" CFLAGS="$CFLAGS" CPPFLAGS="$CPPFLAGS" >/dev/null
 
 
 # 5. Link and Archive ----------------------------------------------------------

@@ -4,7 +4,7 @@
 /* ========================================================================== */
 /* 1. Runtime / Generator Definitions & Overrides                           */
 /* ========================================================================== */
-/* Expects H5_SIZEOF_* macros and Endianness definitions from query_byte_widths.c */
+/* Expects H5_SIZEOF_* macros and Endianness definitions from find_byte_widths.c */
 #include "H5_byte_widths.h"
 
 /* Compiler Override Strategy:
@@ -91,20 +91,11 @@
 /* ========================================================================== */
 /* 3. Compiler & Feature Detection                                          */
 /* ========================================================================== */
-#if !defined(__has_include)
-    #error "Your compiler is too old to build this package. GCC >= 5.0 or Clang >= 3.0 is required."
-#endif
-
 #define H5_HAVE_ATTRIBUTE 1
 #define H5_HAVE_C99_COMPLEX_NUMBERS 1
 #define H5_HAVE_COMPLEX_NUMBERS 1
 #define H5_STDC_HEADERS 1
 #define H5_HAVE_IEEE_754 1
-
-#ifdef __SIZEOF_FLOAT128__
-    #define H5_HAVE_FLOAT128 1
-#endif
-
 
 /* ========================================================================== */
 /* 4. Filter & Compression Support                                          */
@@ -112,133 +103,49 @@
 #define H5_HAVE_FILTER_DEFLATE 1
 #define H5_HAVE_ZLIB_H 1
 #define H5_HAVE_LIBZ 1
-#define H5_HAVE_LIBM 1
-
 
 /* ========================================================================== */
-/* 5. Header-Based Feature Detection                                        */
+/* 5. Lowest Common Denominator Feature Set for CRAN                        */
 /* ========================================================================== */
-/* Note: We liberally enable features here if the header exists.
-   We then explicitly UNDEF them in the Windows section if they are broken. */
+/* These features are conservatively assumed to be present and functional
+   across all CRAN build environments (R >= 4.1), including Windows (MinGW),
+   macOS, and various Linux distributions. */
+
+/* --- Standard Headers --- */
+#define H5_HAVE_DIRENT_H 1
+#define H5_HAVE_FCNTL_H 1
+#define H5_HAVE_NETDB_H 1
+#define H5_HAVE_PWD_H 1
+#define H5_HAVE_SYS_STAT_H 1
+#define H5_HAVE_SYS_TIME_H 1
+#define H5_HAVE_SYS_TYPES_H 1
+#define H5_HAVE_UNISTD_H 1
+#define H5_HAVE_TIME_H 1
 
 /* --- Threading --- */
-#if __has_include(<pthread.h>)
-    #define H5_HAVE_PTHREAD_H 1
-    #define H5_HAVE_THREADSAFE 1
-    #define H5_HAVE_THREADS 1
-    #define H5_HAVE_CONCURRENCY 1
-#endif
+/* R >= 4.0 provides pthreads on Windows, making this safe. */
+#define H5_HAVE_PTHREAD_H 1
+#define H5_HAVE_THREADSAFE 1
+#define H5_HAVE_THREADS 1
 
-#if __has_include(<stdatomic.h>)
-    #define H5_HAVE_STDATOMIC_H 1
-#endif
+/* --- Dynamic Loading --- */
+/* Required for HDF5 filter plugins. Available on all target platforms. */
+#define H5_HAVE_DLFCN_H 1
+#define H5_HAVE_LIBDL 1
 
-/* --- System Headers & Features --- */
-
-#if __has_include(<unistd.h>)
-    #define H5_HAVE_UNISTD_H 1
-    #define H5_HAVE_ALARM 1
-    #define H5_HAVE_FORK 1
-    #define H5_HAVE_GETHOSTNAME 1
-    #define H5_HAVE_SYMLINK 1
-    #define H5_HAVE_PREADWRITE 1
-#endif
-
-#if __has_include(<fcntl.h>)
-    #define H5_HAVE_FCNTL 1 
-#endif
-
-#if __has_include(<sys/types.h>)
-    #define H5_HAVE_SYS_TYPES_H 1
-#endif
-
-#if __has_include(<sys/stat.h>)
-    #define H5_HAVE_SYS_STAT_H 1
-    #define H5_HAVE_STAT_ST_BLOCKS 1
-#endif
-
-#if __has_include(<sys/wait.h>)
-    #define H5_HAVE_SYS_WAIT_H 1
-    #define H5_HAVE_WAITPID 1
-#endif
-
-#if __has_include(<sys/file.h>)
-    #define H5_HAVE_SYS_FILE_H 1
-    #define H5_HAVE_FLOCK 1
-#endif
-
-#if __has_include(<sys/time.h>)
-    #define H5_HAVE_SYS_TIME_H 1
-    #define H5_HAVE_GETTIMEOFDAY 1
-#endif
-
-#if __has_include(<sys/resource.h>)
-    #define H5_HAVE_SYS_RESOURCE_H 1
-    #define H5_HAVE_GETRUSAGE 1
-#endif
-
-#if __has_include(<sys/ioctl.h>)
-    #define H5_HAVE_SYS_IOCTL_H 1
-    #define H5_HAVE_IOCTL 1
-    #define H5_HAVE_TIOCGETD 1
-    #define H5_HAVE_TIOCGWINSZ 1
-#endif
-
-#if __has_include(<sys/socket.h>)
-    #define H5_HAVE_SYS_SOCKET_H 1
-#endif
-
-#if __has_include(<io.h>)
-    #define H5_HAVE_IO_H 1
-#endif
-
-#if __has_include(<dirent.h>)
-    #define H5_HAVE_DIRENT_H 1
-#endif
-
-#if __has_include(<dlfcn.h>)
-    #define H5_HAVE_DLFCN_H 1
-    #define H5_HAVE_LIBDL 1
-#endif
-
-#if __has_include(<pwd.h>)
-    #define H5_HAVE_PWD_H 1
-#endif
-
-#if __has_include(<netdb.h>)
-    #define H5_HAVE_NETDB_H 1
-#endif
-
-#if __has_include(<arpa/inet.h>)
-    #define H5_HAVE_ARPA_INET_H 1
-#endif
-
-#if __has_include(<netinet/in.h>)
-    #define H5_HAVE_NETINET_IN_H 1
-#endif
-
-#if __has_include(<time.h>)
-    #define H5_HAVE_TIME_H 1
-    #define H5_HAVE_TIMEZONE 1
-    #define H5_HAVE_TM_GMTOFF 1
-    #define H5_HAVE_CLOCK_GETTIME 1
-#endif
-
-#if __has_include(<string.h>)
-    #define H5_HAVE_STRDUP 1
-    #define H5_HAVE_STRCASESTR 1
-#endif
-
-#if __has_include(<stdio.h>)
-    #define H5_HAVE_TMPFILE 1
-    #define H5_HAVE_ASPRINTF
-    #define H5_HAVE_VASPRINTF
-#endif
-
-#if __has_include(<stdlib.h>)
-    #define H5_HAVE_QSORT_REENTRANT 1
-#endif
-
+/* --- System Functions --- */
+#define H5_HAVE_ALARM 1
+#define H5_HAVE_CLOCK_GETTIME 1
+#define H5_HAVE_FORK 1
+#define H5_HAVE_GETHOSTNAME 1
+#define H5_HAVE_GETTIMEOFDAY 1
+#define H5_HAVE_PREADWRITE 1
+#define H5_HAVE_STAT_ST_BLOCKS 1
+#define H5_HAVE_STRDUP 1
+#define H5_HAVE_SYMLINK 1
+#define H5_HAVE_SYSTEM 1
+#define H5_HAVE_TMPFILE 1
+#define H5_HAVE_WAITPID 1
 
 /* ========================================================================== */
 /* 6. Platform Specifics (Overrides & Exceptions)                           */
@@ -254,31 +161,12 @@
     #define H5_HAVE_GETCONSOLESCREENBUFFERINFO 1
     #define H5_DEFAULT_PLUGINDIR "%ALLUSERSPROFILE%\\hdf5\\lib\\plugin"
     
-    /* * Windows Exception List *
-     * The following features may have headers present on MinGW, but the
-     * functionality is broken, unsupported, or causes conflict with HDF5.
-     */
-
-    /* Threading: Use Pthreads (already enabled above), explicit deny Win32 threads */
+    /* Disable features not reliably available or functional on MinGW */
     #undef H5_HAVE_WIN_THREADS
-
-    /* File I/O & Locking: MinGW has headers but lacks struct flock or correct fcntl behavior */
-    #undef H5_HAVE_FCNTL
     #undef H5_HAVE_FLOCK
-    #undef H5_HAVE_SYMLINK
-    #undef H5_HAVE_PREADWRITE
-
-    /* String/Time/System: Missing GNU/BSD extensions on Windows */
-    #undef H5_HAVE_STRCASESTR
-    #undef H5_HAVE_TM_GMTOFF
     #undef H5_HAVE_GETRUSAGE
-    #undef H5_HAVE_QSORT_REENTRANT
-
-    /* IOCTL: MinGW headers might exist but HDF5 logic often fails on Windows IOCTLs */
-    #undef H5_HAVE_IOCTL
-    #undef H5_HAVE_TIOCGETD
-    #undef H5_HAVE_TIOCGWINSZ
-    #undef H5_HAVE_SYS_IOCTL_H
+    #undef H5_HAVE_FORK
+    #undef H5_HAVE_SYMLINK /* Use Windows-specific implementation */
 
 /* --- POSIX Specifics (Linux / macOS / BSD) --- */
 #else
@@ -286,6 +174,8 @@
     
     #if defined(__APPLE__)
         #define H5_HAVE_DARWIN 1
+    #elif defined(__sun)
+        #undef H5_HAVE_PREADWRITE /* Missing on older Solaris */
     #endif
 #endif
 
@@ -293,31 +183,26 @@
 /* ========================================================================== */
 /* 7. Disable GNU Extensions and other non-Portable functions.                */
 /* ========================================================================== */
+/* To ensure maximum portability and avoid reliance on specific toolchain
+   extensions (e.g., GNU vs. BSD), the following features are disabled
+   unconditionally across all platforms. */
 
-/* --- String Handling --- */
-/* Force standard C string functions. 
-   Disable extensions like strcasestr, asprintf, vasprintf to ensure 
-   portability without _GNU_SOURCE. */
+/* --- Non-portable String/Memory functions --- */
 #undef H5_HAVE_STRCASESTR
 #undef H5_HAVE_ASPRINTF
 #undef H5_HAVE_VASPRINTF
 
-/* --- Sorting --- */
-/* Disable qsort_r because signatures differ between GNU and BSD/macOS */
+/* --- Non-portable System functions --- */
 #undef H5_HAVE_QSORT_REENTRANT
-
-/* --- Time & Date --- */
-/* Rely on standard time functions, avoiding BSD/SysV extensions */
 #undef H5_HAVE_TM_GMTOFF
 #undef H5_HAVE_TIMEZONE
 #undef H5_HAVE_STRUCT_TIMEZONE
+#undef H5_HAVE_GETRUSAGE
 
-/* --- System / IOCTL --- */
-/* Disable terminal IOCTLs (not needed for library usage) */
+/* --- Terminal/Device specific I/O (not needed for the library) --- */
 #undef H5_HAVE_IOCTL
 #undef H5_HAVE_TIOCGETD
 #undef H5_HAVE_TIOCGWINSZ
 #undef H5_HAVE_GETCONSOLESCREENBUFFERINFO
-
 
 #endif /* H5_PUBCONF_H */
