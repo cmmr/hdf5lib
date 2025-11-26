@@ -31,7 +31,7 @@ diff -ru src/hdf5-orig/src/H5FDmulti.c src/hdf5-2.0.0/src/H5FDmulti.c
  
  #include "H5warnings.h"
  
-+#if __STDC_VERSION__ < 202311L
++#if __STDC_VERSION__ <= 201710L
  #ifndef false
  #define false 0
  #endif
