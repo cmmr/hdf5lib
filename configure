@@ -46,7 +46,7 @@ R_MAKE=$("$R_EXE" CMD config MAKE)
 # Construct final flags
 # -O2: Prepended so R's flags will override.
 export CC="$R_CC"
-export CFLAGS="-O2 $R_CFLAGS $R_CPICFLAGS -g0"
+export CFLAGS="-O2 $R_CFLAGS $R_CPICFLAGS -g0 -Wall"
 echo "  CC:     $CC"
 echo "  CFLAGS: $CFLAGS"
 
