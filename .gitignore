@@ -9,6 +9,7 @@ cran-comments.md
 src/hdf5-*/
 src/zlib-*/
 src/H5pubconf
+src/hdf5-2.0.0-orig.tar.gz
 build
 doc
 docs

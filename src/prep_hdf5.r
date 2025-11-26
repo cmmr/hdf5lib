@@ -6,13 +6,18 @@ VER <- "2.0.0"
 
 # Download and extract the HDF5 codebase
 baseurl <- "https://github.com/HDFGroup/hdf5/releases/download/"
-url     <- paste0(baseurl, "hdf5_", VER, "/hdf5-", VER, ".tar.gz")
+url     <- paste0(baseurl, VER, "/hdf5-", VER, ".tar.gz")
 tarfile <- file.path('src', paste0("hdf5-", VER, ".tar.gz"))
 exdir   <- file.path('src', paste0("hdf5-", VER))
+cached  <- file.path('src', paste0("hdf5-", VER, "-orig.tar.gz"))
 
-cat("Downloading ", shQuote(tarfile), "...\n")
-if (file.exists(tarfile)) invisible(file.remove(tarfile))
-download.file(url = url, destfile = tarfile, quiet = TRUE)
+if (file.exists(cached)) {
+  file.copy(from = cached, to = tarfile)
+} else {
+  cat("Downloading ", shQuote(tarfile), "...\n")
+  if (file.exists(tarfile)) invisible(file.remove(tarfile))
+  download.file(url = url, destfile = tarfile, quiet = TRUE)
+}
 
 # --- 1. Decompress Only the Core and HL Source Files ---
 cat("Decompressing ", shQuote(tarfile), "...\n")
@@ -36,7 +41,11 @@ invisible(file.remove(c(
   "src/hdf5-2.0.0/src/H5FDdirect.c",   "src/hdf5-2.0.0/src/H5build_settings.off.c.in",
   "src/hdf5-2.0.0/src/H5FDhdfs.c",     "src/hdf5-2.0.0/src/H5FDsubfiling/CMakeLists.txt",
   "src/hdf5-2.0.0/src/H5FDmirror.c",   "src/hdf5-2.0.0/src/H5FDmpi.c",
-  "src/hdf5-2.0.0/src/H5FDros3.c",     "src/hdf5-2.0.0/src/libhdf5.settings.in" )))
+  "src/hdf5-2.0.0/src/H5Cmpio.c",      "src/hdf5-2.0.0/src/H5Dmpio.c",
+  "src/hdf5-2.0.0/src/H5FDmpio.c",     "src/hdf5-2.0.0/src/H5Fmpi.c",
+  "src/hdf5-2.0.0/src/H5Smpio.c",      "src/hdf5-2.0.0/src/H5mpi.c",
+  "src/hdf5-2.0.0/src/H5FDros3.c",     "src/hdf5-2.0.0/src/H5FDros3_s3comms.c",
+  "src/hdf5-2.0.0/src/H5Zszip.c",      "src/hdf5-2.0.0/src/libhdf5.settings.in" )))
 
 
 # --- 3. Apply Patches ---
