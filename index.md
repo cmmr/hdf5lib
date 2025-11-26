@@ -36,6 +36,11 @@ developers to use in the `LinkingTo` field of their `DESCRIPTION` file.
   allows developers to lock their package to a specific API, ensuring
   that future updates to `hdf5lib` do not introduce breaking changes.
 
+- **Extensible Filter Support:** Enables the HDF5 library to dynamically
+  load external filter plugins (e.g., for Blosc, LZ4, Bzip2) at runtime
+  via `H5Pset_filter_path()`, provided the user has installed those
+  plugins separately.
+
 - **Safe for Parallel Code:** Compiled with thread-safety enabled. This
   prevents data corruption and crashes by ensuring that library calls
   from multiple threads (e.g., via `RcppParallel`) are safely
@@ -49,11 +54,6 @@ developers to use in the `LinkingTo` field of their `DESCRIPTION` file.
     **threads**, not multiple **processes**. Accessing the same HDF5
     file from different processes without a file locking mechanism can
     still lead to file corruption.
-
-- **Extensible Filter Support:** Enables the HDF5 library to dynamically
-  load external filter plugins (e.g., for Blosc, LZ4, Bzip2) at runtime
-  via `H5Pset_filter_path()`, provided the user has installed those
-  plugins separately.
 
 ## **Installation**
 
