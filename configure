@@ -7,7 +7,6 @@ HDF5_VER="2.0.0"
 echo "--- [hdf5lib] Starting Configuration (Static) ---"
 
 # 1. Environment Setup ---------------------------------------------------------
-PKG_DIR="$(pwd)"
 
 # Locate R and ensure it exists
 R_EXE="${R_HOME}/bin${R_ARCH_BIN}/R"
@@ -53,10 +52,8 @@ esac
 
 # 3. Build Dependencies --------------------------------------------------------
 echo "--- [hdf5lib] Decompressing sources..."
-
-BUILD_DIR="$PKG_DIR/build"
-mkdir -p "$BUILD_DIR"
-cd "$BUILD_DIR"
+mkdir build
+cd build
 
 # Prevent MSYS2 from mangling arguments (utils::untar -> utils;untar)
 # OLD_MSYS2_ARG_CONV_EXCL="$MSYS2_ARG_CONV_EXCL"
@@ -64,13 +61,13 @@ cd "$BUILD_DIR"
 
 tar -xf "../src/zlib-$ZLIB_VER.tar.gz"
 tar -xf "../src/hdf5-$HDF5_VER.tar.gz"
-ZLIB_DIR="$BUILD_DIR/zlib-$ZLIB_VER"
-HDF5_DIR="$BUILD_DIR/hdf5-$HDF5_VER"
+cp ../src/H5pubconf.h        "hdf5-$HDF5_VER/src/"
+cp ../src/find_byte_widths.c "hdf5-$HDF5_VER/"
 
 # export MSYS2_ARG_CONV_EXCL="$OLD_MSYS2_ARG_CONV_EXCL"
 
 echo "--- [hdf5lib] Building ZLIB..."
-cd "$ZLIB_DIR"
+cd "zlib-$ZLIB_VER"
 export CPPFLAGS="-I. $R_CPPFLAGS"
 echo "  CC:       $CC"
 echo "  CFLAGS:   $CFLAGS"
@@ -84,13 +81,16 @@ else
   "$R_MAKE" libz.a >/dev/null
 fi
 
+# Extract ZLIB objects to merge them into the final library
+rm *.o
+"$R_AR" -x libz.a
+
+cd ..
+
 
 # 4. Build HDF5 ----------------------------------------------------------------
 echo "--- [hdf5lib] Building HDF5..."
-cd "$HDF5_DIR"
-cp "$PKG_DIR/src/H5pubconf.h" src/
-cp "$PKG_DIR/src/find_byte_widths.c" .
-
+cd "hdf5-$HDF5_VER"
 
 # A. Generators
 # Compile and run generator to detect system type sizes (creates src/H5_byte_widths.h)
@@ -118,12 +118,11 @@ echo "  CFLAGS:   $CFLAGS"
 echo "  CPPFLAGS: $CPPFLAGS"
 "$R_MAKE" CC="$CC" CFLAGS="$CFLAGS" CPPFLAGS="$CPPFLAGS"
 
+cd ..
+
 
 # 5. Link and Archive ----------------------------------------------------------
 echo "--- [hdf5lib] Linking static library..."
-
-# Extract ZLIB objects to merge them into the final library
-"$R_AR" -x "$ZLIB_DIR/libz.a"
 
 # Detect LTO (Link Time Optimization) flags
 # LTO objects contain bytecode that standard 'strip' and 'ld -r' often corrupt
@@ -133,18 +132,17 @@ case "$CFLAGS" in
   *)       LTO=0 ;;
 esac
 
+# Create the final static library
 # Logic: Use partial linking (ld -r) on non-Windows systems to reduce size.
 # We guard this with LTO=0 because ld -r on LTO objects can be fragile.
 if [ "$WIN" -eq 0 ] && [ "$LTO" -eq 0 ] && command -v ld >/dev/null 2>&1; then
   echo "  Performing partial linking (ld -r)..."
   # Merge all .o files into one big object (deduplicates symbols/sections)
-  ld -r -o libhdf5.obj *.o
-  rm *.o
-  mv libhdf5.obj libhdf5.o
+  ld -r -o libhdf5z.o "hdf5-$HDF5_VER/"*.o "zlib-$ZLIB_VER/"*.o
+  "$R_AR" -crs libhdf5z.a libhdf5z.o
+else
+  "$R_AR" -crs libhdf5z.a "hdf5-$HDF5_VER/"*.o "zlib-$ZLIB_VER/"*.o
 fi
-
-# Create the final static library
-"$R_AR" -crs libhdf5z.a *.o
 
 # Strip debug symbols to reduce installed package size
 # We guard this with LTO=0 because 'strip' often corrupts LTO objects
@@ -156,16 +154,16 @@ fi
 
 # 6. Installation --------------------------------------------------------------
 echo "--- [hdf5lib] Installing..."
-cd "$PKG_DIR"
-mkdir -p inst/lib inst/include
+cd ..
 
 # Install headers and library
-cp "$HDF5_DIR"/src/*.h    inst/include/
-cp "$HDF5_DIR"/hl/src/*.h inst/include/
-cp "$HDF5_DIR"/libhdf5z.a inst/lib/
+mkdir -p inst/lib inst/include
+cp build/"hdf5-$HDF5_VER"/src/*.h    inst/include/
+cp build/"hdf5-$HDF5_VER"/hl/src/*.h inst/include/
+cp build/libhdf5z.a                  inst/lib/
 
 # Cleanup
-rm -rf src "$BUILD_DIR"
+rm -rf src build
 
 echo "  Final install size: $(du -sh inst/ | cut -f1)"
 

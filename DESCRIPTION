@@ -21,7 +21,7 @@ BugReports: https://github.com/cmmr/hdf5lib/issues
 License: MIT + file LICENSE
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
-Depends: R (>= 4.1.0)
+Depends: R (>= 4.2.0)
 NeedsCompilation: yes
 Suggests: knitr, rmarkdown, testthat (>= 3.0.0)
 Config/testthat/edition: 3
