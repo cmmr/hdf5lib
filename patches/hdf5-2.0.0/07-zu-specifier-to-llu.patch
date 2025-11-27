@@ -1,0 +1,821 @@
+diff -ru src/hdf5-orig/src/H5Bdbg.c src/hdf5-2.0.0/src/H5Bdbg.c
+--- src/hdf5-orig/src/H5Bdbg.c	2025-11-11 00:00:49.000000000 +0000
++++ src/hdf5-2.0.0/src/H5Bdbg.c	2025-11-27 00:01:48.601815400 +0000
+@@ -86,8 +86,8 @@
+             ((shared->type->id) == H5B_SNODE_ID
+                  ? "H5B_SNODE_ID"
+                  : ((shared->type->id) == H5B_CHUNK_ID ? "H5B_CHUNK_ID" : "Unknown!")));
+-    fprintf(stream, "%*s%-*s %zu\n", indent, "", fwidth, "Size of node:", shared->sizeof_rnode);
+-    fprintf(stream, "%*s%-*s %zu\n", indent, "", fwidth, "Size of raw (disk) key:", shared->sizeof_rkey);
++    fprintf(stream, "%*s%-*s %llu\n", indent, "", fwidth, "Size of node:", (unsigned long long)shared->sizeof_rnode);
++    fprintf(stream, "%*s%-*s %llu\n", indent, "", fwidth, "Size of raw (disk) key:", (unsigned long long)shared->sizeof_rkey);
+     fprintf(stream, "%*s%-*s %s\n", indent, "", fwidth,
+             "Dirty flag:", bt->cache_info.is_dirty ? "True" : "False");
+     fprintf(stream, "%*s%-*s %u\n", indent, "", fwidth, "Level:", bt->level);
+diff -ru src/hdf5-orig/src/H5Cdbg.c src/hdf5-2.0.0/src/H5Cdbg.c
+--- src/hdf5-orig/src/H5Cdbg.c	2025-11-11 00:00:49.000000000 +0000
++++ src/hdf5-2.0.0/src/H5Cdbg.c	2025-11-27 00:19:33.689795200 +0000
+@@ -260,7 +260,7 @@
+     fprintf(stdout, "\n\nDumping metadata cache skip list from %s.\n", calling_fcn);
+     fprintf(stdout, " slist %s.\n", cache_ptr->slist_enabled ? "enabled" : "disabled");
+     fprintf(stdout, "	slist len = %" PRIu32 ".\n", cache_ptr->slist_len);
+-    fprintf(stdout, "	slist size = %zu.\n", cache_ptr->slist_size);
++    fprintf(stdout, "	slist size = %llu.\n", (unsigned long long)(cache_ptr->slist_size));
+ 
+     if (cache_ptr->slist_len > 0) {
+ 
+@@ -1175,17 +1175,20 @@
+ 
+             fprintf(stdout, "%sAuto cache resize -- hit rate (%lf) out of bounds low (%6.5lf).\n",
+                     cache_ptr->prefix, hit_rate, cache_ptr->resize_ctl.lower_hr_threshold);
+-            fprintf(stdout, "%scache size increased from (%zu/%zu) to (%zu/%zu).\n", cache_ptr->prefix,
+-                    old_max_cache_size, old_min_clean_size, new_max_cache_size, new_min_clean_size);
++            fprintf(stdout, "%scache size increased from (%llu/%llu) to (%llu/%llu).\n", cache_ptr->prefix,
++                    (unsigned long long)old_max_cache_size, (unsigned long long)old_min_clean_size, 
++                    (unsigned long long)new_max_cache_size, (unsigned long long)new_min_clean_size);
+             break;
+ 
+         case flash_increase:
+             assert(old_max_cache_size < new_max_cache_size);
+ 
+-            fprintf(stdout, "%sflash cache resize(%d) -- size threshold = %zu.\n", cache_ptr->prefix,
+-                    (int)(cache_ptr->resize_ctl.flash_incr_mode), cache_ptr->flash_size_increase_threshold);
+-            fprintf(stdout, "%s cache size increased from (%zu/%zu) to (%zu/%zu).\n", cache_ptr->prefix,
+-                    old_max_cache_size, old_min_clean_size, new_max_cache_size, new_min_clean_size);
++            fprintf(stdout, "%sflash cache resize(%d) -- size threshold = %llu.\n", cache_ptr->prefix,
++                    (int)(cache_ptr->resize_ctl.flash_incr_mode), 
++                    (unsigned long long)(cache_ptr->flash_size_increase_threshold));
++            fprintf(stdout, "%s cache size increased from (%llu/%llu) to (%llu/%llu).\n", cache_ptr->prefix,
++                    (unsigned long long)old_max_cache_size, (unsigned long long)old_min_clean_size, 
++                    (unsigned long long)new_max_cache_size, (unsigned long long)new_min_clean_size);
+             break;
+ 
+         case decrease:
+@@ -1224,8 +1227,9 @@
+                             cache_ptr->prefix, hit_rate);
+             }
+ 
+-            fprintf(stdout, "%s    cache size decreased from (%zu/%zu) to (%zu/%zu).\n", cache_ptr->prefix,
+-                    old_max_cache_size, old_min_clean_size, new_max_cache_size, new_min_clean_size);
++            fprintf(stdout, "%s    cache size decreased from (%llu/%llu) to (%llu/%llu).\n", cache_ptr->prefix,
++                    (unsigned long long)old_max_cache_size, (unsigned long long)old_min_clean_size, 
++                    (unsigned long long)new_max_cache_size, (unsigned long long)new_min_clean_size);
+             break;
+ 
+         case at_max_size:
+diff -ru src/hdf5-orig/src/H5Clog_trace.c src/hdf5-2.0.0/src/H5Clog_trace.c
+--- src/hdf5-orig/src/H5Clog_trace.c	2025-11-11 00:00:49.000000000 +0000
++++ src/hdf5-2.0.0/src/H5Clog_trace.c	2025-11-27 00:13:51.275918100 +0000
+@@ -852,7 +852,7 @@
+     /* Create the log message string */
+     snprintf(trace_udata->message, H5C_MAX_TRACE_LOG_MSG_SIZE,
+              "H5AC_set_cache_auto_resize_config %d %d %d %d \"%s\" %d %d %d %f %d %d %ld %d %f %f %d %f %f "
+-             "%d %d %d %f %f %d %d %d %d %f %zu %d %d\n",
++             "%d %d %d %f %f %d %d %d %d %f %llu %d %d\n",
+              config->version, (int)(config->rpt_fcn_enabled), (int)(config->open_trace_file),
+              (int)(config->close_trace_file), config->trace_file_name, (int)(config->evictions_enabled),
+              (int)(config->set_initial_size), (int)(config->initial_size), config->min_clean_fraction,
+@@ -862,7 +862,7 @@
+              (int)(config->max_increment), (int)(config->decr_mode), config->upper_hr_threshold,
+              config->decrement, (int)(config->apply_max_decrement), (int)(config->max_decrement),
+              config->epochs_before_eviction, (int)(config->apply_empty_reserve), config->empty_reserve,
+-             config->dirty_bytes_threshold, config->metadata_write_strategy, (int)fxn_ret_value);
++             (unsigned long long)config->dirty_bytes_threshold, config->metadata_write_strategy, (int)fxn_ret_value);
+ 
+     /* Write the log message to the file */
+     if (H5C__trace_write_log_message(trace_udata) < 0)
+diff -ru src/hdf5-orig/src/H5EAdbg.c src/hdf5-2.0.0/src/H5EAdbg.c
+--- src/hdf5-orig/src/H5EAdbg.c	2025-11-11 00:00:49.000000000 +0000
++++ src/hdf5-2.0.0/src/H5EAdbg.c	2025-11-27 00:02:51.772622700 +0000
+@@ -108,11 +108,11 @@
+ 
+     /* Print the values */
+     fprintf(stream, "%*s%-*s %s\n", indent, "", fwidth, "Array class ID:", hdr->cparam.cls->name);
+-    fprintf(stream, "%*s%-*s %zu\n", indent, "", fwidth, "Header size:", hdr->size);
++    fprintf(stream, "%*s%-*s %llu\n", indent, "", fwidth, "Header size:", (unsigned long long)hdr->size);
+     fprintf(stream, "%*s%-*s %u\n", indent, "", fwidth,
+             "Raw Element Size:", (unsigned)hdr->cparam.raw_elmt_size);
+-    fprintf(stream, "%*s%-*s %zu\n", indent, "", fwidth,
+-            "Native Element Size (on this platform):", hdr->cparam.cls->nat_elmt_size);
++    fprintf(stream, "%*s%-*s %llu\n", indent, "", fwidth,
++            "Native Element Size (on this platform):", (unsigned long long)hdr->cparam.cls->nat_elmt_size);
+     fprintf(stream, "%*s%-*s %u\n", indent, "", fwidth,
+             "Log2(Max. # of elements in array):", (unsigned)hdr->cparam.max_nelmts_bits);
+     fprintf(stream, "%*s%-*s %u\n", indent, "", fwidth,
+@@ -199,11 +199,11 @@
+ 
+     /* Print the values */
+     fprintf(stream, "%*s%-*s %s\n", indent, "", fwidth, "Array class ID:", hdr->cparam.cls->name);
+-    fprintf(stream, "%*s%-*s %zu\n", indent, "", fwidth, "Index Block size:", iblock->size);
+-    fprintf(stream, "%*s%-*s %zu\n", indent, "", fwidth,
+-            "# of data block addresses in index block:", iblock->ndblk_addrs);
+-    fprintf(stream, "%*s%-*s %zu\n", indent, "", fwidth,
+-            "# of super block addresses in index block:", iblock->nsblk_addrs);
++    fprintf(stream, "%*s%-*s %llu\n", indent, "", fwidth, "Index Block size:", (unsigned long long)iblock->size);
++    fprintf(stream, "%*s%-*s %llu\n", indent, "", fwidth,
++            "# of data block addresses in index block:", (unsigned long long)iblock->ndblk_addrs);
++    fprintf(stream, "%*s%-*s %llu\n", indent, "", fwidth,
++            "# of super block addresses in index block:", (unsigned long long)iblock->nsblk_addrs);
+ 
+     /* Check if there are any elements in index block */
+     if (hdr->cparam.idx_blk_elmts > 0) {
+@@ -316,11 +316,11 @@
+ 
+     /* Print the values */
+     fprintf(stream, "%*s%-*s %s\n", indent, "", fwidth, "Array class ID:", hdr->cparam.cls->name);
+-    fprintf(stream, "%*s%-*s %zu\n", indent, "", fwidth, "Super Block size:", sblock->size);
+-    fprintf(stream, "%*s%-*s %zu\n", indent, "", fwidth,
+-            "# of data block addresses in super block:", sblock->ndblks);
+-    fprintf(stream, "%*s%-*s %zu\n", indent, "", fwidth,
+-            "# of elements in data blocks from this super block:", sblock->dblk_nelmts);
++    fprintf(stream, "%*s%-*s %llu\n", indent, "", fwidth, "Super Block size:", (unsigned long long)sblock->size);
++    fprintf(stream, "%*s%-*s %llu\n", indent, "", fwidth,
++            "# of data block addresses in super block:", (unsigned long long)sblock->ndblks);
++    fprintf(stream, "%*s%-*s %llu\n", indent, "", fwidth,
++            "# of elements in data blocks from this super block:", (unsigned long long)sblock->dblk_nelmts);
+ 
+     /* Check if there are any data block addresses in super block */
+     if (sblock->ndblks > 0) {
+@@ -403,7 +403,7 @@
+ 
+     /* Print the values */
+     fprintf(stream, "%*s%-*s %s\n", indent, "", fwidth, "Array class ID:", hdr->cparam.cls->name);
+-    fprintf(stream, "%*s%-*s %zu\n", indent, "", fwidth, "Data Block size:", dblock->size);
++    fprintf(stream, "%*s%-*s %llu\n", indent, "", fwidth, "Data Block size:", (unsigned long long)dblock->size);
+ 
+     /* Print the elements in the index block */
+     fprintf(stream, "%*sElements:\n", indent, "");
+diff -ru src/hdf5-orig/src/H5ES.c src/hdf5-2.0.0/src/H5ES.c
+--- src/hdf5-orig/src/H5ES.c	2025-11-11 00:00:49.000000000 +0000
++++ src/hdf5-2.0.0/src/H5ES.c	2025-11-27 00:06:20.732702600 +0000
+@@ -503,7 +503,7 @@
+         H5MM_xfree(err_info[u].app_file_name);
+         H5MM_xfree(err_info[u].app_func_name);
+         if (H5I_dec_app_ref(err_info[u].err_stack_id) < 0)
+-            HGOTO_ERROR(H5E_EVENTSET, H5E_CANTDEC, FAIL, "can't close error stack for err_info #%zu", u);
++            HGOTO_ERROR(H5E_EVENTSET, H5E_CANTDEC, FAIL, "can't close error stack for err_info #%llu", (unsigned long long)u);
+     } /* end for */
+ 
+ done:
+diff -ru src/hdf5-orig/src/H5FAdbg.c src/hdf5-2.0.0/src/H5FAdbg.c
+--- src/hdf5-orig/src/H5FAdbg.c	2025-11-11 00:00:49.000000000 +0000
++++ src/hdf5-2.0.0/src/H5FAdbg.c	2025-11-27 00:06:20.732702600 +0000
+@@ -109,11 +109,11 @@
+ 
+     /* Print the values */
+     fprintf(stream, "%*s%-*s %s\n", indent, "", fwidth, "Array class ID:", hdr->cparam.cls->name);
+-    fprintf(stream, "%*s%-*s %zu\n", indent, "", fwidth, "Header size:", hdr->size);
++    fprintf(stream, "%*s%-*s %llu\n", indent, "", fwidth, "Header size:", (unsigned long long)hdr->size);
+     fprintf(stream, "%*s%-*s %u\n", indent, "", fwidth,
+             "Raw Element Size:", (unsigned)hdr->cparam.raw_elmt_size);
+-    fprintf(stream, "%*s%-*s %zu\n", indent, "", fwidth,
+-            "Native Element Size (on this platform):", hdr->cparam.cls->nat_elmt_size);
++    fprintf(stream, "%*s%-*s %llu\n", indent, "", fwidth,
++            "Native Element Size (on this platform):", (unsigned long long)hdr->cparam.cls->nat_elmt_size);
+ 
+     fprintf(stream, "%*s%-*s %u\n", indent, "", fwidth, "Max. # of elements in data block page:",
+             (unsigned)((size_t)1 << hdr->cparam.max_dblk_page_nelmts_bits));
+@@ -189,9 +189,9 @@
+     fprintf(stream, "%*s%-*s %" PRIuHSIZE "\n", indent, "", fwidth, "Data Block size:", dblock->size);
+     fprintf(stream, "%*s%-*s %" PRIuHSIZE "\n", indent, "", fwidth,
+             "Number of elements in Data Block:", hdr->cparam.nelmts);
+-    fprintf(stream, "%*s%-*s %zu\n", indent, "", fwidth, "Number of pages in Data Block:", dblock->npages);
+-    fprintf(stream, "%*s%-*s %zu\n", indent, "", fwidth,
+-            "Number of elements per Data Block page:", dblock->dblk_page_nelmts);
++    fprintf(stream, "%*s%-*s %llu\n", indent, "", fwidth, "Number of pages in Data Block:", (unsigned long long)dblock->npages);
++    fprintf(stream, "%*s%-*s %llu\n", indent, "", fwidth,
++            "Number of elements per Data Block page:", (unsigned long long)dblock->dblk_page_nelmts);
+ 
+     if (dblock->npages) {         /* paging */
+         size_t  dblk_page_nelmts; /* # of elements in a data block page */
+@@ -207,7 +207,7 @@
+         /* Read and print each page's elements in the data block */
+         for (page_idx = 0; page_idx < dblock->npages; page_idx++) {
+             if (!H5VM_bit_get(dblock->dblk_page_init, page_idx)) {
+-                fprintf(stream, "%*s%-*s %zu %s\n", indent, "", fwidth, "Page %zu:", page_idx, "empty");
++                fprintf(stream, "%*s%-*s %llu %s\n", indent, "", fwidth, "Page %llu:", (unsigned long long)page_idx, "empty");
+ 
+             }                                  /* end if */
+             else {                             /* get the page */
+@@ -225,7 +225,7 @@
+                                 "unable to protect fixed array data block page, address = %llu",
+                                 (unsigned long long)dblk_page_addr);
+ 
+-                fprintf(stream, "%*sElements in page %zu:\n", indent, "", page_idx);
++                fprintf(stream, "%*sElements in page %llu:\n", indent, "", (unsigned long long)page_idx);
+                 for (u = 0; u < dblk_page_nelmts; u++) {
+                     /* Call the class's 'debug' callback */
+                     if ((hdr->cparam.cls->debug)(stream, (indent + 3), MAX(0, (fwidth - 3)), (hsize_t)u,
+diff -ru src/hdf5-orig/src/H5FAdblkpage.c src/hdf5-2.0.0/src/H5FAdblkpage.c
+--- src/hdf5-orig/src/H5FAdblkpage.c	2025-11-11 00:00:49.000000000 +0000
++++ src/hdf5-2.0.0/src/H5FAdblkpage.c	2025-11-27 00:07:32.505168500 +0000
+@@ -155,7 +155,7 @@
+     dblk_page->addr = addr;
+     dblk_page->size = H5FA_DBLK_PAGE_SIZE(hdr, nelmts);
+ #ifdef H5FA_DEBUG
+-    fprintf(stderr, "%s: dblk_page->size = %Zu\n", __func__, dblk_page->size);
++    fprintf(stderr, "%s: dblk_page->size = %llu\n", __func__, (unsigned long long)dblk_page->size);
+ #endif /* H5FA_DEBUG */
+ 
+     /* Clear any elements in data block page to fill value */
+diff -ru src/hdf5-orig/src/H5FDsec2.c src/hdf5-2.0.0/src/H5FDsec2.c
+--- src/hdf5-orig/src/H5FDsec2.c	2025-11-11 00:00:49.000000000 +0000
++++ src/hdf5-2.0.0/src/H5FDsec2.c	2025-11-27 00:08:07.961984900 +0000
+@@ -658,10 +658,10 @@
+ 
+             HGOTO_ERROR(H5E_IO, H5E_READERROR, FAIL,
+                         "file read failed: time = %s, filename = '%s', file descriptor = %d, errno = %d, "
+-                        "error message = '%s', buf = %p, total read size = %zu, bytes this sub-read = %llu, "
++                        "error message = '%s', buf = %p, total read size = %llu, bytes this sub-read = %llu, "
+                         "offset = %llu",
+-                        ctime(&mytime), file->filename, file->fd, myerrno, strerror(myerrno), buf, size,
+-                        (unsigned long long)bytes_in, (unsigned long long)offset);
++                        ctime(&mytime), file->filename, file->fd, myerrno, strerror(myerrno), buf, 
++                        (unsigned long long)size, (unsigned long long)bytes_in, (unsigned long long)offset);
+         } /* end if */
+ 
+         if (0 == bytes_read) {
+@@ -769,10 +769,10 @@
+ 
+             HGOTO_ERROR(H5E_IO, H5E_WRITEERROR, FAIL,
+                         "file write failed: time = %s, filename = '%s', file descriptor = %d, errno = %d, "
+-                        "error message = '%s', buf = %p, total write size = %zu, bytes this sub-write = "
++                        "error message = '%s', buf = %p, total write size = %llu, bytes this sub-write = "
+                         "%llu, offset = %llu",
+-                        ctime(&mytime), file->filename, file->fd, myerrno, strerror(myerrno), buf, size,
+-                        (unsigned long long)bytes_in, (unsigned long long)offset);
++                        ctime(&mytime), file->filename, file->fd, myerrno, strerror(myerrno), buf, 
++                        (unsigned long long)size, (unsigned long long)bytes_in, (unsigned long long)offset);
+         } /* end if */
+ 
+         assert(bytes_wrote > 0);
+diff -ru src/hdf5-orig/src/H5FDsubfiling/H5FDsubfiling.h src/hdf5-2.0.0/src/H5FDsubfiling/H5FDsubfiling.h
+--- src/hdf5-orig/src/H5FDsubfiling/H5FDsubfiling.h	2025-11-11 00:00:49.000000000 +0000
++++ src/hdf5-2.0.0/src/H5FDsubfiling/H5FDsubfiling.h	2025-11-27 00:18:05.574523000 +0000
+@@ -494,7 +494,7 @@
+  * // Get subfile mapping
+  * ret = H5FDsubfiling_get_file_mapping(file_id, &subfile_names, &num_subfiles);
+  * if (ret >= 0) {
+- *     printf("Found %zu subfiles:\n", num_subfiles);
++ *     printf("Found %llu subfiles:\n", (unsigned long long)num_subfiles);
+  *     for (size_t i = 0; i < num_subfiles; i++) {
+  *         printf("  %s\n", subfile_names[i]);
+  *         H5free_memory(subfile_names[i]);  // Free each string
+diff -ru src/hdf5-orig/src/H5FS.c src/hdf5-2.0.0/src/H5FS.c
+--- src/hdf5-orig/src/H5FS.c	2025-11-11 00:00:49.000000000 +0000
++++ src/hdf5-2.0.0/src/H5FS.c	2025-11-27 00:08:30.198578600 +0000
+@@ -94,7 +94,7 @@
+ 
+     FUNC_ENTER_NOAPI(NULL)
+ #ifdef H5FS_DEBUG
+-    fprintf(stderr, "%s: Creating free space manager, nclasses = %Zu\n", __func__, nclasses);
++    fprintf(stderr, "%s: Creating free space manager, nclasses = %llu\n", __func__, (unsigned long long)nclasses);
+ #endif /* H5FS_DEBUG */
+ 
+     /* Check arguments. */
+@@ -175,8 +175,8 @@
+ 
+     FUNC_ENTER_NOAPI(NULL)
+ #ifdef H5FS_DEBUG
+-    fprintf(stderr, "%s: Opening free space manager, fs_addr = %" PRIuHADDR ", nclasses = %Zu\n", __func__,
+-            fs_addr, nclasses);
++    fprintf(stderr, "%s: Opening free space manager, fs_addr = %" PRIuHADDR ", nclasses = %llu\n", __func__,
++            fs_addr, (unsigned long long)nclasses);
+ #endif /* H5FS_DEBUG */
+ 
+     /* Check arguments. */
+diff -ru src/hdf5-orig/src/H5HFdbg.c src/hdf5-2.0.0/src/H5HFdbg.c
+--- src/hdf5-orig/src/H5HFdbg.c	2025-11-11 00:00:49.000000000 +0000
++++ src/hdf5-2.0.0/src/H5HFdbg.c	2025-11-27 00:09:52.677158200 +0000
+@@ -146,8 +146,8 @@
+         HGOTO_ERROR(H5E_HEAP, H5E_CANTGET, FAIL, "can't retrieve heap ID length");
+ 
+     /* Display the heap ID */
+-    fprintf(stream, "%*s%-*s (%c, %" PRIuHSIZE " , %zu)\n", indent, "", fwidth,
+-            "Heap ID info: (type, offset, length)", id_type, obj_off, obj_len);
++    fprintf(stream, "%*s%-*s (%c, %" PRIuHSIZE " , %llu)\n", indent, "", fwidth,
++            "Heap ID info: (type, offset, length)", id_type, obj_off, (unsigned long long)obj_len);
+ 
+ done:
+     FUNC_LEAVE_NOAPI(ret_value)
+@@ -180,10 +180,10 @@
+      */
+     /* Creation parameter values */
+     fprintf(stream, "%*s%-*s %u\n", indent, "", fwidth, "Doubling table width:", dtable->cparam.width);
+-    fprintf(stream, "%*s%-*s %zu\n", indent, "", fwidth,
+-            "Starting block size:", dtable->cparam.start_block_size);
+-    fprintf(stream, "%*s%-*s %zu\n", indent, "", fwidth,
+-            "Max. direct block size:", dtable->cparam.max_direct_size);
++    fprintf(stream, "%*s%-*s %llu\n", indent, "", fwidth,
++            "Starting block size:", (unsigned long long)dtable->cparam.start_block_size);
++    fprintf(stream, "%*s%-*s %llu\n", indent, "", fwidth,
++            "Max. direct block size:", (unsigned long long)dtable->cparam.max_direct_size);
+     fprintf(stream, "%*s%-*s %u (bits)\n", indent, "", fwidth, "Max. index size:", dtable->cparam.max_index);
+     fprintf(stream, "%*s%-*s %u\n", indent, "", fwidth,
+             "Starting # of rows in root indirect block:", dtable->cparam.start_root_rows);
+@@ -277,8 +277,8 @@
+     if (hdr->filter_len > 0) {
+         fprintf(stream, "%*sI/O filter Info...\n", indent, "");
+         if (hdr->man_dtable.curr_root_rows == 0) {
+-            fprintf(stream, "%*s%-*s %zu\n", indent + 3, "", MAX(0, fwidth - 3),
+-                    "Compressed size of root direct block:", hdr->pline_root_direct_size);
++            fprintf(stream, "%*s%-*s %llu\n", indent + 3, "", MAX(0, fwidth - 3),
++                    "Compressed size of root direct block:", (unsigned long long)hdr->pline_root_direct_size);
+             fprintf(stream, "%*s%-*s %x\n", indent + 3, "", MAX(0, fwidth - 3),
+                     "Filter mask for root direct block:", hdr->pline_root_direct_filter_mask);
+         } /* end if */
+@@ -474,7 +474,7 @@
+     fprintf(stream, "%*s%-*s %" PRIuHSIZE " \n", indent, "", fwidth,
+             "Offset of direct block in heap:", dblock->block_off);
+     blk_prefix_size = H5HF_MAN_ABS_DIRECT_OVERHEAD(hdr);
+-    fprintf(stream, "%*s%-*s %zu\n", indent, "", fwidth, "Size of block header:", blk_prefix_size);
++    fprintf(stream, "%*s%-*s %llu\n", indent, "", fwidth, "Size of block header:", (unsigned long long)blk_prefix_size);
+ 
+     /* Allocate space for the free space markers */
+     if (NULL == (marker = (uint8_t *)H5MM_calloc(dblock->size)))
+@@ -578,7 +578,7 @@
+             "Address of fractal heap that owns this block:", hdr->heap_addr);
+     fprintf(stream, "%*s%-*s %" PRIuHSIZE " \n", indent, "", fwidth,
+             "Offset of indirect block in heap:", iblock->block_off);
+-    fprintf(stream, "%*s%-*s %zu\n", indent, "", fwidth, "Size of indirect block:", iblock->size);
++    fprintf(stream, "%*s%-*s %llu\n", indent, "", fwidth, "Size of indirect block:", (unsigned long long)iblock->size);
+     fprintf(stream, "%*s%-*s %u\n", indent, "", fwidth, "Current # of rows:", iblock->nrows);
+     fprintf(stream, "%*s%-*s %u\n", indent, "", fwidth, "Max. # of rows:", iblock->max_rows);
+     fprintf(stream, "%*s%-*s %u\n", indent, "", fwidth,
+@@ -634,7 +634,7 @@
+         fprintf(stream, "%*sFractal Indirect Block Internal Information:\n", indent, "");
+ 
+         /* Print general information */
+-        fprintf(stream, "%*s%-*s %zu\n", indent + 3, "", MAX(0, fwidth - 3), "Reference count:", iblock->rc);
++        fprintf(stream, "%*s%-*s %llu\n", indent + 3, "", MAX(0, fwidth - 3), "Reference count:", (unsigned long long)iblock->rc);
+ 
+         /* Print parent's information */
+         fprintf(stream, "%*s%-*s %p\n", indent + 3, "", MAX(0, fwidth - 3),
+diff -ru src/hdf5-orig/src/H5HFdblock.c src/hdf5-2.0.0/src/H5HFdblock.c
+--- src/hdf5-orig/src/H5HFdblock.c	2025-11-11 00:00:49.000000000 +0000
++++ src/hdf5-2.0.0/src/H5HFdblock.c	2025-11-27 00:10:25.336833100 +0000
+@@ -385,8 +385,8 @@
+         /* Check for skipping over blocks */
+         if (min_dblock_size > next_size) {
+             fprintf(stderr,
+-                    "%s: Skipping direct block sizes not supported, min_dblock_size = %zu, next_size = %zu\n",
+-                    __func__, min_dblock_size, next_size);
++                    "%s: Skipping direct block sizes not supported, min_dblock_size = %llu, next_size = %llu\n",
++                    __func__, (unsigned long long)min_dblock_size, (unsigned long long)next_size);
+             HGOTO_ERROR(H5E_HEAP, H5E_UNSUPPORTED, FAIL, "skipping direct block sizes not supported yet");
+         } /* end if */
+ 
+diff -ru src/hdf5-orig/src/H5HG.c src/hdf5-2.0.0/src/H5HG.c
+--- src/hdf5-orig/src/H5HG.c	2025-11-11 00:00:49.000000000 +0000
++++ src/hdf5-2.0.0/src/H5HG.c	2025-11-27 00:11:16.951774200 +0000
+@@ -561,18 +561,18 @@
+ 
+     /* Heap object idx 0 is the free space in the heap and should never be given out */
+     if (0 == hobj->idx)
+-        HGOTO_ERROR(H5E_HEAP, H5E_BADVALUE, NULL, "bad heap index, heap object = {%" PRIxHADDR ", %zu}",
+-                    hobj->addr, hobj->idx);
++        HGOTO_ERROR(H5E_HEAP, H5E_BADVALUE, NULL, "bad heap index, heap object = {%" PRIxHADDR ", %llu}",
++                    hobj->addr, (unsigned long long)hobj->idx);
+ 
+     /* Load the heap */
+     if (NULL == (heap = H5HG__protect(f, hobj->addr, H5AC__READ_ONLY_FLAG)))
+         HGOTO_ERROR(H5E_HEAP, H5E_CANTPROTECT, NULL, "unable to protect global heap");
+     if (hobj->idx >= heap->nused)
+-        HGOTO_ERROR(H5E_HEAP, H5E_BADVALUE, NULL, "bad heap index, heap object = {%" PRIxHADDR ", %zu}",
+-                    hobj->addr, hobj->idx);
++        HGOTO_ERROR(H5E_HEAP, H5E_BADVALUE, NULL, "bad heap index, heap object = {%" PRIxHADDR ", %llu}",
++                    hobj->addr, (unsigned long long)hobj->idx);
+     if (NULL == heap->obj[hobj->idx].begin)
+-        HGOTO_ERROR(H5E_HEAP, H5E_BADVALUE, NULL, "bad heap pointer, heap object = {%" PRIxHADDR ", %zu}",
+-                    hobj->addr, hobj->idx);
++        HGOTO_ERROR(H5E_HEAP, H5E_BADVALUE, NULL, "bad heap pointer, heap object = {%" PRIxHADDR ", %llu}",
++                    hobj->addr, (unsigned long long)hobj->idx);
+ 
+     size = heap->obj[hobj->idx].size;
+     p    = heap->obj[hobj->idx].begin + H5HG_SIZEOF_OBJHDR(f);
+@@ -640,8 +640,8 @@
+ 
+     /* Heap object idx 0 is the free space in the heap and should never be given out */
+     if (0 == hobj->idx)
+-        HGOTO_ERROR(H5E_HEAP, H5E_BADVALUE, FAIL, "bad heap index, heap object = {%" PRIxHADDR ", %zu}",
+-                    hobj->addr, hobj->idx);
++        HGOTO_ERROR(H5E_HEAP, H5E_BADVALUE, FAIL, "bad heap index, heap object = {%" PRIxHADDR ", %llu}",
++                    hobj->addr, (unsigned long long)hobj->idx);
+ 
+     /* Load the heap */
+     if (NULL == (heap = H5HG__protect(f, hobj->addr, H5AC__NO_FLAGS_SET)))
+@@ -649,11 +649,11 @@
+ 
+     if (adjust != 0) {
+         if (hobj->idx >= heap->nused)
+-            HGOTO_ERROR(H5E_HEAP, H5E_BADVALUE, FAIL, "bad heap index, heap object = {%" PRIxHADDR ", %zu}",
+-                        hobj->addr, hobj->idx);
++            HGOTO_ERROR(H5E_HEAP, H5E_BADVALUE, FAIL, "bad heap index, heap object = {%" PRIxHADDR ", %llu}",
++                        hobj->addr, (unsigned long long)hobj->idx);
+         if (NULL == heap->obj[hobj->idx].begin)
+-            HGOTO_ERROR(H5E_HEAP, H5E_BADVALUE, FAIL, "bad heap pointer, heap object = {%" PRIxHADDR ", %zu}",
+-                        hobj->addr, hobj->idx);
++            HGOTO_ERROR(H5E_HEAP, H5E_BADVALUE, FAIL, "bad heap pointer, heap object = {%" PRIxHADDR ", %llu}",
++                        hobj->addr, (unsigned long long)hobj->idx);
+         if ((heap->obj[hobj->idx].nrefs + adjust) < 0)
+             HGOTO_ERROR(H5E_HEAP, H5E_BADRANGE, FAIL, "new link count would be out of range");
+         if ((heap->obj[hobj->idx].nrefs + adjust) > H5HG_MAXLINK)
+@@ -697,8 +697,8 @@
+ 
+     /* Heap object idx 0 is the free space in the heap and should never be given out */
+     if (0 == hobj->idx)
+-        HGOTO_ERROR(H5E_HEAP, H5E_BADVALUE, FAIL, "bad heap index, heap object = {%" PRIxHADDR ", %zu}",
+-                    hobj->addr, hobj->idx);
++        HGOTO_ERROR(H5E_HEAP, H5E_BADVALUE, FAIL, "bad heap index, heap object = {%" PRIxHADDR ", %llu}",
++                    hobj->addr, (unsigned long long)hobj->idx);
+ 
+     /* Load the heap */
+     if (NULL == (heap = H5HG__protect(f, hobj->addr, H5AC__READ_ONLY_FLAG)))
+@@ -706,11 +706,11 @@
+ 
+     /* Sanity check the heap object */
+     if (hobj->idx >= heap->nused)
+-        HGOTO_ERROR(H5E_HEAP, H5E_BADVALUE, FAIL, "bad heap index, heap object = {%" PRIxHADDR ", %zu}",
+-                    hobj->addr, hobj->idx);
++        HGOTO_ERROR(H5E_HEAP, H5E_BADVALUE, FAIL, "bad heap index, heap object = {%" PRIxHADDR ", %llu}",
++                    hobj->addr, (unsigned long long)hobj->idx);
+     if (NULL == heap->obj[hobj->idx].begin)
+-        HGOTO_ERROR(H5E_HEAP, H5E_BADVALUE, FAIL, "bad heap pointer, heap object = {%" PRIxHADDR ", %zu}",
+-                    hobj->addr, hobj->idx);
++        HGOTO_ERROR(H5E_HEAP, H5E_BADVALUE, FAIL, "bad heap pointer, heap object = {%" PRIxHADDR ", %llu}",
++                    hobj->addr, (unsigned long long)hobj->idx);
+ 
+     /* Set object size */
+     *obj_size = heap->obj[hobj->idx].size;
+@@ -751,8 +751,8 @@
+ 
+     /* Heap object idx 0 is the free space in the heap and should never be given out */
+     if (0 == hobj->idx)
+-        HGOTO_ERROR(H5E_HEAP, H5E_BADVALUE, FAIL, "bad heap index, heap object = {%" PRIxHADDR ", %zu}",
+-                    hobj->addr, hobj->idx);
++        HGOTO_ERROR(H5E_HEAP, H5E_BADVALUE, FAIL, "bad heap index, heap object = {%" PRIxHADDR ", %llu}",
++                    hobj->addr, (unsigned long long)hobj->idx);
+ 
+     /* Load the heap */
+     if (NULL == (heap = H5HG__protect(f, hobj->addr, H5AC__NO_FLAGS_SET)))
+@@ -760,8 +760,8 @@
+ 
+     /* Sanity check the heap object (split around bugfix below) */
+     if (hobj->idx >= heap->nused)
+-        HGOTO_ERROR(H5E_HEAP, H5E_BADVALUE, FAIL, "bad heap index, heap object = {%" PRIxHADDR ", %zu}",
+-                    hobj->addr, hobj->idx);
++        HGOTO_ERROR(H5E_HEAP, H5E_BADVALUE, FAIL, "bad heap index, heap object = {%" PRIxHADDR ", %llu}",
++                    hobj->addr, (unsigned long long)hobj->idx);
+ 
+     /* When the application selects the same location to rewrite the VL element by using H5Sselect_elements,
+      * it can happen that the entry has been removed by first rewrite.  Here we simply skip the removal of
+@@ -772,8 +772,8 @@
+ 
+     /* Finish sanity checking the heap object */
+     if (NULL == heap->obj[hobj->idx].begin)
+-        HGOTO_ERROR(H5E_HEAP, H5E_BADVALUE, FAIL, "bad heap pointer, heap object = {%" PRIxHADDR ", %zu}",
+-                    hobj->addr, hobj->idx);
++        HGOTO_ERROR(H5E_HEAP, H5E_BADVALUE, FAIL, "bad heap pointer, heap object = {%" PRIxHADDR ", %llu}",
++                    hobj->addr, (unsigned long long)hobj->idx);
+ 
+     obj_start = heap->obj[hobj->idx].begin;
+     /* Include object header size */
+diff -ru src/hdf5-orig/src/H5HLdbg.c src/hdf5-2.0.0/src/H5HLdbg.c
+--- src/hdf5-orig/src/H5HLdbg.c	2025-11-11 00:00:49.000000000 +0000
++++ src/hdf5-2.0.0/src/H5HLdbg.c	2025-11-27 00:11:36.156691700 +0000
+@@ -61,9 +61,9 @@
+         HGOTO_ERROR(H5E_HEAP, H5E_CANTPROTECT, FAIL, "unable to load/protect local heap");
+ 
+     fprintf(stream, "%*sLocal Heap...\n", indent, "");
+-    fprintf(stream, "%*s%-*s %zu\n", indent, "", fwidth, "Header size (in bytes):", h->prfx_size);
++    fprintf(stream, "%*s%-*s %llu\n", indent, "", fwidth, "Header size (in bytes):", (unsigned long long)h->prfx_size);
+     fprintf(stream, "%*s%-*s %" PRIuHADDR "\n", indent, "", fwidth, "Address of heap data:", h->dblk_addr);
+-    fprintf(stream, "%*s%-*s %zu\n", indent, "", fwidth, "Data bytes allocated for heap:", h->dblk_size);
++    fprintf(stream, "%*s%-*s %llu\n", indent, "", fwidth, "Data bytes allocated for heap:", (unsigned long long)h->dblk_size);
+ 
+     /* Traverse the free list and check that all free blocks fall within
+      * the heap and that no two free blocks point to the same region of
+diff -ru src/hdf5-orig/src/H5Lexternal.c src/hdf5-2.0.0/src/H5Lexternal.c
+--- src/hdf5-orig/src/H5Lexternal.c	2025-11-11 00:00:49.000000000 +0000
++++ src/hdf5-2.0.0/src/H5Lexternal.c	2025-11-27 00:11:52.535523000 +0000
+@@ -184,7 +184,7 @@
+         if (group_name_len > sizeof(local_group_name)) {
+             if (NULL == (parent_group_name = (char *)H5MM_malloc(group_name_len)))
+                 HGOTO_ERROR(H5E_LINK, H5E_CANTALLOC, H5I_INVALID_HID,
+-                            "can't allocate buffer to hold group name, group_name_len = %zu", group_name_len);
++                            "can't allocate buffer to hold group name, group_name_len = %llu", (unsigned long long)group_name_len);
+         } /* end if */
+         else
+             parent_group_name = local_group_name;
+diff -ru src/hdf5-orig/src/H5Oalloc.c src/hdf5-2.0.0/src/H5Oalloc.c
+--- src/hdf5-orig/src/H5Oalloc.c	2025-11-11 00:00:49.000000000 +0000
++++ src/hdf5-2.0.0/src/H5Oalloc.c	2025-11-27 00:12:38.429397000 +0000
+@@ -890,7 +890,7 @@
+         H5O_chunk_t *x;
+ 
+         if (NULL == (x = H5FL_SEQ_REALLOC(H5O_chunk_t, oh->chunk, na)))
+-            HGOTO_ERROR(H5E_OHDR, H5E_CANTALLOC, FAIL, "can't allocate larger chunk array, na = %zu", na);
++            HGOTO_ERROR(H5E_OHDR, H5E_CANTALLOC, FAIL, "can't allocate larger chunk array, na = %llu", (unsigned long long)na);
+         oh->alloc_nchunks = na;
+         oh->chunk         = x;
+     } /* end if */
+@@ -901,7 +901,7 @@
+     oh->chunk[chunkno].size = size;
+     oh->chunk[chunkno].gap  = 0;
+     if (NULL == (oh->chunk[chunkno].image = p = H5FL_BLK_CALLOC(chunk_image, size)))
+-        HGOTO_ERROR(H5E_OHDR, H5E_CANTALLOC, FAIL, "can't allocate image for chunk, size = %zu", size);
++        HGOTO_ERROR(H5E_OHDR, H5E_CANTALLOC, FAIL, "can't allocate image for chunk, size = %llu", (unsigned long long)size);
+     oh->chunk[chunkno].chunk_proxy = NULL;
+ 
+     /* If this is a later version of the object header format, put the magic
+diff -ru src/hdf5-orig/src/H5Odbg.c src/hdf5-2.0.0/src/H5Odbg.c
+--- src/hdf5-orig/src/H5Odbg.c	2025-11-11 00:00:49.000000000 +0000
++++ src/hdf5-2.0.0/src/H5Odbg.c	2025-11-27 00:13:38.900472700 +0000
+@@ -336,10 +336,10 @@
+         } /* end if */
+     }     /* end if */
+ 
+-    fprintf(stream, "%*s%-*s %zu (%zu)\n", indent, "", fwidth, "Number of messages (allocated):", oh->nmesgs,
+-            oh->alloc_nmesgs);
+-    fprintf(stream, "%*s%-*s %zu (%zu)\n", indent, "", fwidth, "Number of chunks (allocated):", oh->nchunks,
+-            oh->alloc_nchunks);
++    fprintf(stream, "%*s%-*s %llu (%llu)\n", indent, "", fwidth, "Number of messages (allocated):",
++            (unsigned long long)oh->nmesgs, (unsigned long long)oh->alloc_nmesgs);
++    fprintf(stream, "%*s%-*s %llu (%llu)\n", indent, "", fwidth, "Number of chunks (allocated):",
++            (unsigned long long)oh->nchunks, (unsigned long long)oh->alloc_nchunks);
+ 
+     /* debug each chunk */
+     for (i = 0, chunk_total = 0; i < oh->nchunks; i++) {
+@@ -363,9 +363,9 @@
+         chunk_total += chunk_size;
+         gap_total += oh->chunk[i].gap;
+ 
+-        fprintf(stream, "%*s%-*s %zu\n", indent + 3, "", MAX(0, fwidth - 3), "Size in bytes:", chunk_size);
++        fprintf(stream, "%*s%-*s %llu\n", indent + 3, "", MAX(0, fwidth - 3), "Size in bytes:", (unsigned long long)chunk_size);
+ 
+-        fprintf(stream, "%*s%-*s %zu\n", indent + 3, "", MAX(0, fwidth - 3), "Gap:", oh->chunk[i].gap);
++        fprintf(stream, "%*s%-*s %llu\n", indent + 3, "", MAX(0, fwidth - 3), "Gap:", (unsigned long long)oh->chunk[i].gap);
+     } /* end for */
+ 
+     /* debug each message */
+@@ -455,9 +455,10 @@
+         chunkno = oh->mesg[i].chunkno;
+         if (chunkno >= oh->nchunks)
+             fprintf(stream, "*** BAD CHUNK NUMBER\n");
+-        fprintf(stream, "%*s%-*s (%zu, %zu) bytes\n", indent + 3, "", MAX(0, fwidth - 3),
++        fprintf(stream, "%*s%-*s (%llu, %llu) bytes\n", indent + 3, "", MAX(0, fwidth - 3),
+                 "Raw message data (offset, size) in chunk:",
+-                (size_t)(oh->mesg[i].raw - oh->chunk[chunkno].image), oh->mesg[i].raw_size);
++                ((unsigned long long))(oh->mesg[i].raw - oh->chunk[chunkno].image), 
++                (unsigned long long)oh->mesg[i].raw_size);
+ 
+         /* check the size */
+         if ((oh->mesg[i].raw + oh->mesg[i].raw_size > oh->chunk[chunkno].image + oh->chunk[chunkno].size) ||
+diff -ru src/hdf5-orig/src/H5Odrvinfo.c src/hdf5-2.0.0/src/H5Odrvinfo.c
+--- src/hdf5-orig/src/H5Odrvinfo.c	2025-11-11 00:00:49.000000000 +0000
++++ src/hdf5-2.0.0/src/H5Odrvinfo.c	2025-11-27 00:14:06.963114100 +0000
+@@ -285,7 +285,7 @@
+     assert(fwidth >= 0);
+ 
+     fprintf(stream, "%*s%-*s %s\n", indent, "", fwidth, "Driver name:", mesg->name);
+-    fprintf(stream, "%*s%-*s %zu\n", indent, "", fwidth, "Buffer size:", mesg->len);
++    fprintf(stream, "%*s%-*s %llu\n", indent, "", fwidth, "Buffer size:", (unsigned long long)mesg->len);
+ 
+     FUNC_LEAVE_NOAPI(SUCCEED)
+ } /* end H5O__drvinfo_debug() */
+diff -ru src/hdf5-orig/src/H5Odtype.c src/hdf5-2.0.0/src/H5Odtype.c
+--- src/hdf5-orig/src/H5Odtype.c	2025-11-11 00:00:49.000000000 +0000
++++ src/hdf5-2.0.0/src/H5Odtype.c	2025-11-27 00:14:20.846011200 +0000
+@@ -891,9 +891,9 @@
+         if (!(*ioflags & H5O_DECODEIO_RFIC_UNUBNT))
+             HGOTO_ERROR(
+                 H5E_DATATYPE, H5E_BADVALUE, FAIL,
+-                "datatype has unusually large # of unused bits (prec = %zu bits, size = %zu bytes), possibly "
++                "datatype has unusually large # of unused bits (prec = %llu bits, size = %llu bytes), possibly "
+                 "corrupted file. See documentation for H5Pset_relax_file_integrity_checks for details.",
+-                dt->shared->u.atomic.prec, dt->shared->size);
++                (unsigned long long)dt->shared->u.atomic.prec, (unsigned long long)dt->shared->size);
+ 
+ done:
+     /* Cleanup on error */
+diff -ru src/hdf5-orig/src/H5Oefl.c src/hdf5-2.0.0/src/H5Oefl.c
+--- src/hdf5-orig/src/H5Oefl.c	2025-11-11 00:00:49.000000000 +0000
++++ src/hdf5-2.0.0/src/H5Oefl.c	2025-11-26 23:48:53.602600400 +0000
+@@ -535,19 +535,19 @@
+ 
+     fprintf(stream, "%*s%-*s %" PRIuHADDR "\n", indent, "", fwidth, "Heap address:", mesg->heap_addr);
+ 
+-    fprintf(stream, "%*s%-*s %zu/%zu\n", indent, "", fwidth, "Slots used/allocated:", mesg->nused,
+-            mesg->nalloc);
++    fprintf(stream, "%*s%-*s %llu/%llu\n", indent, "", fwidth, "Slots used/allocated:", (unsigned long long)mesg->nused,
++            (unsigned long long)mesg->nalloc);
+ 
+     for (u = 0; u < mesg->nused; u++) {
+         char buf[64];
+ 
+-        snprintf(buf, sizeof(buf), "File %zu", u);
++        snprintf(buf, sizeof(buf), "File %llu", (unsigned long long)u);
+         fprintf(stream, "%*s%s:\n", indent, "", buf);
+ 
+         fprintf(stream, "%*s%-*s \"%s\"\n", indent + 3, "", MAX(fwidth - 3, 0), "Name:", mesg->slot[u].name);
+ 
+-        fprintf(stream, "%*s%-*s %zu\n", indent + 3, "", MAX(fwidth - 3, 0),
+-                "Name offset:", mesg->slot[u].name_offset);
++        fprintf(stream, "%*s%-*s %llu\n", indent + 3, "", MAX(fwidth - 3, 0),
++                "Name offset:", (unsigned long long)mesg->slot[u].name_offset);
+ 
+         fprintf(stream, "%*s%-*s %" PRIdMAX "\n", indent + 3, "", MAX(fwidth - 3, 0),
+                 "Offset of data in file:", (intmax_t)(mesg->slot[u].offset));
+diff -ru src/hdf5-orig/src/H5Ofsinfo.c src/hdf5-2.0.0/src/H5Ofsinfo.c
+--- src/hdf5-orig/src/H5Ofsinfo.c	2025-11-11 00:00:49.000000000 +0000
++++ src/hdf5-2.0.0/src/H5Ofsinfo.c	2025-11-27 00:14:29.818352400 +0000
+@@ -403,8 +403,8 @@
+     fprintf(stream, "%*s%-*s %" PRIuHSIZE "\n", indent, "", fwidth,
+             "File space page size:", fsinfo->page_size);
+ 
+-    fprintf(stream, "%*s%-*s %zu\n", indent, "", fwidth,
+-            "Page end metadata threshold:", fsinfo->pgend_meta_thres);
++    fprintf(stream, "%*s%-*s %llu\n", indent, "", fwidth,
++            "Page end metadata threshold:", (unsigned long long)fsinfo->pgend_meta_thres);
+ 
+     fprintf(stream, "%*s%-*s %" PRIuHADDR "\n", indent, "", fwidth,
+             "eoa_pre_fsm_fsalloc:", fsinfo->eoa_pre_fsm_fsalloc);
+diff -ru src/hdf5-orig/src/H5Olayout.c src/hdf5-2.0.0/src/H5Olayout.c
+--- src/hdf5-orig/src/H5Olayout.c	2025-11-11 00:00:49.000000000 +0000
++++ src/hdf5-2.0.0/src/H5Olayout.c	2025-11-27 00:14:48.152161600 +0000
+@@ -1196,17 +1196,17 @@
+ 
+         case H5D_COMPACT:
+             fprintf(stream, "%*s%-*s %s\n", indent, "", fwidth, "Type:", "Compact");
+-            fprintf(stream, "%*s%-*s %zu\n", indent, "", fwidth, "Data Size:", mesg->storage.u.compact.size);
++            fprintf(stream, "%*s%-*s %llu\n", indent, "", fwidth, "Data Size:", (unsigned long long)mesg->storage.u.compact.size);
+             break;
+ 
+         case H5D_VIRTUAL:
+             fprintf(stream, "%*s%-*s %s\n", indent, "", fwidth, "Type:", "Virtual");
+             fprintf(stream, "%*s%-*s %" PRIuHADDR "\n", indent, "", fwidth,
+                     "Global heap address:", mesg->storage.u.virt.serial_list_hobjid.addr);
+-            fprintf(stream, "%*s%-*s %zu\n", indent, "", fwidth,
+-                    "Global heap index:", mesg->storage.u.virt.serial_list_hobjid.idx);
++            fprintf(stream, "%*s%-*s %llu\n", indent, "", fwidth,
++                    "Global heap index:", (unsigned long long)mesg->storage.u.virt.serial_list_hobjid.idx);
+             for (u = 0; u < mesg->storage.u.virt.list_nused; u++) {
+-                fprintf(stream, "%*sMapping %zu:\n", indent, "", u);
++                fprintf(stream, "%*sMapping %llu:\n", indent, "", (unsigned long long)u);
+                 fprintf(stream, "%*s%-*s %s\n", indent + 3, "", fwidth - 3,
+                         "Virtual selection:", "<Not yet implemented>");
+                 fprintf(stream, "%*s%-*s %s\n", indent + 3, "", fwidth - 3,
+diff -ru src/hdf5-orig/src/H5Olink.c src/hdf5-2.0.0/src/H5Olink.c
+--- src/hdf5-orig/src/H5Olink.c	2025-11-11 00:00:49.000000000 +0000
++++ src/hdf5-2.0.0/src/H5Olink.c	2025-11-27 00:14:56.243367600 +0000
+@@ -829,8 +829,8 @@
+                     fprintf(stream, "%*s%-*s %s\n", indent, "", fwidth, "External Object Name:", objname);
+                 } /* end if */
+                 else {
+-                    fprintf(stream, "%*s%-*s %zu\n", indent, "", fwidth,
+-                            "User-Defined Link Size:", lnk->u.ud.size);
++                    fprintf(stream, "%*s%-*s %llu\n", indent, "", fwidth,
++                            "User-Defined Link Size:", (unsigned long long)lnk->u.ud.size);
+                 } /* end else */
+             }     /* end if */
+             else
+diff -ru src/hdf5-orig/src/H5Opline.c src/hdf5-2.0.0/src/H5Opline.c
+--- src/hdf5-orig/src/H5Opline.c	2025-11-11 00:00:49.000000000 +0000
++++ src/hdf5-2.0.0/src/H5Opline.c	2025-11-27 00:22:59.486755200 +0000
+@@ -647,8 +647,8 @@
+     assert(indent >= 0);
+     assert(fwidth >= 0);
+ 
+-    fprintf(stream, "%*s%-*s %zu/%zu\n", indent, "", fwidth, "Number of filters:", pline->nused,
+-            pline->nalloc);
++    fprintf(stream, "%*s%-*s %llu/%llu\n", indent, "", fwidth, "Number of filters:",
++            (unsigned long long)pline->nused, (unsigned long long)pline->nalloc);
+ 
+     /* Loop over all the filters */
+     for (size_t i = 0; i < pline->nused; i++) {
+@@ -658,7 +658,7 @@
+         char name[64];
+ 
+         memset(name, 0, 64);
+-        snprintf(name, sizeof(name), "Filter at position %zu", i);
++        snprintf(name, sizeof(name), "Filter at position %llu", (unsigned long long)i);
+ 
+         fprintf(stream, "%*s%-*s\n", indent, "", fwidth, name);
+         fprintf(stream, "%*s%-*s 0x%04x\n", indent + 3, "", MAX(0, fwidth - 3),
+@@ -670,8 +670,8 @@
+             fprintf(stream, "%*s%-*s NONE\n", indent + 3, "", MAX(0, fwidth - 3), "Filter name:");
+         fprintf(stream, "%*s%-*s 0x%04x\n", indent + 3, "", MAX(0, fwidth - 3),
+                 "Flags:", pline->filter[i].flags);
+-        fprintf(stream, "%*s%-*s %zu\n", indent + 3, "", MAX(0, fwidth - 3),
+-                "Num CD values:", pline->filter[i].cd_nelmts);
++        fprintf(stream, "%*s%-*s %llu\n", indent + 3, "", MAX(0, fwidth - 3),
++                "Num CD values:", (unsigned long long)pline->filter[i].cd_nelmts);
+ 
+         /* Filter parameters */
+         for (size_t j = 0; j < pline->filter[i].cd_nelmts; j++) {
+diff -ru src/hdf5-orig/src/H5SM.c src/hdf5-2.0.0/src/H5SM.c
+--- src/hdf5-orig/src/H5SM.c	2025-11-11 00:00:49.000000000 +0000
++++ src/hdf5-2.0.0/src/H5SM.c	2025-11-27 00:15:38.200396400 +0000
+@@ -2516,14 +2516,14 @@
+                 "Address of index's heap:", table->indexes[x].heap_addr);
+         fprintf(stream, "%*s%-*s 0x%08x\n", indent + 3, "", fwidth,
+                 "Message type flags:", table->indexes[x].mesg_types);
+-        fprintf(stream, "%*s%-*s %zu\n", indent + 3, "", fwidth,
+-                "Minimum size of messages:", table->indexes[x].min_mesg_size);
+-        fprintf(stream, "%*s%-*s %zu\n", indent + 3, "", fwidth,
+-                "Number of messages:", table->indexes[x].num_messages);
+-        fprintf(stream, "%*s%-*s %zu\n", indent + 3, "", fwidth,
+-                "Maximum list size:", table->indexes[x].list_max);
+-        fprintf(stream, "%*s%-*s %zu\n", indent + 3, "", fwidth,
+-                "Minimum B-tree size:", table->indexes[x].btree_min);
++        fprintf(stream, "%*s%-*s %llu\n", indent + 3, "", fwidth,
++                "Minimum size of messages:", (unsigned long long)table->indexes[x].min_mesg_size);
++        fprintf(stream, "%*s%-*s %llu\n", indent + 3, "", fwidth,
++                "Number of messages:", (unsigned long long)table->indexes[x].num_messages);
++        fprintf(stream, "%*s%-*s %llu\n", indent + 3, "", fwidth,
++                "Maximum list size:", (unsigned long long)table->indexes[x].list_max);
++        fprintf(stream, "%*s%-*s %llu\n", indent + 3, "", fwidth,
++                "Minimum B-tree size:", (unsigned long long)table->indexes[x].btree_min);
+     } /* end for */
+ 
+ done:
+diff -ru src/hdf5-orig/src/H5Tconv_macros.h src/hdf5-2.0.0/src/H5Tconv_macros.h
+--- src/hdf5-orig/src/H5Tconv_macros.h	2025-11-11 00:00:49.000000000 +0000
++++ src/hdf5-2.0.0/src/H5Tconv_macros.h	2025-11-27 00:17:11.486205700 +0000
+@@ -1891,12 +1891,14 @@
+ #define CI_PRINT_STATS(STYPE, DTYPE)                                                                         \
+     do {                                                                                                     \
+         if (H5DEBUG(T) && ((H5T_conv_hw_t *)cdata->priv)->s_aligned) {                                       \
+-            fprintf(H5DEBUG(T), "      %zu src elements aligned on %zu-byte boundaries\n",                   \
+-                    ((H5T_conv_hw_t *)cdata->priv)->s_aligned, H5T_NATIVE_##STYPE##_ALIGN_g);                \
++            fprintf(H5DEBUG(T), "      %llu src elements aligned on %llu-byte boundaries\n",                 \
++                    (unsigned long long)(((H5T_conv_hw_t *)cdata->priv)->s_aligned),                         \
++                    (unsigned long long)(H5T_NATIVE_##STYPE##_ALIGN_g));                                     \
+         }                                                                                                    \
+         if (H5DEBUG(T) && ((H5T_conv_hw_t *)cdata->priv)->d_aligned) {                                       \
+-            fprintf(H5DEBUG(T), "      %zu dst elements aligned on %zu-byte boundaries\n",                   \
+-                    ((H5T_conv_hw_t *)cdata->priv)->d_aligned, H5T_NATIVE_##DTYPE##_ALIGN_g);                \
++            fprintf(H5DEBUG(T), "      %llu dst elements aligned on %llu-byte boundaries\n",                 \
++                    (unsigned long long)(((H5T_conv_hw_t *)cdata->priv)->d_aligned),                         \
++                    (unsigned long long)(H5T_NATIVE_##DTYPE##_ALIGN_g));                                     \
+         }                                                                                                    \
+     } while (0)
+ 
+diff -ru src/hdf5-orig/src/H5trace.c src/hdf5-2.0.0/src/H5trace.c
+--- src/hdf5-orig/src/H5trace.c	2025-11-11 00:00:49.000000000 +0000
++++ src/hdf5-2.0.0/src/H5trace.c	2025-11-27 00:17:53.660407000 +0000
+@@ -392,7 +392,7 @@
+ 
+                             H5RS_acat(rs, " {");
+                             for (i = 0; i < asize[asize_idx]; i++)
+-                                H5RS_asprintf_cat(rs, "%s%zu", (i ? ", " : ""), p[i]);
++                                H5RS_asprintf_cat(rs, "%s%llu", (i ? ", " : ""), (unsigned long long)p[i]);
+                             H5RS_acat(rs, "}");
+                         } /* end if */
+                         break;
+@@ -498,10 +498,10 @@
+                             H5_trace_args_bool(rs, cc.evictions_enabled);
+                             H5RS_acat(rs, ", ");
+                             H5_trace_args_bool(rs, cc.set_initial_size);
+-                            H5RS_asprintf_cat(rs, ", %zu, ", cc.initial_size);
++                            H5RS_asprintf_cat(rs, ", %llu, ", (unsigned long long)cc.initial_size);
+                             H5RS_asprintf_cat(rs, "%f, ", cc.min_clean_fraction);
+-                            H5RS_asprintf_cat(rs, "%zu, ", cc.max_size);
+-                            H5RS_asprintf_cat(rs, "%zu, ", cc.min_size);
++                            H5RS_asprintf_cat(rs, "%llu, ", (unsigned long long)cc.max_size);
++                            H5RS_asprintf_cat(rs, "%llu, ", (unsigned long long)cc.min_size);
+                             H5RS_asprintf_cat(rs, "%ld, ", cc.epoch_length);
+                             switch (cc.incr_mode) {
+                                 case H5C_incr__off:
+@@ -519,7 +519,7 @@
+                             H5RS_asprintf_cat(rs, ", %f, ", cc.lower_hr_threshold);
+                             H5RS_asprintf_cat(rs, "%f, ", cc.increment);
+                             H5_trace_args_bool(rs, cc.apply_max_increment);
+-                            H5RS_asprintf_cat(rs, ", %zu, ", cc.max_increment);
++                            H5RS_asprintf_cat(rs, ", %llu, ", (unsigned long long)cc.max_increment);
+                             switch (cc.flash_incr_mode) {
+                                 case H5C_flash_incr__off:
+                                     H5RS_acat(rs, "H5C_flash_incr__off");
+@@ -559,11 +559,11 @@
+                             H5RS_asprintf_cat(rs, ", %f, ", cc.upper_hr_threshold);
+                             H5RS_asprintf_cat(rs, "%f, ", cc.decrement);
+                             H5_trace_args_bool(rs, cc.apply_max_decrement);
+-                            H5RS_asprintf_cat(rs, ", %zu, ", cc.max_decrement);
++                            H5RS_asprintf_cat(rs, ", %llu, ", (unsigned long long)cc.max_decrement);
+                             H5RS_asprintf_cat(rs, "%d, ", cc.epochs_before_eviction);
+                             H5_trace_args_bool(rs, cc.apply_empty_reserve);
+                             H5RS_asprintf_cat(rs, ", %f, ", cc.empty_reserve);
+-                            H5RS_asprintf_cat(rs, "%zu, ", cc.dirty_bytes_threshold);
++                            H5RS_asprintf_cat(rs, "%llu, ", (unsigned long long)cc.dirty_bytes_threshold);
+                             H5RS_asprintf_cat(rs, "%d}", cc.metadata_write_strategy);
+                         } /* end block */
+                         break;
+@@ -3874,7 +3874,7 @@
+                 case 'z': {
+                     size_t size = va_arg(ap, size_t);
+ 
+-                    H5RS_asprintf_cat(rs, "%zu", size);
++                    H5RS_asprintf_cat(rs, "%llu", (unsigned long long)size);
+                     asize[argno] = (hssize_t)size;
+                 } /* end block */
+                 break;

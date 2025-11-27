@@ -53,25 +53,3 @@ diff -ru src/hdf5-orig/src/H5system.c src/hdf5-2.0.0/src/H5system.c
 +#ifdef _MSC_VER
  #pragma comment(lib, "advapi32.lib")
  #endif
- 
-diff -ru src/hdf5-orig/src/H5Clog_trace.c src/hdf5-2.0.0/src/H5Clog_trace.c
---- src/hdf5-orig/src/H5Clog_trace.c	2025-11-11 00:00:49.000000000 +0000
-+++ src/hdf5-2.0.0/src/H5Clog_trace.c	2025-11-26 23:25:06.954874000 +0000
-@@ -852,7 +852,7 @@
-     /* Create the log message string */
-     snprintf(trace_udata->message, H5C_MAX_TRACE_LOG_MSG_SIZE,
-              "H5AC_set_cache_auto_resize_config %d %d %d %d \"%s\" %d %d %d %f %d %d %ld %d %f %f %d %f %f "
--             "%d %d %d %f %f %d %d %d %d %f %zu %d %d\n",
-+             "%d %d %d %f %f %d %d %d %d %f %llu %d %d\n",
-              config->version, (int)(config->rpt_fcn_enabled), (int)(config->open_trace_file),
-              (int)(config->close_trace_file), config->trace_file_name, (int)(config->evictions_enabled),
-              (int)(config->set_initial_size), (int)(config->initial_size), config->min_clean_fraction,
-@@ -862,7 +862,7 @@
-              (int)(config->max_increment), (int)(config->decr_mode), config->upper_hr_threshold,
-              config->decrement, (int)(config->apply_max_decrement), (int)(config->max_decrement),
-              config->epochs_before_eviction, (int)(config->apply_empty_reserve), config->empty_reserve,
--             config->dirty_bytes_threshold, config->metadata_write_strategy, (int)fxn_ret_value);
-+             (unsigned long long)config->dirty_bytes_threshold, config->metadata_write_strategy, (int)fxn_ret_value);
- 
-     /* Write the log message to the file */
-     if (H5C__trace_write_log_message(trace_udata) < 0)
