@@ -58,6 +58,9 @@ BUILD_DIR="$PKG_DIR/build"
 mkdir -p "$BUILD_DIR"
 cd "$BUILD_DIR"
 
+# Prevent MSYS2 from mangling arguments (utils::untar -> utils;untar)
+export MSYS2_ARG_CONV_EXCL="*"
+
 "$R_EXE" -q -e "utils::untar('../src/zlib-$ZLIB_VER.tar.gz')"
 "$R_EXE" -q -e "utils::untar('../src/hdf5-$HDF5_VER.tar.gz')"
 ZLIB_DIR="$BUILD_DIR/zlib-$ZLIB_VER"
