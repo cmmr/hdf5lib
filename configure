@@ -98,8 +98,7 @@ $CC $CPPFLAGS $CFLAGS -o find_byte_widths$EXE ./find_byte_widths.c
 "$R_EXE" -s -e "invisible(file.copy(R.home('include'), '.', recursive = TRUE))"
 
 # Define base flags
-CPPFLAGS="-Werror -Wall"
-CPPFLAGS="$CPPFLAGS -Isrc -Ihl/src -Iinclude -I../zlib-$ZLIB_VER $R_CPPFLAGS"
+CPPFLAGS="-Isrc -Ihl/src -I../zlib-$ZLIB_VER -Iinclude $R_CPPFLAGS"
 CPPFLAGS="$CPPFLAGS -DH5_BUILT_AS_STATIC_LIB -DH5_DLL= -DH5HL_DLL="
 
 echo "  CC:       $CC"
@@ -111,8 +110,6 @@ for src in src/*.c hl/src/*.c; do
   echo "  \$CC \$CFLAGS \$CPPFLAGS -c $src -o $obj"
   $CC $CFLAGS $CPPFLAGS -c "$src" -o "$obj"
 done
-
-#"$R_MAKE" CC="$CC" CFLAGS="$CFLAGS" CPPFLAGS="$CPPFLAGS"
 
 cd ..
 
