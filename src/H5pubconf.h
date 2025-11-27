@@ -114,8 +114,6 @@
 #define H5_HAVE_PTHREAD_H               1 /* pthreads are standard in R's toolchain */
 #define H5_HAVE_THREADSAFE              1
 #define H5_HAVE_THREADS                 1
-#define H5_HAVE_DLFCN_H                 1 /* For dynamic filter plugins */
-#define H5_HAVE_LIBDL                   1
 
 /* ========================================================================== */
 /* 5. Universal System Function Availability                                */
@@ -156,6 +154,8 @@
     #define H5_HAVE_SYS_FILE_H          1
     #define H5_HAVE_GETRUSAGE           1
     #define H5_HAVE_SYS_RESOURCE_H      1
+    #define H5_HAVE_DLFCN_H             1 /* For dynamic filter plugins */
+    #define H5_HAVE_LIBDL               1
     
     #if defined(__APPLE__)
         #define H5_HAVE_DARWIN          1

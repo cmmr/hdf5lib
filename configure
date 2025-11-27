@@ -59,12 +59,15 @@ mkdir -p "$BUILD_DIR"
 cd "$BUILD_DIR"
 
 # Prevent MSYS2 from mangling arguments (utils::untar -> utils;untar)
+OLD_MSYS2_ARG_CONV_EXCL="$MSYS2_ARG_CONV_EXCL"
 export MSYS2_ARG_CONV_EXCL="*"
 
 "$R_EXE" -q -e "utils::untar('../src/zlib-$ZLIB_VER.tar.gz')"
 "$R_EXE" -q -e "utils::untar('../src/hdf5-$HDF5_VER.tar.gz')"
 ZLIB_DIR="$BUILD_DIR/zlib-$ZLIB_VER"
 HDF5_DIR="$BUILD_DIR/hdf5-$HDF5_VER"
+
+export MSYS2_ARG_CONV_EXCL="$OLD_MSYS2_ARG_CONV_EXCL"
 
 echo "--- [hdf5lib] Building ZLIB..."
 cd "$ZLIB_DIR"
