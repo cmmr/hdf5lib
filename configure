@@ -59,15 +59,15 @@ mkdir -p "$BUILD_DIR"
 cd "$BUILD_DIR"
 
 # Prevent MSYS2 from mangling arguments (utils::untar -> utils;untar)
-OLD_MSYS2_ARG_CONV_EXCL="$MSYS2_ARG_CONV_EXCL"
-export MSYS2_ARG_CONV_EXCL="*"
+# OLD_MSYS2_ARG_CONV_EXCL="$MSYS2_ARG_CONV_EXCL"
+# export MSYS2_ARG_CONV_EXCL="*"
 
 "$R_EXE" -q -e "utils::untar('../src/zlib-$ZLIB_VER.tar.gz')"
 "$R_EXE" -q -e "utils::untar('../src/hdf5-$HDF5_VER.tar.gz')"
 ZLIB_DIR="$BUILD_DIR/zlib-$ZLIB_VER"
 HDF5_DIR="$BUILD_DIR/hdf5-$HDF5_VER"
 
-export MSYS2_ARG_CONV_EXCL="$OLD_MSYS2_ARG_CONV_EXCL"
+# export MSYS2_ARG_CONV_EXCL="$OLD_MSYS2_ARG_CONV_EXCL"
 
 echo "--- [hdf5lib] Building ZLIB..."
 cd "$ZLIB_DIR"
@@ -109,9 +109,9 @@ CPPFLAGS="$CPPFLAGS -Isrc -Ihl/src -Iinclude -I../zlib-$ZLIB_VER"
 CPPFLAGS="$CPPFLAGS -DH5_BUILT_AS_STATIC_LIB -DH5_DLL= -DH5HL_DLL="
 
 # Enable C99 printf/snprintf on Windows (fixes %lld and %zu errors in Rtools40)
-if [ "$WIN" -eq 1 ]; then
-  CPPFLAGS="$CPPFLAGS -D__USE_MINGW_ANSI_STDIO=1"
-fi
+#if [ "$WIN" -eq 1 ]; then
+#  CPPFLAGS="$CPPFLAGS -D__USE_MINGW_ANSI_STDIO=1"
+#fi
 
 echo "  CC:       $CC"
 echo "  CFLAGS:   $CFLAGS"
