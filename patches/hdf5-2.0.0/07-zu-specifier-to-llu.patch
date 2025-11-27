@@ -566,7 +566,7 @@ diff -ru src/hdf5-orig/src/H5Odbg.c src/hdf5-2.0.0/src/H5Odbg.c
 +        fprintf(stream, "%*s%-*s (%llu, %llu) bytes\n", indent + 3, "", MAX(0, fwidth - 3),
                  "Raw message data (offset, size) in chunk:",
 -                (size_t)(oh->mesg[i].raw - oh->chunk[chunkno].image), oh->mesg[i].raw_size);
-+                ((unsigned long long))(oh->mesg[i].raw - oh->chunk[chunkno].image), 
++                (unsigned long long)(oh->mesg[i].raw - oh->chunk[chunkno].image), 
 +                (unsigned long long)oh->mesg[i].raw_size);
  
          /* check the size */
