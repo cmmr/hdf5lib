@@ -55,16 +55,10 @@ echo "--- [hdf5lib] Decompressing sources..."
 mkdir build
 cd build
 
-# Prevent MSYS2 from mangling arguments (utils::untar -> utils;untar)
-# OLD_MSYS2_ARG_CONV_EXCL="$MSYS2_ARG_CONV_EXCL"
-# export MSYS2_ARG_CONV_EXCL="*"
-
 tar -xf "../src/zlib-$ZLIB_VER.tar.gz"
 tar -xf "../src/hdf5-$HDF5_VER.tar.gz"
 cp ../src/H5pubconf.h        "hdf5-$HDF5_VER/src/"
 cp ../src/find_byte_widths.c "hdf5-$HDF5_VER/"
-
-# export MSYS2_ARG_CONV_EXCL="$OLD_MSYS2_ARG_CONV_EXCL"
 
 echo "--- [hdf5lib] Building ZLIB..."
 cd "zlib-$ZLIB_VER"
@@ -108,15 +102,17 @@ CPPFLAGS="-Werror -Wall $R_CPPFLAGS"
 CPPFLAGS="$CPPFLAGS -Isrc -Ihl/src -Iinclude -I../zlib-$ZLIB_VER"
 CPPFLAGS="$CPPFLAGS -DH5_BUILT_AS_STATIC_LIB -DH5_DLL= -DH5HL_DLL="
 
-# Enable C99 printf/snprintf on Windows (fixes %lld and %zu errors in Rtools40)
-#if [ "$WIN" -eq 1 ]; then
-#  CPPFLAGS="$CPPFLAGS -D__USE_MINGW_ANSI_STDIO=1"
-#fi
-
 echo "  CC:       $CC"
 echo "  CFLAGS:   $CFLAGS"
 echo "  CPPFLAGS: $CPPFLAGS"
-"$R_MAKE" CC="$CC" CFLAGS="$CFLAGS" CPPFLAGS="$CPPFLAGS"
+
+for src in src/*.c hl/src/*.c; do
+  obj=$(basename "$src" .c).o
+  echo "  \$CC \$CFLAGS \$CPPFLAGS -c $src -o $obj"
+  $CC $CFLAGS $CPPFLAGS -c "$src" -o "$obj"
+done
+
+#"$R_MAKE" CC="$CC" CFLAGS="$CFLAGS" CPPFLAGS="$CPPFLAGS"
 
 cd ..
 
