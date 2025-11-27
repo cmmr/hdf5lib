@@ -2,6 +2,7 @@
 ^hdf5lib\.Rproj$
 ^LICENSE\.md$
 ^patches$
+^src/H5pubconf$
 ^src/prep_hdf5\.r$
 ^src/prep_zlib\.r$
 ^src/find_hdf5_deps.sh$
@@ -9,6 +10,8 @@
 ^cran-comments\.md$
 ^CRAN-SUBMISSION$
 ^pkgdown$
+^inst/include$
+^inst/lib$
 ^doc$
 ^docs$
 ^Meta$
