@@ -62,8 +62,8 @@ cd "$BUILD_DIR"
 # OLD_MSYS2_ARG_CONV_EXCL="$MSYS2_ARG_CONV_EXCL"
 # export MSYS2_ARG_CONV_EXCL="*"
 
-"$R_EXE" -q -e "utils::untar('../src/zlib-$ZLIB_VER.tar.gz')"
-"$R_EXE" -q -e "utils::untar('../src/hdf5-$HDF5_VER.tar.gz')"
+tar -xf "../src/zlib-$ZLIB_VER.tar.gz"
+tar -xf "../src/hdf5-$HDF5_VER.tar.gz"
 ZLIB_DIR="$BUILD_DIR/zlib-$ZLIB_VER"
 HDF5_DIR="$BUILD_DIR/hdf5-$HDF5_VER"
 
