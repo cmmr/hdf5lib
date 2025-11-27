@@ -102,7 +102,17 @@ $CC $CPPFLAGS $CFLAGS -o find_byte_widths$EXE ./find_byte_widths.c
 # Use the pre-generated Makefile (from prep_hdf5.r) to build all objects
 # Explicitly passing CC/CFLAGS overrides the defaults in the Makefile
 "$R_EXE" -s -e "invisible(file.copy(R.home('include'), '.', recursive = TRUE))"
-export CPPFLAGS="-Werror -Wall -Isrc -Ihl/src -Iinclude -I../zlib-$ZLIB_VER $R_CPPFLAGS -DH5_BUILT_AS_STATIC_LIB -DH5_DLL= -DH5HL_DLL="
+
+# Define base flags
+CPPFLAGS="-Werror -Wall $R_CPPFLAGS"
+CPPFLAGS="$CPPFLAGS -Isrc -Ihl/src -Iinclude -I../zlib-$ZLIB_VER"
+CPPFLAGS="$CPPFLAGS -DH5_BUILT_AS_STATIC_LIB -DH5_DLL= -DH5HL_DLL="
+
+# Enable C99 printf/snprintf on Windows (fixes %lld and %zu errors in Rtools40)
+if [ "$WIN" -eq 1 ]; then
+  CPPFLAGS="$CPPFLAGS -D__USE_MINGW_ANSI_STDIO=1"
+fi
+
 echo "  CC:       $CC"
 echo "  CFLAGS:   $CFLAGS"
 echo "  CPPFLAGS: $CPPFLAGS"
