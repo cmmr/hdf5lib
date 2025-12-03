@@ -1,0 +1,25 @@
+name: Alpine Musl Check
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - R/**
+      - src/**
+      - tests/**
+      - configure
+      - configure.win
+      - .Rbuildignore
+      - .github/workflows/Alpine-Musl-Check.yaml
+
+jobs:
+  alpine-check:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Run Alpine Musl Check
+        uses: ./.github/actions/alpine-musl-check
