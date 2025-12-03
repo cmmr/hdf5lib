@@ -12,11 +12,11 @@ diff -ru src/hdf5-orig/src/H5.c src/hdf5-2.0.0/src/H5.c
 +/*
 + * --- Sentinel Definitions ---
 + *
-+ * We define two static, empty FILE structs. Their only purpose
++ * We define two static char variables. Their only purpose
 + * is to provide a unique memory address.
 + */
-+static FILE r_stdout_sentinel;
-+static FILE r_stderr_sentinel;
++static char r_stdout_sentinel;
++static char r_stderr_sentinel;
 +
 +/*
 + * --- Global Sentinel Pointers ---
@@ -29,8 +29,8 @@ diff -ru src/hdf5-orig/src/H5.c src/hdf5-2.0.0/src/H5.c
 + * - 'stdout' will be replaced with 'Rstdout'
 + * - 'stderr' will be replaced with 'Rstderr'
 + */
-+H5_DLL FILE *Rstdout = &r_stdout_sentinel;
-+H5_DLL FILE *Rstderr = &r_stderr_sentinel;
++H5_DLL FILE *Rstdout = (FILE *)&r_stdout_sentinel;
++H5_DLL FILE *Rstderr = (FILE *)&r_stderr_sentinel;
 +
 +/**
 + * @brief Interceptor for fprintf.

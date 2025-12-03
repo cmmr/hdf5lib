@@ -5,13 +5,14 @@ api_options <- c('200', '114', '112', '110', '18', '16')
 #' @description
 #' Provides the required C/C++ compiler flags to find the HDF5 header
 #' files bundled with the `hdf5lib` package.
-#'
-#' @param api A character string specifying the HDF5 API version to use.
-#'   This adds a preprocessor directive like `-DH5_USE_114_API_DEFAULT` to ensure
-#'   that the compiled code uses symbols compatible with a specific version of
-#'   the HDF5 API. This is useful for maintaining compatibility with older HDF5
-#'   versions. Supported values are `200`, `114`, `112`, `110`, `18`,and `16`.
-#'   Defaults to `"latest"`, which corresponds to the newest supported API version.
+#' 
+#' @param api A numeric value specifying the HDF5 API version to use (e.g.,
+#'   `114` for v1.14), or the string `"latest"`. This adds a preprocessor
+#'   directive like `-DH5_USE_114_API_DEFAULT` to ensure that the compiled
+#'   code uses symbols compatible with a specific version of the HDF5 API.
+#'   This is useful for maintaining compatibility with older HDF5 versions.
+#'   Supported values are `200`, `114`, `112`, `110`, `18`, and `16`. Defaults
+#'   to `"latest"`, which corresponds to the newest supported API version.
 #'
 #' @return A scalar character vector containing the compiler flags (e.g., the
 #'   `-I` path to the package's `inst/include` directory).
@@ -60,11 +61,9 @@ c_flags <- function(api = "latest") {
 #' Provides the required linker flags to link against the static HDF5
 #' library (`libhdf5z.a`) bundled with the `hdf5lib` package.
 #'
-#' @param api A character string specifying the HDF5 API version. This
-#'   parameter is included for consistency with [c_flags()] and is reserved for
-#'   future use. It currently has no effect on the linker flags. Supported
-#'   values are `200`, `114`, `112`, `110`, `18`, and `16`.
-#'   Defaults to `"latest"`.
+#' @param api A numeric value or the string `"latest"`. This parameter is
+#'   included for consistency with [c_flags()] and is reserved for future use;
+#'   it currently has no effect on the linker flags. Defaults to `"latest"`.
 #'
 #' @return A scalar character vector containing the linker flags.
 #'
