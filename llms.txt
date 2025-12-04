@@ -205,6 +205,15 @@ key distinctions:
   `RcppParallel`). `Rhdf5lib` does not support building with this
   feature.
 
+- **Predictable Versioning and Features:** The version of `hdf5lib`
+  directly corresponds to the bundled HDF5 version (e.g., `hdf5lib`
+  v2.0.0.x bundles HDF5 v2.0.0). This allows developers to require a
+  minimum `hdf5lib` version to guarantee a specific HDF5 version and a
+  consistent set of features. In contrast, `Rhdf5lib` may link against a
+  pre-existing system library or be configured at install-time, so its
+  package version does not guarantee which version of HDF5 is actually
+  in use or which features are enabled.
+
 `hdf5lib` is intended to be a simple and reliable provider of the HDF5 C
 library for any R package.
 

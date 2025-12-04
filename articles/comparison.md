@@ -14,7 +14,7 @@ The table below summarizes the key differences between the two packages.
 | Feature                 | `hdf5lib` (CRAN)                                                                        | `Rhdf5lib` (Bioconductor)                |
 |-------------------------|-----------------------------------------------------------------------------------------|------------------------------------------|
 | **Installation**        | Zero-configuration                                                                      | Configurable at install-time             |
-| **HDF5 Version**        | Modern (v2.0.0)                                                                         | Older (v1.12.2 as of Bioc 3.19)          |
+| **HDF5 Version**        | Bundled & predictable (v2.0.0)                                                          | Variable (older bundle or system)        |
 | **Build Type**          | Static library only                                                                     | Static or shared library                 |
 | **Thread-Safety**       | **Enabled by default**                                                                  | Not supported                            |
 | **API Version Control** | Simple `api` flag in [`c_flags()`](https://cmmr.github.io/hdf5lib/reference/c_flags.md) | Requires manual `-D` flags               |
@@ -78,6 +78,26 @@ The table below summarizes the key differences between the two packages.
   their `Makevars`, and the underlying library may not contain the
   symbols for all API versions.
 
+### 5. Versioning and Predictability
+
+- **`hdf5lib`** offers a predictable dependency. The version of the
+  `hdf5lib` package itself tells you the version of the underlying HDF5
+  C library. For example, `hdf5lib` version `2.0.0.x` bundles HDF5
+  version `2.0.0`. This allows a downstream package developer to specify
+  a minimum `hdf5lib` version in their `DESCRIPTION` file (e.g.,
+  `hdf5lib (>= 2.0.0)`) and be certain that they are working with at
+  least HDF5 v2.0.0 and that key features like thread-safety are
+  enabled.
+
+- **`Rhdf5lib`**’s package version is not correlated with the version of
+  the HDF5 C library that is ultimately used. Because `Rhdf5lib` will
+  preferentially link against an HDF5 library already installed on the
+  user’s system, or use configuration arguments passed during
+  installation, a developer has no guarantee about what HDF5 version is
+  present or what features it was built with. This can lead to
+  portability issues where a package works for one user but fails for
+  another who has a different HDF5 configuration.
+
 ## Conclusion: Which Should You Use?
 
 Choose **`hdf5lib`** if:
@@ -88,6 +108,8 @@ Choose **`hdf5lib`** if:
 - You plan to use multithreading (e.g., with `RcppParallel`).
 - You want to lock your package to a specific API version for long-term
   stability.
+- You need to guarantee a minimum HDF5 version and feature set for your
+  users.
 
 Choose **`Rhdf5lib`** if:
 

@@ -2,6 +2,8 @@
 
 ## hdf5lib 2.0.0.2
 
+CRAN release: 2025-12-02
+
 - Updated to HDF5 2.0.0
 - Added `api` argument to `c_flags` to control exposed HDF5 API.
 - Customized HDF5 build configuration for R environment.

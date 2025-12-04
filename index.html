@@ -25,7 +25,7 @@
 
     <a class="navbar-brand me-2" href="index.html">hdf5lib</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.0.0.2</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.0.0.3</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -234,6 +234,7 @@
 <li><p><strong>Zero Configuration Installation:</strong> <code>hdf5lib</code> is designed for simplicity. Installation via <code><a href="https://rdrr.io/r/utils/install.packages.html" class="external-link">install.packages()</a></code> requires no user configuration and reliably provides a modern HDF5 build with important features enabled by default. <code>Rhdf5lib</code>, while flexible, requires users to manage compile-time configuration options for a customized build.</p></li>
 <li><p><strong>Modern HDF5 Version:</strong> <code>hdf5lib</code> bundles HDF5 v2.0.0, providing access to the latest features and fixes, including native complex number support and improved UTF-8 handling on Windows. This is more recent than the version typically bundled in <code>Rhdf5lib</code> (v1.12.2 as of Bioconductor 3.19).</p></li>
 <li><p><strong>Thread-Safety Enabled:</strong> <code>hdf5lib</code> builds HDF5 with thread-safety enabled, ensuring safe use with parallel R packages (like <code>RcppParallel</code>). <code>Rhdf5lib</code> does not support building with this feature.</p></li>
+<li><p><strong>Predictable Versioning and Features:</strong> The version of <code>hdf5lib</code> directly corresponds to the bundled HDF5 version (e.g., <code>hdf5lib</code> v2.0.0.x bundles HDF5 v2.0.0). This allows developers to require a minimum <code>hdf5lib</code> version to guarantee a specific HDF5 version and a consistent set of features. In contrast, <code>Rhdf5lib</code> may link against a pre-existing system library or be configured at install-time, so its package version does not guarantee which version of HDF5 is actually in use or which features are enabled.</p></li>
 </ul>
 <p><code>hdf5lib</code> is intended to be a simple and reliable provider of the HDF5 C library for any R package.</p>
 </div>

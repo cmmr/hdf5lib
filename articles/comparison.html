@@ -22,7 +22,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">hdf5lib</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.0.0.2</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.0.0.3</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -103,8 +103,8 @@ packages.</p>
 </tr>
 <tr class="even">
 <td><strong>HDF5 Version</strong></td>
-<td>Modern (v2.0.0)</td>
-<td>Older (v1.12.2 as of Bioc 3.19)</td>
+<td>Bundled &amp; predictable (v2.0.0)</td>
+<td>Variable (older bundle or system)</td>
 </tr>
 <tr class="odd">
 <td><strong>Build Type</strong></td>
@@ -200,6 +200,30 @@ the underlying library may not contain the symbols for all API
 versions.</p></li>
 </ul>
 </div>
+<div class="section level3">
+<h3 id="versioning-and-predictability">5. Versioning and Predictability<a class="anchor" aria-label="anchor" href="#versioning-and-predictability"></a>
+</h3>
+<ul>
+<li><p><strong><code>hdf5lib</code></strong> offers a predictable
+dependency. The version of the <code>hdf5lib</code> package itself tells
+you the version of the underlying HDF5 C library. For example,
+<code>hdf5lib</code> version <code>2.0.0.x</code> bundles HDF5 version
+<code>2.0.0</code>. This allows a downstream package developer to
+specify a minimum <code>hdf5lib</code> version in their
+<code>DESCRIPTION</code> file (e.g., <code>hdf5lib (&gt;= 2.0.0)</code>)
+and be certain that they are working with at least HDF5 v2.0.0 and that
+key features like thread-safety are enabled.</p></li>
+<li><p><strong><code>Rhdf5lib</code></strong>’s package version is not
+correlated with the version of the HDF5 C library that is ultimately
+used. Because <code>Rhdf5lib</code> will preferentially link against an
+HDF5 library already installed on the user’s system, or use
+configuration arguments passed during installation, a developer has no
+guarantee about what HDF5 version is present or what features it was
+built with. This can lead to portability issues where a package works
+for one user but fails for another who has a different HDF5
+configuration.</p></li>
+</ul>
+</div>
 </div>
 <div class="section level2">
 <h2 id="conclusion-which-should-you-use">Conclusion: Which Should You Use?<a class="anchor" aria-label="anchor" href="#conclusion-which-should-you-use"></a>
@@ -213,6 +237,8 @@ your users.</li>
 <code>RcppParallel</code>).</li>
 <li>You want to lock your package to a specific API version for
 long-term stability.</li>
+<li>You need to guarantee a minimum HDF5 version and feature set for
+your users.</li>
 </ul>
 <p>Choose <strong><code>Rhdf5lib</code></strong> if:</p>
 <ul>
