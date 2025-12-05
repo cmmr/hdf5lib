@@ -105,6 +105,18 @@ ld_flags <- function(api = "latest") {
     if (.Platform$OS.type == "unix") "-ldl" else '-lws2_32'
   )
   
+  # Append Exported Flags (Sanitizers, OpenMP)
+  # We look for the file we created in configure
+  flags_file <- system.file("exported_flags.txt", package = "hdf5lib")
+  
+  if (file.exists(flags_file)) {
+    extra_flags <- readLines(flags_file, warn = FALSE)
+    # Check if the file is not empty and has content
+    if (length(extra_flags) > 0 && nchar(trimws(extra_flags[1])) > 0) {
+      flags <- paste(flags, trimws(extra_flags[1]))
+    }
+  }
+
   # Collapse all flags into a single, space-separated string
   paste(flags, collapse = " ")
 }
