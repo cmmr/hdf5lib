@@ -104,11 +104,6 @@ ld_flags <- function(api = "latest") {
     "-lpthread",  # HDF5 dependency for thread-safety
     if (.Platform$OS.type == "unix") "-ldl" else '-lws2_32'
   )
-
-  # Intel-specific: Force inclusion of the whole archive to fix H5T_NATIVE_INT_g
-  if (file.exists(system.file("whole_archive", package = "hdf5lib"))) {
-    flags <- sub(" -lhdf5z ", " -Wl,--whole-archive -lhdf5z -Wl,--no-whole-archive ", flags, fixed = TRUE)
-  }
   
   # Append Exported Flags (Sanitizers, OpenMP)
   # We look for the file we created in configure

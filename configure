@@ -85,14 +85,6 @@ fi
 echo "$EXPORTED_FLAGS" > inst/exported_flags.txt
 
 
-# Detect Intel Compilers (icx, icc)
-# Intel hides global data symbols needed by R. 
-# Let ld_flags know to add in --whole-archive.
-case "$CC" in
-  *icx*|*icc*|*ifx*) touch inst/whole_archive ;;
-esac
-
-
 # 3. Build Dependencies --------------------------------------------------------
 echo "--- [hdf5lib] Decompressing sources..."
 mkdir build
