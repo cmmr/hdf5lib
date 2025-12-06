@@ -100,6 +100,7 @@ ld_flags <- function(api = "latest") {
   # The downstream package must now link to hdf5 and its dependencies.
   flags <- c(
     lib_dir_flag, # Pass the full path hdf5lib's /lib directory
+    if (.Platform$OS.type == "unix") "-Wl,-u,H5T_NATIVE_INT_g",
     "-lhdf5z",    # Link to our libhdf5z.a static library
     "-lpthread",  # HDF5 dependency for thread-safety
     if (.Platform$OS.type == "unix") "-ldl" else '-lws2_32'
