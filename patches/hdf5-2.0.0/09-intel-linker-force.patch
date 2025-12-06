@@ -1,19 +1,36 @@
 diff -ru src/hdf5-orig/src/H5.c src/hdf5-2.0.0/src/H5.c
---- src/hdf5-orig/src/H5.c	2025-11-11 00:00:49.000000000 +0000
-+++ src/hdf5-2.0.0/src/H5.c	2025-12-06 02:54:01.850605000 +0000
-@@ -145,6 +145,15 @@
-     herr_t ret_value = SUCCEED;
+--- src/hdf5-orig/src/H5.c	2025-12-06 03:17:39.765646800 +0000
++++ src/hdf5-2.0.0/src/H5.c	2025-12-06 03:19:29.477785100 +0000
+@@ -33,6 +33,9 @@
+ #include "H5Tprivate.h"  /* Datatypes                                */
+ #include "H5TSprivate.h" /* Threadsafety                             */
+ 
++/* Prototype for anchor function in H5T.c */
++extern void H5T_init_dummy_anchor(void);
++
+ /*******************/
+ /* R Compatibility */
+ /*******************/
+@@ -262,6 +265,9 @@
  
      FUNC_ENTER_NOAPI(FAIL)
-+    
-+    /* Force the linker to pull in H5T.o, which defines H5T_NATIVE_INT_g.
-+     * This prevents aggressive linkers (like Intel's xild) from dropping
-+     * the object file containing global data symbols when linking static libraries.
-+     */
-+    {
-+        volatile hid_t *anchor = &H5T_NATIVE_INT_g;
-+        (void)anchor; /* Prevent unused variable warning */
-+    }
  
++    /* Force linker to include H5T.o (and its global variables) */
++    H5T_init_dummy_anchor();
++
      /* Run the library initialization routine, if it hasn't already run */
      if (H5_INIT_GLOBAL || H5_TERM_GLOBAL)
+         HGOTO_DONE(SUCCEED);
+diff -ru src/hdf5-orig/src/H5T.c src/hdf5-2.0.0/src/H5T.c
+--- src/hdf5-orig/src/H5T.c	2025-12-06 03:17:39.597564500 +0000
++++ src/hdf5-2.0.0/src/H5T.c	2025-12-06 03:18:37.021530600 +0000
+@@ -55,6 +55,9 @@
+ #include "H5Tconv_array.h"
+ #include "H5Tconv_complex.h"
+ 
++/* Anchor function to force linker to include this file */
++void H5T_init_dummy_anchor(void) { return; }
++
+ /****************/
+ /* Local Macros */
+ /****************/
