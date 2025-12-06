@@ -52,10 +52,6 @@ SEXP C_smoke_test(SEXP sexp_filename) {
     hsize_t     dims[1] = {5};
     hsize_t     chunk_dims[1] = {5};
 
-    // Force linker to include H5T.c containing global vars
-    // Solves `undefined symbol: H5T_NATIVE_INT_g` error on intel
-    H5T_init();
-    
     // HDF5 object identifiers
     file_id  = H5I_INVALID_HID;
     dset_id  = H5I_INVALID_HID; // For string

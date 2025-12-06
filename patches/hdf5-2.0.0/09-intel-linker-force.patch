@@ -1,0 +1,19 @@
+diff -ru src/hdf5-orig/src/H5.c src/hdf5-2.0.0/src/H5.c
+--- src/hdf5-orig/src/H5.c	2025-11-11 00:00:49.000000000 +0000
++++ src/hdf5-2.0.0/src/H5.c	2025-12-06 02:54:01.850605000 +0000
+@@ -145,6 +145,15 @@
+     herr_t ret_value = SUCCEED;
+ 
+     FUNC_ENTER_NOAPI(FAIL)
++    
++    /* Force the linker to pull in H5T.o, which defines H5T_NATIVE_INT_g.
++     * This prevents aggressive linkers (like Intel's xild) from dropping
++     * the object file containing global data symbols when linking static libraries.
++     */
++    {
++        volatile hid_t *anchor = &H5T_NATIVE_INT_g;
++        (void)anchor; /* Prevent unused variable warning */
++    }
+ 
+     /* Run the library initialization routine, if it hasn't already run */
+     if (H5_INIT_GLOBAL || H5_TERM_GLOBAL)
