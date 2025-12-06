@@ -85,6 +85,14 @@ fi
 echo "$EXPORTED_FLAGS" > inst/exported_flags.txt
 
 
+# Detect Intel Compilers (icx, icc)
+# Intel hides global data symbols needed by R. 
+# Let ld_flags know to add in --whole-archive.
+case "$CC" in
+  *icx*|*icc*|*ifx*) touch inst/whole_archive ;;
+esac
+
+
 # 3. Build Dependencies --------------------------------------------------------
 echo "--- [hdf5lib] Decompressing sources..."
 mkdir build
@@ -160,17 +168,9 @@ case "$CFLAGS" in
   *)       LTO=0 ;;
 esac
 
-# Detect Intel Compilers (icx, icc)
-# Intel toolchains behave like LTO during partial linking (ld -r), often
-# hiding global data symbols needed by R. We treat them as LTO builds
-# to force the use of 'ar' instead of 'ld -r'.
-case "$CC" in
-  *icx*|*icc*|*ifx*) LTO=1 ;;
-esac
-
 # Create the final static library
 # Logic: Use partial linking (ld -r) on non-Windows systems to reduce size.
-# We guard this with LTO=0 because ld -r on LTO/Intel objects can be fragile.
+# We guard this with LTO=0 because ld -r on LTO objects can be fragile.
 if [ "$WIN" -eq 0 ] && [ "$LTO" -eq 0 ] && command -v ld >/dev/null 2>&1; then
   echo "  Performing partial linking (ld -r)..."
   # Merge all .o files into one big object (deduplicates symbols/sections)
@@ -181,7 +181,7 @@ else
 fi
 
 # Strip debug symbols to reduce installed package size
-# We guard this with LTO=0 because 'strip' often corrupts LTO/Intel objects
+# We guard this with LTO=0 because 'strip' often corrupts LTO objects
 if [ "$LTO" -eq 0 ] && command -v strip >/dev/null 2>&1; then
   echo "  Stripping debug symbols..."
   strip -S libhdf5z.a || true
