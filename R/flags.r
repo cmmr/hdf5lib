@@ -100,23 +100,17 @@ ld_flags <- function(api = "latest") {
   # The downstream package must now link to hdf5 and its dependencies.
   flags <- c(
     lib_dir_flag, # Pass the full path hdf5lib's /lib directory
-    if (.Platform$OS.type == "unix") "-Wl,-u,H5T_NATIVE_INT_g",
+    #if (.Platform$OS.type == "unix") "-Wl,-u,H5T_NATIVE_INT_g",
     "-lhdf5z",    # Link to our libhdf5z.a static library
     "-lpthread",  # HDF5 dependency for thread-safety
     if (.Platform$OS.type == "unix") "-ldl" else '-lws2_32'
   )
   
-  # Append Exported Flags (Sanitizers, OpenMP)
+  # Append Exported Sanitizer Flags
   # We look for the file we created in configure
   flags_file <- system.file("exported_flags.txt", package = "hdf5lib")
-  
-  if (file.exists(flags_file)) {
-    extra_flags <- readLines(flags_file, warn = FALSE)
-    # Check if the file is not empty and has content
-    if (length(extra_flags) > 0 && nchar(trimws(extra_flags[1])) > 0) {
-      flags <- paste(flags, trimws(extra_flags[1]))
-    }
-  }
+  if (file.exists(flags_file))
+    flags <- c(flags, trimws(readLines(flags_file, warn = FALSE)))
 
   # Collapse all flags into a single, space-separated string
   paste(flags, collapse = " ")

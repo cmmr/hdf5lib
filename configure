@@ -55,35 +55,12 @@ esac
 # We need to propagate flags like -fsanitize=address to consumer packages
 # so they can successfully link against our static library.
 
-EXPORTED_FLAGS=""
-
-# Helper function to check and append flags
-add_if_f_flag() {
-  for flag in $1; do
-    case "$flag" in
-      -f*)
-        # Avoid duplicates
-        case " $EXPORTED_FLAGS " in
-          *" $flag "*) ;; 
-          *) EXPORTED_FLAGS="$EXPORTED_FLAGS $flag" ;;
-        esac
-        ;;
-    esac
-  done
-}
-
-# Scan CFLAGS and LDFLAGS for -f flags
-add_if_f_flag "$R_CFLAGS"
-add_if_f_flag "$R_LDFLAGS"
-
-# Create inst directory if it doesn't exist
-if [ ! -d "inst" ]; then
-  mkdir inst
-fi
-
-# Save the flags to a text file
-echo "$EXPORTED_FLAGS" > inst/exported_flags.txt
-
+mkdir -p inst
+for flag in $R_CFLAGS $R_LDFLAGS; do
+  case "$flag" in
+    -fsanitize=*) echo "$flag" >> inst/exported_flags.txt ;;
+  esac
+done
 
 # 3. Build Dependencies --------------------------------------------------------
 echo "--- [hdf5lib] Decompressing sources..."
