@@ -16,3 +16,5 @@
 ^docs$
 ^Meta$
 ^vignettes$
+^\.Rproj\.user$
+^rhub_check\.r$

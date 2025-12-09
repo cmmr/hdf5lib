@@ -129,18 +129,22 @@ cd ..
 # 5. Link and Archive ----------------------------------------------------------
 echo "--- [hdf5lib] Linking static library..."
 
-# Detect LTO (Link Time Optimization) flags
-# LTO objects contain bytecode that standard 'strip' and 'ld -r' often corrupt
-# without specific plugins. We skip optimization steps if -flto is detected.
+# Detect LTO and rchk/wllvm
+# The MINIFY variable is a flag indicating the absence of both Link Time
+# Optimization (LTO) and the wllvm compiler (used by rchk). LTO objects
+# contain bytecode that standard 'strip' and 'ld -r' often corrupt, so we
+# skip size-reduction steps if -flto or wllvm is detected.
+MINIFY=1
 case "$CFLAGS" in
-  *-flto*) LTO=1 ;;
-  *)       LTO=0 ;;
+  *-flto*) MINIFY=0 ;;
+esac
+case "$CC" in
+  *wllvm*) MINIFY=0 ;;
 esac
 
 # Create the final static library
 # Logic: Use partial linking (ld -r) on non-Windows systems to reduce size.
-# We guard this with LTO=0 because ld -r on LTO objects can be fragile.
-if [ "$WIN" -eq 0 ] && [ "$LTO" -eq 0 ] && command -v ld >/dev/null 2>&1; then
+if [ "$WIN" -eq 0 ] && [ "$MINIFY" -eq 1 ] && command -v ld >/dev/null 2>&1; then
   echo "  Performing partial linking (ld -r)..."
   # Merge all .o files into one big object (deduplicates symbols/sections)
   ld -r -o libhdf5z.o "hdf5-$HDF5_VER/"*.o "zlib-$ZLIB_VER/"*.o
@@ -150,8 +154,7 @@ else
 fi
 
 # Strip debug symbols to reduce installed package size
-# We guard this with LTO=0 because 'strip' often corrupts LTO objects
-if [ "$LTO" -eq 0 ] && command -v strip >/dev/null 2>&1; then
+if [ "$MINIFY" -eq 1 ] && command -v strip >/dev/null 2>&1; then
   echo "  Stripping debug symbols..."
   strip -S libhdf5z.a || true
 fi
