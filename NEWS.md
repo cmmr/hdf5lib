@@ -1,7 +1,7 @@
 # hdf5lib 2.0.0.3
 
 * Patched misaligned address in HDF5's `H5Tvlen.c` file.
-* Fix for Alpine Linux (`musl`) compilation.
+* Fix for Alpine Linux (`musl`) CRAN check.
 * Clarified that `c_flags()` and `ld_flags`'s `api` argument should be numeric.
 
 
