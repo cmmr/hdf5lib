@@ -13,12 +13,11 @@ ld_flags(api = "latest")
 
 - api:
 
-  A character string specifying the HDF5 API version. This parameter is
-  included for consistency with
+  A numeric value or the string `"latest"`. This parameter is included
+  for consistency with
   [`c_flags()`](https://cmmr.github.io/hdf5lib/reference/c_flags.md) and
-  is reserved for future use. It currently has no effect on the linker
-  flags. Supported values are `200`, `114`, `112`, `110`, `18`, and
-  `16`. Defaults to `"latest"`.
+  is reserved for future use; it currently has no effect on the linker
+  flags. Defaults to `"latest"`.
 
 ## Value
 

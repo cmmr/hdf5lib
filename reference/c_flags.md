@@ -13,13 +13,14 @@ c_flags(api = "latest")
 
 - api:
 
-  A character string specifying the HDF5 API version to use. This adds a
-  preprocessor directive like `-DH5_USE_114_API_DEFAULT` to ensure that
-  the compiled code uses symbols compatible with a specific version of
-  the HDF5 API. This is useful for maintaining compatibility with older
-  HDF5 versions. Supported values are `200`, `114`, `112`, `110`,
-  `18`,and `16`. Defaults to `"latest"`, which corresponds to the newest
-  supported API version.
+  A numeric value specifying the HDF5 API version to use (e.g., `114`
+  for v1.14), or the string `"latest"`. This adds a preprocessor
+  directive like `-DH5_USE_114_API_DEFAULT` to ensure that the compiled
+  code uses symbols compatible with a specific version of the HDF5 API.
+  This is useful for maintaining compatibility with older HDF5 versions.
+  Supported values are `200`, `114`, `112`, `110`, `18`, and `16`.
+  Defaults to `"latest"`, which corresponds to the newest supported API
+  version.
 
 ## Value
 
