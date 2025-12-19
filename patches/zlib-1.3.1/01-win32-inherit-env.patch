@@ -1,0 +1,33 @@
+diff -ru src/zlib-orig/win32/Makefile.gcc src/zlib-1.3.1/win32/Makefile.gcc
+--- src/zlib-orig/win32/Makefile.gcc	2017-10-13 03:27:14.000000000 +0000
++++ src/zlib-1.3.1/win32/Makefile.gcc	2025-12-19 17:41:20.731379700 +0000
+@@ -34,25 +34,15 @@
+ #
+ SHARED_MODE=0
+ 
+-#LOC = -DZLIB_DEBUG -g
+-
+-PREFIX =
+-CC = $(PREFIX)gcc
+-CFLAGS = $(LOC) -O3 -Wall
+-
+-AS = $(CC)
+-ASFLAGS = $(LOC) -Wall
+-
+ LD = $(CC)
+-LDFLAGS = $(LOC)
+-
+-AR = $(PREFIX)ar
++AS = $(CC)
++ASFLAGS = -Wall
+ ARFLAGS = rcs
+ 
+-RC = $(PREFIX)windres
++RC = windres
+ RCFLAGS = --define GCC_WINDRES
+ 
+-STRIP = $(PREFIX)strip
++STRIP = strip
+ 
+ CP = cp -fp
+ # If GNU install is available, replace $(CP) with install.

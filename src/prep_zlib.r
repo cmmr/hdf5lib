@@ -11,10 +11,16 @@ baseurl <- "https://github.com/madler/zlib/releases/download/"
 url     <- paste0(baseurl, 'v', VER, '/zlib-', VER, '.tar.gz')
 tarfile <- file.path('src', paste0("zlib-", VER, ".tar.gz"))
 exdir   <- file.path('src', paste0("zlib-", VER))
+cached  <- file.path('src', paste0("zlib-", VER, "-orig.tar.gz"))
 
-cat("Downloading '", tarfile, "'...\n")
-if (file.exists(tarfile)) invisible(file.remove(tarfile))
-download.file(url = url, destfile = tarfile, quiet = TRUE)
+if (file.exists(cached)) {
+  file.copy(from = cached, to = tarfile, overwrite = TRUE)
+} else {
+  cat("Downloading '", tarfile, "'...\n")
+  if (file.exists(tarfile)) invisible(file.remove(tarfile))
+  download.file(url = url, destfile = tarfile, quiet = TRUE)
+}
+
 
 cat("Decompressing '", tarfile, "'...\n")
 utils::untar(tarfile = tarfile, exdir = dirname(tarfile))
@@ -30,6 +36,16 @@ unlink(
     'README', 'treebuild.xml', 'zconf.h.cmakein', 'zlib.3.pdf',
     setdiff(list.dirs(exdir, FALSE, FALSE), 'win32')
   )))
+
+
+# Apply patches
+cat('Applying zlib patches files...\n')
+patch_dir   <- file.path('patches', paste0("zlib-", VER))
+patch_files <- list.files(patch_dir, ".patch$", full.names = TRUE)
+for (patch_file in patch_files) {
+  cat("->", basename(patch_file), "\n")
+  system2(command = 'patch', args = c('-p0', '-i', patch_file))
+}
 
 
 # Create the zlib tarball that will ship with hdf5lib.

@@ -62,7 +62,7 @@ for flag in $R_CFLAGS $R_LDFLAGS; do
   esac
 done
 
-# 3. Build Dependencies --------------------------------------------------------
+# 3. Build ZLIB ----------------------------------------------------------------
 echo "--- [hdf5lib] Decompressing sources..."
 mkdir build
 cd build
@@ -75,9 +75,12 @@ cp ../src/find_byte_widths.c "hdf5-$HDF5_VER/"
 echo "--- [hdf5lib] Building ZLIB..."
 cd "zlib-$ZLIB_VER"
 export CPPFLAGS="-I. $R_CPPFLAGS"
+export LDFLAGS="$R_LDFLAGS"
+export AR="$R_AR"
 echo "  CC:       $CC"
 echo "  CFLAGS:   $CFLAGS"
-echo "  CPPFLAGS: $CPPFLAGS"
+echo "  LDFLAGS:  $LDFLAGS"
+echo "  AR:       $AR"
 
 if [ "$WIN" -eq 1 ]; then
   "$R_MAKE" -f win32/Makefile.gcc libz.a >/dev/null
