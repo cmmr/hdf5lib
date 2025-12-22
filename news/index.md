@@ -1,6 +1,12 @@
 # Changelog
 
+## hdf5lib 2.0.0.4
+
+- Patched zlib `win32/Makefile.gcc` for conda-forge compatibility.
+
 ## hdf5lib 2.0.0.3
+
+CRAN release: 2025-12-14
 
 - Patched misaligned address in HDF5’s `H5Tvlen.c` file.
 - Fix for Alpine Linux (`musl`) CRAN check.
