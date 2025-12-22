@@ -1,3 +1,9 @@
+# hdf5lib 2.0.0.4
+
+* Patched zlib `win32/Makefile.gcc` for conda-forge compatibility.
+
+
+
 # hdf5lib 2.0.0.3
 
 * Patched misaligned address in HDF5's `H5Tvlen.c` file.
