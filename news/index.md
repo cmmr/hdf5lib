@@ -2,6 +2,8 @@
 
 ## hdf5lib 2.0.0.4
 
+CRAN release: 2025-12-22
+
 - Patched zlib `win32/Makefile.gcc` for conda-forge compatibility.
 
 ## hdf5lib 2.0.0.3
