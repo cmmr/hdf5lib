@@ -1,7 +1,8 @@
 
 # **HDF5 C Library for R** <img src="man/figures/logo.png" align="right" width="172" height="200" alt="hdf5lib logo" />
 
-[![cran](https://www.r-pkg.org/badges/version/hdf5lib)](https://CRAN.R-project.org/package=hdf5lib)
+[![cran](https://img.shields.io/cran/v/hdf5lib?logo=r&label=CRAN)](https://CRAN.R-project.org/package=hdf5lib)
+[![conda](https://img.shields.io/conda/v/conda-forge/r-hdf5lib?logo=anaconda&label=conda)](https://anaconda.org/conda-forge/r-hdf5lib)
 
 `hdf5lib` is an R package that provides a self-contained, static build of the [HDF5 C library](https://www.hdfgroup.org/solutions/hdf5/) ([release 2.0.0](https://github.com/HDFGroup/hdf5)). Its **sole purpose** is to allow other R packages to easily link against HDF5 without requiring users to install system-level dependencies, thereby ensuring a consistent and reliable build process across all major platforms.
 
