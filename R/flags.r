@@ -1,4 +1,16 @@
-api_options <- c('200', '114', '112', '110', '18', '16')
+
+validate_api <- function(api) {
+  switch(
+    EXPR = as.character(api), 'latest' = '200',
+    '200' = '200', '2.00' = '200', '2.0' = '200', '2' = '200',
+    '114' = '114', '1.14' = '114',
+    '112' = '112', '1.12' = '112',
+    '110' = '110', '1.10' = '110', '1.1' = '110',
+    '18'  = '18',  '1.08' = '18',  '1.8' = '18',
+    '16'  = '16',  '1.06' = '16',  '1.6' = '16',
+    stop("Invalid API version specified: '", api, "'.") )
+}
+
 
 #' Get C/C++ Compiler Flags for hdf5lib
 #'
@@ -7,12 +19,13 @@ api_options <- c('200', '114', '112', '110', '18', '16')
 #' files bundled with the `hdf5lib` package.
 #' 
 #' @param api A numeric value specifying the HDF5 API version to use (e.g.,
-#'   `114` for v1.14), or the string `"latest"`. This adds a preprocessor
+#'   `1.14` for v1.14), or the string `"latest"`. This adds a preprocessor
 #'   directive like `-DH5_USE_114_API_DEFAULT` to ensure that the compiled
 #'   code uses symbols compatible with a specific version of the HDF5 API.
 #'   This is useful for maintaining compatibility with older HDF5 versions.
-#'   Supported values are `200`, `114`, `112`, `110`, `18`, and `16`. Defaults
-#'   to `"latest"`, which corresponds to the newest supported API version.
+#'   Supported values are `2.0`, `1.14`, `1.12`, `1.10`, `1.8`, and `1.6`.
+#'   Defaults to `"latest"`, which corresponds to the newest supported
+#'   API version.
 #'
 #' @return A scalar character vector containing the compiler flags (e.g., the
 #'   `-I` path to the package's `inst/include` directory).
@@ -21,12 +34,11 @@ api_options <- c('200', '114', '112', '110', '18', '16')
 #' @seealso [ld_flags()]
 #' @examples
 #' c_flags()
-#' c_flags(api = "114")
+#' c_flags(api = 1.14)
 #' 
 c_flags <- function(api = "latest") {
   
-  if (api == "latest") api <- api_options[[1]]
-  api <- match.arg(as.character(api), api_options)
+  api <- validate_api(api)
 
   # Find the directory /path/to/R/library/hdf5lib/include
   include_dir <- system.file("include", package = "hdf5lib")
@@ -74,8 +86,7 @@ c_flags <- function(api = "latest") {
 #' 
 ld_flags <- function(api = "latest") {
   
-  if (api == "latest") api <- api_options[[1]]
-  api <- match.arg(as.character(api), api_options)
+  api <- validate_api(api)
 
   # Find the package's 'lib' directory (e.g., /path/to/R/library/hdf5lib/lib)
   # This corresponds to the 'inst/lib' directory in the source package.

@@ -40,7 +40,7 @@ The table below summarizes the key differences between the two packages.
 
 ### 4. API Version Control
 
-*   **`hdf5lib`** provides a simple `api` argument in its `c_flags()` and `ld_flags()` helper functions. This makes it trivial for a developer to lock their package to a specific HDF5 API version (e.g., `api = 114`), ensuring that future updates to `hdf5lib` will not break their package. This feature is explained in detail in the <a href="api-versioning.html">API Versioning</a> article.
+*   **`hdf5lib`** provides a simple `api` argument in its `c_flags()` and `ld_flags()` helper functions. This makes it trivial for a developer to lock their package to a specific HDF5 API version (e.g., `api = 1.14`), ensuring that future updates to `hdf5lib` will not break their package. This feature is explained in detail in the <a href="api-versioning.html">API Versioning</a> article.
 
 *   **`Rhdf5lib`** does not provide a dedicated mechanism for this. A developer would need to manually add the appropriate `-D` flags to their `Makevars`, and the underlying library may not contain the symbols for all API versions.
 

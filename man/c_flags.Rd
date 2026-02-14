@@ -8,11 +8,11 @@ c_flags(api = "latest")
 }
 \arguments{
 \item{api}{A numeric value specifying the HDF5 API version to use (e.g.,
-\code{114} for v1.14), or the string \code{"latest"}. This adds a preprocessor
+\code{1.14} or \code{114} for v1.14), or the string \code{"latest"}. This adds a preprocessor
 directive like \code{-DH5_USE_114_API_DEFAULT} to ensure that the compiled
 code uses symbols compatible with a specific version of the HDF5 API.
 This is useful for maintaining compatibility with older HDF5 versions.
-Supported values are \code{200}, \code{114}, \code{112}, \code{110}, \code{18}, and \code{16}. Defaults
+Supported values are \code{2.0}, \code{1.14}, \code{1.12}, \code{1.10}, \code{1.8}, and \code{1.6}. Defaults
 to \code{"latest"}, which corresponds to the newest supported API version.}
 }
 \value{
@@ -25,7 +25,7 @@ files bundled with the \code{hdf5lib} package.
 }
 \examples{
 c_flags()
-c_flags(api = "114")
+c_flags(api = 1.14)
 
 }
 \seealso{
