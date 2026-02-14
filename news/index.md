@@ -1,6 +1,14 @@
 # Changelog
 
+## hdf5lib 2.0.0.6
+
+- Prefer decimal values for `api` argument in
+  [`c_flags()`](https://cmmr.github.io/hdf5lib/reference/c_flags.md) and
+  [`ld_flags()`](https://cmmr.github.io/hdf5lib/reference/ld_flags.md).
+
 ## hdf5lib 2.0.0.5
+
+CRAN release: 2026-01-14
 
 - Patched misaligned address in HDF5’s `H5Tconv_enum.c` file.
 

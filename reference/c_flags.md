@@ -13,14 +13,14 @@ c_flags(api = "latest")
 
 - api:
 
-  A numeric value specifying the HDF5 API version to use (e.g., `114`
-  for v1.14), or the string `"latest"`. This adds a preprocessor
-  directive like `-DH5_USE_114_API_DEFAULT` to ensure that the compiled
-  code uses symbols compatible with a specific version of the HDF5 API.
-  This is useful for maintaining compatibility with older HDF5 versions.
-  Supported values are `200`, `114`, `112`, `110`, `18`, and `16`.
-  Defaults to `"latest"`, which corresponds to the newest supported API
-  version.
+  A numeric value specifying the HDF5 API version to use (e.g., `1.14`
+  or `114` for v1.14), or the string `"latest"`. This adds a
+  preprocessor directive like `-DH5_USE_114_API_DEFAULT` to ensure that
+  the compiled code uses symbols compatible with a specific version of
+  the HDF5 API. This is useful for maintaining compatibility with older
+  HDF5 versions. Supported values are `2.0`, `1.14`, `1.12`, `1.10`,
+  `1.8`, and `1.6`. Defaults to `"latest"`, which corresponds to the
+  newest supported API version.
 
 ## Value
 
@@ -36,6 +36,6 @@ path to the package's `inst/include` directory).
 ``` r
 c_flags()
 #> [1] "-I/home/runner/work/_temp/Library/hdf5lib/include -DH5_BUILT_AS_STATIC_LIB -DH5_USE_200_API_DEFAULT"
-c_flags(api = "114")
+c_flags(api = 1.14)
 #> [1] "-I/home/runner/work/_temp/Library/hdf5lib/include -DH5_BUILT_AS_STATIC_LIB -DH5_USE_114_API_DEFAULT"
 ```

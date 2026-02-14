@@ -22,7 +22,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">hdf5lib</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.0.0.5</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.0.0.6</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -98,8 +98,8 @@ during compilation.</p>
 <p>For example, to ensure your code uses the HDF5 1.14 API, you would
 modify <code>src/Makevars</code> as follows:</p>
 <div class="sourceCode" id="cb1"><pre class="sourceCode makefile"><code class="sourceCode makefile"><span id="cb1-1"><a href="#cb1-1" tabindex="-1"></a><span class="co"># In your package's src/Makevars</span></span>
-<span id="cb1-2"><a href="#cb1-2" tabindex="-1"></a><span class="dt">PKG_CPPFLAGS</span> <span class="ch">=</span><span class="st"> `</span><span class="ch">$(</span><span class="dt">R_HOME</span><span class="ch">)</span><span class="st">/bin/Rscript -e "cat(hdf5lib::c_flags(api = 114))"`</span></span>
-<span id="cb1-3"><a href="#cb1-3" tabindex="-1"></a><span class="dt">PKG_LIBS</span>     <span class="ch">=</span><span class="st"> `</span><span class="ch">$(</span><span class="dt">R_HOME</span><span class="ch">)</span><span class="st">/bin/Rscript -e "cat(hdf5lib::ld_flags(api = 114))"`</span></span></code></pre></div>
+<span id="cb1-2"><a href="#cb1-2" tabindex="-1"></a><span class="dt">PKG_CPPFLAGS</span> <span class="ch">=</span><span class="st"> `</span><span class="ch">$(</span><span class="dt">R_HOME</span><span class="ch">)</span><span class="st">/bin/Rscript -e "cat(hdf5lib::c_flags(api = 1.14))"`</span></span>
+<span id="cb1-3"><a href="#cb1-3" tabindex="-1"></a><span class="dt">PKG_LIBS</span>     <span class="ch">=</span><span class="st"> `</span><span class="ch">$(</span><span class="dt">R_HOME</span><span class="ch">)</span><span class="st">/bin/Rscript -e "cat(hdf5lib::ld_flags(api = 1.14))"`</span></span></code></pre></div>
 <p>The HDF5 headers included via <code>hdf5lib</code> will then expose
 the 1.14-compatible function signatures. Because the static library
 bundled by <code>hdf5lib</code> contains the implementations for
@@ -112,20 +112,20 @@ multiple API versions, your code will compile and link correctly.</p>
 <p>The <code>api</code> argument accepts the following values:</p>
 <ul>
 <li>
-<code>200</code> (HDF5 2.0.x)</li>
+<code>2.0</code> (HDF5 2.0.x)</li>
 <li>
-<code>114</code> (HDF5 1.14.x)</li>
+<code>1.14</code> (HDF5 1.14.x)</li>
 <li>
-<code>112</code> (HDF5 1.12.x)</li>
+<code>1.12</code> (HDF5 1.12.x)</li>
 <li>
-<code>110</code> (HDF5 1.10.x)</li>
+<code>1.10</code> (HDF5 1.10.x)</li>
 <li>
-<code>18</code> (HDF5 1.8.x)</li>
+<code>1.8</code> (HDF5 1.8.x)</li>
 <li>
-<code>16</code> (HDF5 1.6.x)</li>
+<code>1.6</code> (HDF5 1.6.x)</li>
 </ul>
 <p>For new packages, it is generally recommended to use the latest API
-version (<code>200</code>) or omit the argument entirely.</p>
+version (<code>2.0</code>) or omit the argument entirely.</p>
 </div>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
@@ -135,7 +135,7 @@ version (<code>200</code>) or omit the argument entirely.</p>
 
 
     <footer><div class="pkgdown-footer-left">
-  <p>Developed by Daniel P. Smith.</p>
+  <p>Developed by Daniel P. Smith, Alkek Center for Metagenomics and Microbiome Research.</p>
 </div>
 
 <div class="pkgdown-footer-right">

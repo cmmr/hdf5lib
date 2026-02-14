@@ -25,7 +25,7 @@
 
     <a class="navbar-brand me-2" href="index.html">hdf5lib</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.0.0.5</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.0.0.6</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -122,10 +122,10 @@
 <h3 id="id_2-create-srcmakevars">
 <strong>2. Create <code>src/Makevars</code></strong><a class="anchor" aria-label="anchor" href="#id_2-create-srcmakevars"></a>
 </h3>
-<p>Create a file named <code>Makevars</code> inside your package’s <code>src/</code> directory. This tells the build system how to find and link your package against the static HDF5 library. You can optionally use the <code>api</code> parameter to lock in a specific HDF5 API version (e.g., 200, 114, 112, 110, 18, 16) to prevent future updates to HDF5 from breaking your package.</p>
+<p>Create a file named <code>Makevars</code> inside your package’s <code>src/</code> directory. This tells the build system how to find and link your package against the static HDF5 library. You can optionally use the <code>api</code> parameter to lock in a specific HDF5 API version (e.g., 2.0, 1.14, 1.12, 1.10, 1.8, 1.6) to prevent future updates to HDF5 from breaking your package.</p>
 <p>Add the following lines to <code>src/Makevars</code>:</p>
-<div class="sourceCode" id="cb4"><pre class="sourceCode makefile"><code class="sourceCode makefile"><span id="cb4-1"><a href="#cb4-1" tabindex="-1"></a><span class="dt">PKG_CPPFLAGS</span> <span class="ch">=</span><span class="st"> `</span><span class="ch">$(</span><span class="dt">R_HOME</span><span class="ch">)</span><span class="st">/bin/Rscript -e "cat(hdf5lib::c_flags(api = 200))"`</span></span>
-<span id="cb4-2"><a href="#cb4-2" tabindex="-1"></a><span class="dt">PKG_LIBS</span>     <span class="ch">=</span><span class="st"> `</span><span class="ch">$(</span><span class="dt">R_HOME</span><span class="ch">)</span><span class="st">/bin/Rscript -e "cat(hdf5lib::ld_flags(api = 200))"`</span></span></code></pre></div>
+<div class="sourceCode" id="cb4"><pre class="sourceCode makefile"><code class="sourceCode makefile"><span id="cb4-1"><a href="#cb4-1" tabindex="-1"></a><span class="dt">PKG_CPPFLAGS</span> <span class="ch">=</span><span class="st"> `</span><span class="ch">$(</span><span class="dt">R_HOME</span><span class="ch">)</span><span class="st">/bin/Rscript -e "cat(hdf5lib::c_flags(api = 2.0))"`</span></span>
+<span id="cb4-2"><a href="#cb4-2" tabindex="-1"></a><span class="dt">PKG_LIBS</span>     <span class="ch">=</span><span class="st"> `</span><span class="ch">$(</span><span class="dt">R_HOME</span><span class="ch">)</span><span class="st">/bin/Rscript -e "cat(hdf5lib::ld_flags(api = 2.0))"`</span></span></code></pre></div>
 <p><em>(Note: You only need this one <code>src/Makevars</code> file. The R build system on Windows will use <code>src/Makevars.win</code> if it exists, but will fall back to using <code>src/Makevars</code> if it’s not found. Since these commands are platform-independent, this single file works for all operating systems.)</em></p>
 </div>
 <div class="section level3">
@@ -275,6 +275,7 @@
 <h2 data-toc-skip>Developers</h2>
 <ul class="list-unstyled">
 <li>Daniel P. Smith <br><small class="roles"> Author, maintainer </small> <a href="https://orcid.org/0000-0002-2479-2044" target="orcid.widget" aria-label="ORCID" class="external-link"><span class="fab fa-orcid orcid" aria-hidden="true"></span></a>  </li>
+<li>Alkek Center for Metagenomics and Microbiome Research <br><small class="roles"> Copyright holder, funder </small>   </li>
 <li><a href="authors.html">More about authors...</a></li>
 </ul>
 </div>
@@ -286,7 +287,7 @@
 
 
     <footer><div class="pkgdown-footer-left">
-  <p>Developed by Daniel P. Smith.</p>
+  <p>Developed by Daniel P. Smith, Alkek Center for Metagenomics and Microbiome Research.</p>
 </div>
 
 <div class="pkgdown-footer-right">

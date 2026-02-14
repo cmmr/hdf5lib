@@ -99,14 +99,14 @@ This step ensures the R build system can find the HDF5 header files in
 Create a file named `Makevars` inside your package’s `src/` directory.
 This tells the build system how to find and link your package against
 the static HDF5 library. You can optionally use the `api` parameter to
-lock in a specific HDF5 API version (e.g., 200, 114, 112, 110, 18, 16)
-to prevent future updates to HDF5 from breaking your package.
+lock in a specific HDF5 API version (e.g., 2.0, 1.14, 1.12, 1.10, 1.8,
+1.6) to prevent future updates to HDF5 from breaking your package.
 
 Add the following lines to `src/Makevars`:
 
 ``` makefile
-PKG_CPPFLAGS = `$(R_HOME)/bin/Rscript -e "cat(hdf5lib::c_flags(api = 200))"`
-PKG_LIBS     = `$(R_HOME)/bin/Rscript -e "cat(hdf5lib::ld_flags(api = 200))"`
+PKG_CPPFLAGS = `$(R_HOME)/bin/Rscript -e "cat(hdf5lib::c_flags(api = 2.0))"`
+PKG_LIBS     = `$(R_HOME)/bin/Rscript -e "cat(hdf5lib::ld_flags(api = 2.0))"`
 ```
 
 *(Note: You only need this one `src/Makevars` file. The R build system

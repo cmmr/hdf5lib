@@ -67,7 +67,7 @@ The table below summarizes the key differences between the two packages.
   [`c_flags()`](https://cmmr.github.io/hdf5lib/reference/c_flags.md) and
   [`ld_flags()`](https://cmmr.github.io/hdf5lib/reference/ld_flags.md)
   helper functions. This makes it trivial for a developer to lock their
-  package to a specific HDF5 API version (e.g., `api = 114`), ensuring
+  package to a specific HDF5 API version (e.g., `api = 1.14`), ensuring
   that future updates to `hdf5lib` will not break their package. This
   feature is explained in detail in the [API
   Versioning](https://cmmr.github.io/hdf5lib/articles/api-versioning.md)

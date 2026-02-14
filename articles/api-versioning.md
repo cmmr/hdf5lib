@@ -30,8 +30,8 @@ modify `src/Makevars` as follows:
 
 ``` makefile
 # In your package's src/Makevars
-PKG_CPPFLAGS = `$(R_HOME)/bin/Rscript -e "cat(hdf5lib::c_flags(api = 114))"`
-PKG_LIBS     = `$(R_HOME)/bin/Rscript -e "cat(hdf5lib::ld_flags(api = 114))"`
+PKG_CPPFLAGS = `$(R_HOME)/bin/Rscript -e "cat(hdf5lib::c_flags(api = 1.14))"`
+PKG_LIBS     = `$(R_HOME)/bin/Rscript -e "cat(hdf5lib::ld_flags(api = 1.14))"`
 ```
 
 The HDF5 headers included via `hdf5lib` will then expose the
@@ -46,12 +46,12 @@ If you want to use the newest available API, you can simply omit the
 
 The `api` argument accepts the following values:
 
-- `200` (HDF5 2.0.x)
-- `114` (HDF5 1.14.x)
-- `112` (HDF5 1.12.x)
-- `110` (HDF5 1.10.x)
-- `18` (HDF5 1.8.x)
-- `16` (HDF5 1.6.x)
+- `2.0` (HDF5 2.0.x)
+- `1.14` (HDF5 1.14.x)
+- `1.12` (HDF5 1.12.x)
+- `1.10` (HDF5 1.10.x)
+- `1.8` (HDF5 1.8.x)
+- `1.6` (HDF5 1.6.x)
 
 For new packages, it is generally recommended to use the latest API
-version (`200`) or omit the argument entirely.
+version (`2.0`) or omit the argument entirely.
