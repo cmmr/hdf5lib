@@ -1,5 +1,5 @@
 
-# **HDF5 C Library for R** <img src="man/figures/logo.png" align="right" width="172" height="200" alt="hdf5lib logo" />
+# **HDF5 C Library for R** <img src="man/figures/logo.png" align="right" width="200" height="200" alt="hdf5lib logo" />
 
 [![cran](https://img.shields.io/cran/v/hdf5lib?logo=r&label=CRAN)](https://CRAN.R-project.org/package=hdf5lib)
 [![conda](https://img.shields.io/conda/v/conda-forge/r-hdf5lib?logo=anaconda&label=conda)](https://anaconda.org/conda-forge/r-hdf5lib)
