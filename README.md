@@ -14,16 +14,14 @@ This package provides **no R functions** and is intended for R package developer
 
 -   **Portable & Self-Contained:** Builds the HDF5 library from source using only standard R build tools. This ensures your package works "out of the box" on any system without requiring pre-installed libraries or administrative privileges.
 
--   **Compression Support:** Includes built-in support for reading and writing HDF5 files using standard `gzip/deflate` compression via the bundled zlib library.
+-   **Comprehensive API Coverage:** Provides access to the complete core HDF5 v2.0.0 library, including both the **Low-Level** and **High-Level** C APIs.
+    -   **Compression & Filters:** Built-in support for `gzip/deflate` via bundled zlib and support for external filter plugins (e.g., Blosc, LZ4).
+    -   **Modern Features:** Includes native complex number support and improved UTF-8 handling on Windows.
 
--   **Includes High-Level API:** Provides the convenient HDF5 High-Level (HL) APIs, including H5LT (Lite), H5IM (Image), and H5TB (Table), alongside the core low-level API.
+-   **Flexible API Versioning:** Downstream packages can compile against specific HDF5 API versions (e.g., 2.0, 1.14, 1.12). This allows you to lock your package to a specific API, ensuring future `hdf5lib` updates won't break your build.
 
--   **Flexible API Versioning:** Downstream packages can compile their code against a specific HDF5 API version (e.g., v1.14, v1.12). This allows developers to lock their package to a specific API, ensuring that future updates to `hdf5lib` do not introduce breaking changes.
-
--   **Extensible Filter Support:** Enables the HDF5 library to dynamically load external filter plugins (e.g., for Blosc, LZ4, Bzip2) at runtime via `H5Pset_filter_path()`, provided the user has installed those plugins separately.
-
--   **Safe for Parallel Code:** Compiled with thread-safety enabled. This prevents data corruption and crashes by ensuring that library calls from multiple threads (e.g., via `RcppParallel`) are safely serialized.
-    -   **Important:** Thread-safety is **only supported for the low-level HDF5 APIs** (e.g., `H5F...`, `H5D...`). The High-Level (HL) APIs (`H5LT`, `H5IM`, `H5TB`) are **not** thread-safe and should not be used in parallel code.
+-   **Safe for Parallel Code:** Compiled with thread-safety enabled to prevent data corruption when using multi-threaded frameworks like `RcppParallel`.
+    -   **Note:** Thread-safety is only supported for the low-level APIs. The High-Level (HL) APIs are not thread-safe and should not be used in parallel code.
     -   This feature protects against concurrent access from multiple **threads**, not multiple **processes**. Accessing the same HDF5 file from different processes without a file locking mechanism can still lead to file corruption.
 
 
@@ -122,22 +120,22 @@ While the **full core API** is available, the following highlights represent the
 
 The HL APIs provide "lite" versions of complex operations, making it significantly easier to perform common tasks without manual memory or hyperslab management.
 
-* **H5LT (Lite):** Simplified dataset and attribute operations (e.g., `H5LTmake_dataset_int`, `H5LTread_dataset_double`, `H5LTget_dataset_info`).
-* **H5IM (Image):** Standardized functions for working with image data (e.g., `H5IMmake_image_24bit`, `H5IMread_image`).
-* **H5TB (Table):** Functions for creating and manipulating tabular data structures (e.g., `H5TBmake_table`, `H5TBappend_records`).
+- **H5LT (Lite):** Simplified dataset and attribute operations (e.g., `H5LTmake_dataset_int`, `H5LTread_dataset_double`, `H5LTget_dataset_info`).
+- **H5IM (Image):** Standardized functions for working with image data (e.g., `H5IMmake_image_24bit`, `H5IMread_image`).
+- **H5TB (Table):** Functions for creating and manipulating tabular data structures (e.g., `H5TBmake_table`, `H5TBappend_records`).
 
 
 ### **Low-Level APIs (Comprehensive core functionality)**
 
 The package exposes the **full range** of core HDF5 modules for fine-grained control over file structure, metadata, and raw I/O:
 
-* **H5F (File):** Manage file lifecycle (`H5Fcreate`, `H5Fopen`, `H5Fclose`, etc.).
-* **H5G (Group):** Organize objects within a file (`H5Gcreate2`, `H5Gopen2`, `H5Gclose`, etc.).
-* **H5D (Dataset):** Manage raw data arrays and I/O (`H5Dcreate2`, `H5Dread`, `H5Dwrite`, etc.).
-* **H5S (Dataspace):** Define data dimensions and selections (`H5Screate_simple`, `H5Sselect_hyperslab`, etc.).
-* **H5T (Datatype):** Define and manage data types (e.g., `H5T_NATIVE_INT`, `H5Tcopy`, `H5Tinsert`).
-* **H5A (Attribute):** Manage metadata attached to objects (`H5Acreate2`, `H5Aread`, `H5Awrite`).
-* **H5P (Property List):** Configure library behavior, such as chunking or compression (`H5Pcreate`, `H5Pset_chunk`).
+- **H5F (File):** Manage file lifecycle (`H5Fcreate`, `H5Fopen`, `H5Fclose`, etc.).
+- **H5G (Group):** Organize objects within a file (`H5Gcreate2`, `H5Gopen2`, `H5Gclose`, etc.).
+- **H5D (Dataset):** Manage raw data arrays and I/O (`H5Dcreate2`, `H5Dread`, `H5Dwrite`, etc.).
+- **H5S (Dataspace):** Define data dimensions and selections (`H5Screate_simple`, `H5Sselect_hyperslab`, etc.).
+- **H5T (Datatype):** Define and manage data types (e.g., `H5T_NATIVE_INT`, `H5Tcopy`, `H5Tinsert`).
+- **H5A (Attribute):** Manage metadata attached to objects (`H5Acreate2`, `H5Aread`, `H5Awrite`).
+- **H5P (Property List):** Configure library behavior, such as chunking or compression (`H5Pcreate`, `H5Pset_chunk`).
 
 > **Note:** For a complete list of all available functions, please refer to the official [HDF5 Reference Manual](https://support.hdfgroup.org/documentation/hdf5/latest/_r_m.html). Any function documented there can be called from your package after including the headers as shown above.
 
