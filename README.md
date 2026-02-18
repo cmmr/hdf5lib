@@ -9,6 +9,7 @@
 This package provides **no R functions** and is intended for R package developers to use in the `LinkingTo` field of their `DESCRIPTION` file.
 
 
+
 ## Features
 
 -   **Portable & Self-Contained:** Builds the HDF5 library from source using only standard R build tools. This ensures your package works "out of the box" on any system without requiring pre-installed libraries or administrative privileges.
@@ -37,11 +38,12 @@ install.packages("hdf5lib")
 Alternatively, you can install the development version from GitHub:
 
 ``` r
-# install.packages("devtools")  
-devtools::install_github("cmmr/hdf5lib")
+# install.packages("pak")  
+pak::pak("cmmr/hdf5lib")
 ```
 
 **Note:** As this package builds the HDF5 library from source, the one-time installation may take several minutes. ⏳
+
 
 
 ## **Usage (For Developers)**
@@ -106,6 +108,7 @@ SEXP read_my_hdf5_data(SEXP filename) {
 ```
 
 
+
 ## **Included HDF5 APIs**
 
 This package provides access to the **complete core HDF5 C API** (v2.0.0). Developers have full access to all standard functions, macros, and types for local file I/O, metadata management, and data manipulation.
@@ -114,14 +117,18 @@ This package provides access to the **complete core HDF5 C API** (v2.0.0). Devel
 
 While the **full core API** is available, the following highlights represent the most commonly used modules:
 
+
 ### **High-Level (HL) APIs (Simplified wrappers)**
+
 The HL APIs provide "lite" versions of complex operations, making it significantly easier to perform common tasks without manual memory or hyperslab management.
 
 * **H5LT (Lite):** Simplified dataset and attribute operations (e.g., `H5LTmake_dataset_int`, `H5LTread_dataset_double`, `H5LTget_dataset_info`).
 * **H5IM (Image):** Standardized functions for working with image data (e.g., `H5IMmake_image_24bit`, `H5IMread_image`).
 * **H5TB (Table):** Functions for creating and manipulating tabular data structures (e.g., `H5TBmake_table`, `H5TBappend_records`).
 
+
 ### **Low-Level APIs (Comprehensive core functionality)**
+
 The package exposes the **full range** of core HDF5 modules for fine-grained control over file structure, metadata, and raw I/O:
 
 * **H5F (File):** Manage file lifecycle (`H5Fcreate`, `H5Fopen`, `H5Fclose`, etc.).
@@ -134,9 +141,11 @@ The package exposes the **full range** of core HDF5 modules for fine-grained con
 
 > **Note:** For a complete list of all available functions, please refer to the official [HDF5 Reference Manual](https://support.hdfgroup.org/documentation/hdf5/latest/_r_m.html). Any function documented there can be called from your package after including the headers as shown above.
 
+
 ### **Looking for an R Interface?**
 
 If you are looking for a high-level R interface rather than writing C/C++ code, check out the [**h5lite**](https://github.com/cmmr/h5lite) package. It uses `hdf5lib` under the hood to provide a fast, "no-nonsense" way to read and write HDF5 files directly from R with a single function call.
+
 
 
 ## **Relationship to `Rhdf5lib`**
@@ -152,6 +161,8 @@ The [`Rhdf5lib`](https://doi.org/doi:10.18129/B9.bioc.Rhdf5lib) package also pro
 -   **Predictable Versioning and Features:** The version of `hdf5lib` directly corresponds to the bundled HDF5 version (e.g., `hdf5lib` v2.0.0.x bundles HDF5 v2.0.0). This allows developers to require a minimum `hdf5lib` version to guarantee a specific HDF5 version and a consistent set of features. In contrast, `Rhdf5lib` may link against a pre-existing system library or be configured at install-time, so its package version does not guarantee which version of HDF5 is actually in use or which features are enabled.
 
 `hdf5lib` is intended to be a simple and reliable provider of the HDF5 C library for any R package.
+
+
 
 ## **License**
 
