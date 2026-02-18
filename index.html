@@ -73,8 +73,7 @@
 <h2 id="features">Features<a class="anchor" aria-label="anchor" href="#features"></a>
 </h2>
 <ul>
-<li><p><strong>Self-contained:</strong> Builds the HDF5 library from source using only R and a standard C compiler (like Rtools on Windows, Xcode Command Line Tools on macOS, or <code>build-essential</code> on Linux).</p></li>
-<li><p><strong>No System Dependencies:</strong> Users and dependent packages can be installed without needing system administration rights to install HDF5 via <code>apt-get</code>, <code>brew</code>, etc.</p></li>
+<li><p><strong>Portable &amp; Self-Contained:</strong> Builds the HDF5 library from source using only standard R build tools. This ensures your package works “out of the box” on any system without requiring pre-installed libraries or administrative privileges.</p></li>
 <li><p><strong>Compression Support:</strong> Includes built-in support for reading and writing HDF5 files using standard <code>gzip/deflate</code> compression via the bundled zlib library.</p></li>
 <li><p><strong>Includes High-Level API:</strong> Provides the convenient HDF5 High-Level (HL) APIs, including H5LT (Lite), H5IM (Image), and H5TB (Table), alongside the core low-level API.</p></li>
 <li><p><strong>Flexible API Versioning:</strong> Downstream packages can compile their code against a specific HDF5 API version (e.g., v1.14, v1.12). This allows developers to lock their package to a specific API, ensuring that future updates to <code>hdf5lib</code> do not introduce breaking changes.</p></li>
@@ -160,69 +159,46 @@
 <h2 id="included-hdf5-apis">
 <strong>Included HDF5 APIs</strong><a class="anchor" aria-label="anchor" href="#included-hdf5-apis"></a>
 </h2>
-<p>This package provides access to the HDF5 C API, including:</p>
+<p>This package provides access to the <strong>entire HDF5 C API</strong> (v2.0.0). Developers have full access to all functions, macros, and types defined in the HDF5 headers.</p>
+<p>While the <strong>complete API</strong> is available, the following highlights represent the most commonly used modules:</p>
 <div class="section level3">
-<h3 id="high-level-hl-apis-recommended-for-simplicity">
-<strong>High-Level (HL) APIs (Recommended for simplicity)</strong><a class="anchor" aria-label="anchor" href="#high-level-hl-apis-recommended-for-simplicity"></a>
+<h3 id="high-level-hl-apis-simplified-wrappers">
+<strong>High-Level (HL) APIs (Simplified wrappers)</strong><a class="anchor" aria-label="anchor" href="#high-level-hl-apis-simplified-wrappers"></a>
 </h3>
+<p>The HL APIs provide “lite” versions of complex operations, making it significantly easier to perform common tasks without manual memory or hyperslab management.</p>
 <ul>
 <li>
-<strong>H5LT (Lite):</strong> Simplified functions for common dataset and attribute operations.
-<ul>
+<strong>H5LT (Lite):</strong> Simplified dataset and attribute operations (e.g., <code>H5LTmake_dataset_int</code>, <code>H5LTread_dataset_double</code>, <code>H5LTget_dataset_info</code>).</li>
 <li>
-<code>H5LTmake_dataset_int()</code>, <code>H5LTmake_dataset_double()</code>, etc.</li>
+<strong>H5IM (Image):</strong> Standardized functions for working with image data (e.g., <code>H5IMmake_image_24bit</code>, <code>H5IMread_image</code>).</li>
 <li>
-<code>H5LTread_dataset_int()</code>, <code>H5LTread_dataset_double()</code>, etc.</li>
-<li>
-<code>H5LTset_attribute_string()</code>, <code>H5LTget_attribute_int()</code>, etc.</li>
-<li><code>H5LTget_dataset_info()</code></li>
-</ul>
-</li>
-<li>
-<strong>H5IM (Image):</strong> Functions for working with image data.
-<ul>
-<li>
-<code>H5IMmake_image_24bit()</code>, <code>H5IMread_image()</code>
-</li>
-</ul>
-</li>
-<li>
-<strong>H5TB (Table):</strong> Functions for working with table structures.
-<ul>
-<li>
-<code>H5TBmake_table()</code>, <code>H5TBappend_records()</code>, <code>H5TBread_records()</code>
-</li>
-</ul>
-</li>
+<strong>H5TB (Table):</strong> Functions for creating and manipulating tabular data structures (e.g., <code>H5TBmake_table</code>, <code>H5TBappend_records</code>).</li>
 </ul>
 </div>
 <div class="section level3">
-<h3 id="low-level-apis-core-functionality-for-fine-grained-control">
-<strong>Low-Level APIs (Core functionality for fine-grained control)</strong><a class="anchor" aria-label="anchor" href="#low-level-apis-core-functionality-for-fine-grained-control"></a>
+<h3 id="low-level-apis-comprehensive-core-functionality">
+<strong>Low-Level APIs (Comprehensive core functionality)</strong><a class="anchor" aria-label="anchor" href="#low-level-apis-comprehensive-core-functionality"></a>
 </h3>
+<p>The package exposes the <strong>full range</strong> of core HDF5 modules for fine-grained control over file structure, metadata, and raw I/O:</p>
 <ul>
 <li>
-<strong>H5F (File):</strong> <code>H5Fcreate()</code>, <code>H5Fopen()</code>, <code>H5Fclose()</code>
-</li>
+<strong>H5F (File):</strong> Manage file lifecycle (<code>H5Fcreate</code>, <code>H5Fopen</code>, <code>H5Fclose</code>, etc.).</li>
 <li>
-<strong>H5G (Group):</strong> <code>H5Gcreate2()</code>, <code>H5Gopen2()</code>, <code>H5Gclose()</code>
-</li>
+<strong>H5G (Group):</strong> Organize objects within a file (<code>H5Gcreate2</code>, <code>H5Gopen2</code>, <code>H5Gclose</code>, etc.).</li>
 <li>
-<strong>H5D (Dataset):</strong> <code>H5Dcreate2()</code>, <code>H5Dopen2()</code>, <code>H5Dread()</code>, <code>H5Dwrite()</code>, <code>H5Dclose()</code>
-</li>
+<strong>H5D (Dataset):</strong> Manage raw data arrays and I/O (<code>H5Dcreate2</code>, <code>H5Dread</code>, <code>H5Dwrite</code>, etc.).</li>
 <li>
-<strong>H5S (Dataspace):</strong> <code>H5Screate_simple()</code>, <code>H5Sselect_hyperslab()</code>, <code>H5Sclose()</code>
-</li>
+<strong>H5S (Dataspace):</strong> Define data dimensions and selections (<code>H5Screate_simple</code>, <code>H5Sselect_hyperslab</code>, etc.).</li>
 <li>
-<strong>H5T (Datatype):</strong> <code>H5Tcopy()</code>, <code>H5Tset_size()</code>, <code>H5Tinsert()</code>, <code>H5Tclose()</code> (and predefined types like <code>H5T_NATIVE_INT</code>, <code>H5T_NATIVE_DOUBLE</code>)</li>
+<strong>H5T (Datatype):</strong> Define and manage data types (e.g., <code>H5T_NATIVE_INT</code>, <code>H5Tcopy</code>, <code>H5Tinsert</code>).</li>
 <li>
-<strong>H5A (Attribute):</strong> <code>H5Acreate2()</code>, <code>H5Aopen()</code>, <code>H5Aread()</code>, <code>H5Awrite()</code>, <code>H5Aclose()</code>
-</li>
+<strong>H5A (Attribute):</strong> Manage metadata attached to objects (<code>H5Acreate2</code>, <code>H5Aread</code>, <code>H5Awrite</code>).</li>
 <li>
-<strong>H5P (Property List):</strong> <code>H5Pcreate()</code>, <code>H5Pset_chunk()</code>, <code>H5Pset_deflate()</code>, <code>H5Pclose()</code>
-</li>
+<strong>H5P (Property List):</strong> Configure library behavior, such as chunking or compression (<code>H5Pcreate</code>, <code>H5Pset_chunk</code>).</li>
 </ul>
-<p>For complete documentation, see the official <a href="https://support.hdfgroup.org/documentation/hdf5/latest/_r_m.html" class="external-link">HDF5 Reference Manual</a>.</p>
+<blockquote>
+<p><strong>Note:</strong> For a complete list of all available functions, please refer to the official <a href="https://support.hdfgroup.org/documentation/hdf5/latest/_r_m.html" class="external-link">HDF5 Reference Manual</a>. Any function documented there can be called from your package after including the headers as shown above.</p>
+</blockquote>
 </div>
 </div>
 <div class="section level2">

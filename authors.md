@@ -8,13 +8,13 @@
 - **Alkek Center for Metagenomics and Microbiome Research**. Copyright
   holder, funder.
 
-- **The HDF Group**. Copyright holder.  
+- **The HDF Group**. Contributor, copyright holder.  
   Copyright holder of the HDF5 library
 
-- **Jean-loup Mark**. Copyright holder.  
+- **Jean-loup Mark**. Contributor, copyright holder.  
   Copyright holder of the zlib library
 
-- **Gailly Adler**. Copyright holder.  
+- **Gailly Adler**. Contributor, copyright holder.  
   Copyright holder of the zlib library
 
 ## Citation
