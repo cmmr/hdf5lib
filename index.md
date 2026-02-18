@@ -148,9 +148,9 @@ This package provides access to the **complete core HDF5 C API**
 and types for local file I/O, metadata management, and data
 manipulation.
 
-*Note: To maintain a zero-dependency footprint, optional features
-requiring external system libraries—such as Parallel HDF5 (MPI), HDFS,
-and S3 support—are not included.*
+> **Note:** To maintain a zero-dependency footprint, optional features
+> requiring external system libraries—such as Parallel HDF5 (MPI), HDFS,
+> and S3 support—are not included.
 
 While the **full core API** is available, the following highlights
 represent the most commonly used modules:
