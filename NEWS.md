@@ -2,6 +2,7 @@
 
 * Accept decimal values for `api` argument in `c_flags()` and `ld_flags()`.
 * New `hdf5lib` hex logo.
+* Updated documentation.
 
 
 
