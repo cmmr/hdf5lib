@@ -38,15 +38,10 @@ developers to use in the `LinkingTo` field of their `DESCRIPTION` file.
 
 - **Safe for Parallel Code:** Compiled with thread-safety enabled to
   prevent data corruption when using multi-threaded frameworks like
-  `RcppParallel`.
-
-  - **Note:** Thread-safety is only supported for the low-level APIs.
-    The high-level (HL) APIs are not thread-safe and should not be used
-    in parallel code.
-  - This feature protects against concurrent access from multiple
-    **threads**, not multiple **processes**. Accessing the same HDF5
-    file from different processes without a file locking mechanism can
-    still lead to file corruption.
+  `RcppParallel`. *You must still use a file locking mechanism if (1)
+  you use the High-Level (HL) APIs, which are not thread-safe, or (2)
+  you are accessing the file from multiple processes rather than
+  multiple threads.*
 
 ## **Installation**
 
