@@ -11,9 +11,7 @@ This package provides **no R functions** and is intended for R package developer
 
 ## Features
 
--   **Self-contained:** Builds the HDF5 library from source using only R and a standard C compiler (like Rtools on Windows, Xcode Command Line Tools on macOS, or `build-essential` on Linux).
-
--   **No System Dependencies:** Users and dependent packages can be installed without needing system administration rights to install HDF5 via `apt-get`, `brew`, etc.
+-   **Portable & Self-Contained:** Builds the HDF5 library from source using only standard R build tools. This ensures your package works "out of the box" on any system without requiring pre-installed libraries or administrative privileges.
 
 -   **Compression Support:** Includes built-in support for reading and writing HDF5 files using standard `gzip/deflate` compression via the bundled zlib library.
 
@@ -110,31 +108,29 @@ SEXP read_my_hdf5_data(SEXP filename) {
 
 ## **Included HDF5 APIs**
 
-This package provides access to the HDF5 C API, including:
+This package provides access to the **entire HDF5 C API** (v2.0.0). Developers have full access to all functions, macros, and types defined in the HDF5 headers. 
 
-### **High-Level (HL) APIs (Recommended for simplicity)**
+While the **complete API** is available, the following highlights represent the most commonly used modules:
 
--   **H5LT (Lite):** Simplified functions for common dataset and attribute operations.
-    -   `H5LTmake_dataset_int()`, `H5LTmake_dataset_double()`, etc.
-    -   `H5LTread_dataset_int()`, `H5LTread_dataset_double()`, etc.
-    -   `H5LTset_attribute_string()`, `H5LTget_attribute_int()`, etc.
-    -   `H5LTget_dataset_info()`
--   **H5IM (Image):** Functions for working with image data.
-    -   `H5IMmake_image_24bit()`, `H5IMread_image()`
--   **H5TB (Table):** Functions for working with table structures.
-    -   `H5TBmake_table()`, `H5TBappend_records()`, `H5TBread_records()`
+### **High-Level (HL) APIs (Simplified wrappers)**
+The HL APIs provide "lite" versions of complex operations, making it significantly easier to perform common tasks without manual memory or hyperslab management.
 
-### **Low-Level APIs (Core functionality for fine-grained control)**
+* **H5LT (Lite):** Simplified dataset and attribute operations (e.g., `H5LTmake_dataset_int`, `H5LTread_dataset_double`, `H5LTget_dataset_info`).
+* **H5IM (Image):** Standardized functions for working with image data (e.g., `H5IMmake_image_24bit`, `H5IMread_image`).
+* **H5TB (Table):** Functions for creating and manipulating tabular data structures (e.g., `H5TBmake_table`, `H5TBappend_records`).
 
--   **H5F (File):** `H5Fcreate()`, `H5Fopen()`, `H5Fclose()`
--   **H5G (Group):** `H5Gcreate2()`, `H5Gopen2()`, `H5Gclose()`
--   **H5D (Dataset):** `H5Dcreate2()`, `H5Dopen2()`, `H5Dread()`, `H5Dwrite()`, `H5Dclose()`
--   **H5S (Dataspace):** `H5Screate_simple()`, `H5Sselect_hyperslab()`, `H5Sclose()`
--   **H5T (Datatype):** `H5Tcopy()`, `H5Tset_size()`, `H5Tinsert()`, `H5Tclose()` (and predefined types like `H5T_NATIVE_INT`, `H5T_NATIVE_DOUBLE`)
--   **H5A (Attribute):** `H5Acreate2()`, `H5Aopen()`, `H5Aread()`, `H5Awrite()`, `H5Aclose()`
--   **H5P (Property List):** `H5Pcreate()`, `H5Pset_chunk()`, `H5Pset_deflate()`, `H5Pclose()`
+### **Low-Level APIs (Comprehensive core functionality)**
+The package exposes the **full range** of core HDF5 modules for fine-grained control over file structure, metadata, and raw I/O:
 
-For complete documentation, see the official [HDF5 Reference Manual](https://support.hdfgroup.org/documentation/hdf5/latest/_r_m.html).
+* **H5F (File):** Manage file lifecycle (`H5Fcreate`, `H5Fopen`, `H5Fclose`, etc.).
+* **H5G (Group):** Organize objects within a file (`H5Gcreate2`, `H5Gopen2`, `H5Gclose`, etc.).
+* **H5D (Dataset):** Manage raw data arrays and I/O (`H5Dcreate2`, `H5Dread`, `H5Dwrite`, etc.).
+* **H5S (Dataspace):** Define data dimensions and selections (`H5Screate_simple`, `H5Sselect_hyperslab`, etc.).
+* **H5T (Datatype):** Define and manage data types (e.g., `H5T_NATIVE_INT`, `H5Tcopy`, `H5Tinsert`).
+* **H5A (Attribute):** Manage metadata attached to objects (`H5Acreate2`, `H5Aread`, `H5Awrite`).
+* **H5P (Property List):** Configure library behavior, such as chunking or compression (`H5Pcreate`, `H5Pset_chunk`).
+
+> **Note:** For a complete list of all available functions, please refer to the official [HDF5 Reference Manual](https://support.hdfgroup.org/documentation/hdf5/latest/_r_m.html). Any function documented there can be called from your package after including the headers as shown above.
 
 
 ## **Relationship to `Rhdf5lib`**

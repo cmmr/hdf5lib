@@ -11,18 +11,18 @@ Authors@R: c(
     person(
       "Alkek Center for Metagenomics and Microbiome Research", 
       role = c("cph", "fnd") ),
-    person("The HDF Group", role = "cph", comment = "Copyright holder of the HDF5 library"),
-    person("Jean-loup", "Mark", role = "cph", comment = "Copyright holder of the zlib library"),
-    person("Gailly", "Adler", role = "cph", comment = "Copyright holder of the zlib library") )
-Description: 'HDF5' (Hierarchical Data Format 5) is a high-performance 
-    library and file format for storing and managing large, complex 
-    data. This package provides the static libraries and headers for 
-    the 'HDF5' 'C' library (release 2.0.0). It is intended for R 
-    package developers to use in the 'LinkingTo' field, which 
-    eliminates the need for users to install system-level 'HDF5' 
-    dependencies. This build is compiled with thread-safety enabled 
-    and supports dynamic loading of external compression filters. 
-    'HDF5' is developed by 'The HDF Group' <https://www.hdfgroup.org/>.
+    person("The HDF Group", role = c("ctb", "cph"), comment = "Copyright holder of the HDF5 library"),
+    person("Jean-loup", "Mark", role = c("ctb", "cph"), comment = "Copyright holder of the zlib library"),
+    person("Gailly", "Adler", role = c("ctb", "cph"), comment = "Copyright holder of the zlib library") )
+Description: 'HDF5' (Hierarchical Data Format 5) is a high-performance
+    library and file format for storing and managing large, complex
+    data. This package provides the static libraries and headers for
+    the 'HDF5' 'C' library (release 2.0.0). It is intended for R
+    package developers to use in the 'LinkingTo' field, which
+    eliminates the need for users to install system-level 'HDF5'
+    dependencies. This build is compiled with thread-safety enabled
+    and supports dynamic loading of external compression filters.
+    'HDF5' is developed by The HDF Group <https://www.hdfgroup.org/>.
 URL: https://github.com/cmmr/hdf5lib, https://cmmr.github.io/hdf5lib/
 BugReports: https://github.com/cmmr/hdf5lib/issues
 License: MIT + file LICENSE

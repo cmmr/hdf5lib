@@ -1,6 +1,7 @@
 # hdf5lib 2.0.0.6
 
-* Prefer decimal values for `api` argument in `c_flags()` and `ld_flags()`.
+* Accept decimal values for `api` argument in `c_flags()` and `ld_flags()`.
+* New `hdf5lib` hex logo.
 
 
 
