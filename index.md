@@ -21,33 +21,28 @@ developers to use in the `LinkingTo` field of their `DESCRIPTION` file.
   “out of the box” on any system without requiring pre-installed
   libraries or administrative privileges.
 
-- **Compression Support:** Includes built-in support for reading and
-  writing HDF5 files using standard `gzip/deflate` compression via the
-  bundled zlib library.
+- **Comprehensive API Coverage:** Provides access to the complete core
+  HDF5 v2.0.0 library, including both the **Low-Level** and
+  **High-Level** C APIs.
 
-- **Includes High-Level API:** Provides the convenient HDF5 High-Level
-  (HL) APIs, including H5LT (Lite), H5IM (Image), and H5TB (Table),
-  alongside the core low-level API.
+  - **Compression & Filters:** Built-in support for `gzip/deflate` via
+    bundled zlib and support for external filter plugins (e.g., Blosc,
+    LZ4).
+  - **Modern Features:** Includes native complex number support and
+    improved UTF-8 handling on Windows.
 
-- **Flexible API Versioning:** Downstream packages can compile their
-  code against a specific HDF5 API version (e.g., v1.14, v1.12). This
-  allows developers to lock their package to a specific API, ensuring
-  that future updates to `hdf5lib` do not introduce breaking changes.
+- **Flexible API Versioning:** Downstream packages can compile against
+  specific HDF5 API versions (e.g., 2.0, 1.14, 1.12). This allows you to
+  lock your package to a specific API, ensuring future `hdf5lib` updates
+  won’t break your build.
 
-- **Extensible Filter Support:** Enables the HDF5 library to dynamically
-  load external filter plugins (e.g., for Blosc, LZ4, Bzip2) at runtime
-  via `H5Pset_filter_path()`, provided the user has installed those
-  plugins separately.
+- **Safe for Parallel Code:** Compiled with thread-safety enabled to
+  prevent data corruption when using multi-threaded frameworks like
+  `RcppParallel`.
 
-- **Safe for Parallel Code:** Compiled with thread-safety enabled. This
-  prevents data corruption and crashes by ensuring that library calls
-  from multiple threads (e.g., via `RcppParallel`) are safely
-  serialized.
-
-  - **Important:** Thread-safety is **only supported for the low-level
-    HDF5 APIs** (e.g., `H5F...`, `H5D...`). The High-Level (HL) APIs
-    (`H5LT`, `H5IM`, `H5TB`) are **not** thread-safe and should not be
-    used in parallel code.
+  - **Note:** Thread-safety is only supported for the low-level APIs.
+    The high-level (HL) APIs are not thread-safe and should not be used
+    in parallel code.
   - This feature protects against concurrent access from multiple
     **threads**, not multiple **processes**. Accessing the same HDF5
     file from different processes without a file locking mechanism can
