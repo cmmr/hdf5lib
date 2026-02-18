@@ -64,8 +64,8 @@ install.packages("hdf5lib")
 Alternatively, you can install the development version from GitHub:
 
 ``` r
-# install.packages("devtools")  
-devtools::install_github("cmmr/hdf5lib")
+# install.packages("pak")  
+pak::pak("cmmr/hdf5lib")
 ```
 
 **Note:** As this package builds the HDF5 library from source, the
