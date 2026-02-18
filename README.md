@@ -21,7 +21,7 @@ This package provides **no R functions** and is intended for R package developer
 -   **Flexible API Versioning:** Downstream packages can compile against specific HDF5 API versions (e.g., 2.0, 1.14, 1.12). This allows you to lock your package to a specific API, ensuring future `hdf5lib` updates won't break your build.
 
 -   **Safe for Parallel Code:** Compiled with thread-safety enabled to prevent data corruption when using multi-threaded frameworks like `RcppParallel`.
-    -   **Note:** Thread-safety is only supported for the low-level APIs. The High-Level (HL) APIs are not thread-safe and should not be used in parallel code.
+    -   **Note:** Thread-safety is only supported for the low-level APIs. The high-level (HL) APIs are not thread-safe and should not be used in parallel code.
     -   This feature protects against concurrent access from multiple **threads**, not multiple **processes**. Accessing the same HDF5 file from different processes without a file locking mechanism can still lead to file corruption.
 
 
