@@ -6,6 +6,7 @@
   [`c_flags()`](https://cmmr.github.io/hdf5lib/reference/c_flags.md) and
   [`ld_flags()`](https://cmmr.github.io/hdf5lib/reference/ld_flags.md).
 - New `hdf5lib` hex logo.
+- Updated documentation.
 
 ## hdf5lib 2.0.0.5
 
