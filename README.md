@@ -134,6 +134,10 @@ The package exposes the **full range** of core HDF5 modules for fine-grained con
 
 > **Note:** For a complete list of all available functions, please refer to the official [HDF5 Reference Manual](https://support.hdfgroup.org/documentation/hdf5/latest/_r_m.html). Any function documented there can be called from your package after including the headers as shown above.
 
+### **Looking for an R Interface?**
+
+If you are looking for a high-level R interface rather than writing C/C++ code, check out the [**h5lite**](https://github.com/cmmr/h5lite) package. It uses `hdf5lib` under the hood to provide a fast, "no-nonsense" way to read and write HDF5 files directly from R with a single function call.
+
 
 ## **Relationship to `Rhdf5lib`**
 
