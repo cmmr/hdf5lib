@@ -195,6 +195,14 @@ fine-grained control over file structure, metadata, and raw I/O:
 > Any function documented there can be called from your package after
 > including the headers as shown above.
 
+### **Looking for an R Interface?**
+
+If you are looking for a high-level R interface rather than writing
+C/C++ code, check out the [**h5lite**](https://github.com/cmmr/h5lite)
+package. It uses `hdf5lib` under the hood to provide a fast,
+“no-nonsense” way to read and write HDF5 files directly from R with a
+single function call.
+
 ## **Relationship to `Rhdf5lib`**
 
 The [`Rhdf5lib`](https://doi.org/doi:10.18129/B9.bioc.Rhdf5lib) package
