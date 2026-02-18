@@ -143,11 +143,16 @@ SEXP read_my_hdf5_data(SEXP filename) {
 
 ## **Included HDF5 APIs**
 
-This package provides access to the **entire HDF5 C API** (v2.0.0).
-Developers have full access to all functions, macros, and types defined
-in the HDF5 headers.
+This package provides access to the **complete core HDF5 C API**
+(v2.0.0). Developers have full access to all standard functions, macros,
+and types for local file I/O, metadata management, and data
+manipulation.
 
-While the **complete API** is available, the following highlights
+*Note: To maintain a zero-dependency footprint, optional features
+requiring external system libraries—such as Parallel HDF5 (MPI), HDFS,
+and S3 support—are not included.*
+
+While the **full core API** is available, the following highlights
 represent the most commonly used modules:
 
 ### **High-Level (HL) APIs (Simplified wrappers)**

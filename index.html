@@ -159,8 +159,9 @@
 <h2 id="included-hdf5-apis">
 <strong>Included HDF5 APIs</strong><a class="anchor" aria-label="anchor" href="#included-hdf5-apis"></a>
 </h2>
-<p>This package provides access to the <strong>entire HDF5 C API</strong> (v2.0.0). Developers have full access to all functions, macros, and types defined in the HDF5 headers.</p>
-<p>While the <strong>complete API</strong> is available, the following highlights represent the most commonly used modules:</p>
+<p>This package provides access to the <strong>complete core HDF5 C API</strong> (v2.0.0). Developers have full access to all standard functions, macros, and types for local file I/O, metadata management, and data manipulation.</p>
+<p><em>Note: To maintain a zero-dependency footprint, optional features requiring external system libraries—such as Parallel HDF5 (MPI), HDFS, and S3 support—are not included.</em></p>
+<p>While the <strong>full core API</strong> is available, the following highlights represent the most commonly used modules:</p>
 <div class="section level3">
 <h3 id="high-level-hl-apis-simplified-wrappers">
 <strong>High-Level (HL) APIs (Simplified wrappers)</strong><a class="anchor" aria-label="anchor" href="#high-level-hl-apis-simplified-wrappers"></a>
