@@ -16,8 +16,8 @@ This package provides **no R functions** and is intended for R package developer
 
 -   **Comprehensive API Coverage:** Provides access to the complete core HDF5 v2.0.0 library, including both the **Low-Level** and **High-Level** C APIs.
 
-    -   <p>**Compression & Filters:** Built-in support for `gzip/deflate` via bundled zlib and support for external filter plugins (e.g., Blosc, LZ4).</p>
-    -   <p>**Modern Features:** Includes native complex number support and improved UTF-8 handling on Windows.</p>
+    -   <p><b>Compression & Filters:</b> Built-in support for `gzip/deflate` via bundled zlib and support for external filter plugins (e.g., Blosc, LZ4).</p>
+    -   <p><b>Modern Features:</b> Includes native complex number support and improved UTF-8 handling on Windows.</p>
 
 -   **Flexible API Versioning:** Downstream packages can compile against specific HDF5 API versions (e.g., 2.0, 1.14, 1.12). This allows you to lock your package to a specific API, ensuring future `hdf5lib` updates won't break your build.
 
