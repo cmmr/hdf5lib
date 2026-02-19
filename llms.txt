@@ -28,6 +28,7 @@ developers to use in the `LinkingTo` field of their `DESCRIPTION` file.
   - **Compression & Filters:** Built-in support for `gzip/deflate` via
     bundled zlib and support for external filter plugins (e.g., Blosc,
     LZ4).
+
   - **Modern Features:** Includes native complex number support and
     improved UTF-8 handling on Windows.
 
