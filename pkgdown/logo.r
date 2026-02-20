@@ -19,7 +19,7 @@ draw_hex_logo_ggplot <- function() {
       aes(x = x, y = y),
       fill  = "#F5F5F5",  # Light Gray
       color = "#4682B4",  # Steel Blue
-      linewidth = 1.25,
+      linewidth = 1.75,
       pattern          = 'image',
       pattern_filename = "pkgdown/fill.png",
       pattern_type     = 'expand',    # Key for avoiding stretch

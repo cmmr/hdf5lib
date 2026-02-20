@@ -12,11 +12,12 @@
 ^CRAN-SUBMISSION$
 ^conda$
 ^pkgdown$
+^man/figures/logo_v1.png$
+^man/figures/logo_fullsize.png$
 ^inst/include$
 ^inst/lib$
 ^doc$
 ^docs$
 ^Meta$
 ^vignettes$
-^\.Rproj\.user$
 ^rhub_check\.r$
