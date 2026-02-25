@@ -17,5 +17,4 @@ docs
 inst/include
 inst/lib
 Meta
-pkgdown/favicon
 rhub_check.r

@@ -14,6 +14,7 @@
 ^pkgdown$
 ^man/figures/logo_v1.png$
 ^man/figures/logo_fullsize.png$
+^man/figures/logo_blue.png$
 ^inst/include$
 ^inst/lib$
 ^doc$
@@ -21,3 +22,4 @@
 ^Meta$
 ^vignettes$
 ^rhub_check\.r$
+^\.Rproj\.user$
