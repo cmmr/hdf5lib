@@ -12,9 +12,7 @@
 ^CRAN-SUBMISSION$
 ^conda$
 ^pkgdown$
-^man/figures/logo_v1.png$
-^man/figures/logo_fullsize.png$
-^man/figures/logo_blue.png$
+^man/figures/logo_
 ^inst/include$
 ^inst/lib$
 ^doc$
