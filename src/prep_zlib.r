@@ -49,7 +49,7 @@ for (patch_file in patch_files) {
 
 
 # Create the zlib tarball that will ship with hdf5lib.
-cat(paste0("Creating 'zlib", VER, ".tar.gz'...\n"))
+cat(paste0("Creating 'zlib-", VER, ".tar.gz'...\n"))
 invisible(file.remove(tarfile))
 setwd('src')
 utils::tar(

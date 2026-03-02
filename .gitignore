@@ -11,6 +11,7 @@ src/zlib-*/
 src/H5pubconf
 src/zlib-1.3.1-orig.tar.gz
 src/hdf5-2.0.0-orig.tar.gz
+src/libaec-1.1.6-orig.tar.gz
 build
 doc
 docs

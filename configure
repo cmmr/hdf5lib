@@ -3,6 +3,7 @@ set -e
 
 ZLIB_VER="1.3.1"
 HDF5_VER="2.0.0"
+LIBAEC_VER="1.1.6"
 
 echo "--- [hdf5lib] Starting Configuration (Static) ---"
 
@@ -62,18 +63,18 @@ for flag in $R_CFLAGS $R_LDFLAGS; do
   esac
 done
 
-# 3. Build ZLIB ----------------------------------------------------------------
+
+# 3. Set up build directory and vars -------------------------------------------
 echo "--- [hdf5lib] Decompressing sources..."
 mkdir build
 cd build
 
 tar -xf "../src/zlib-$ZLIB_VER.tar.gz"
 tar -xf "../src/hdf5-$HDF5_VER.tar.gz"
+tar -xf "../src/libaec-$LIBAEC_VER.tar.gz"
 cp ../src/H5pubconf.h        "hdf5-$HDF5_VER/src/"
 cp ../src/find_byte_widths.c "hdf5-$HDF5_VER/"
 
-echo "--- [hdf5lib] Building ZLIB..."
-cd "zlib-$ZLIB_VER"
 export CPPFLAGS="-I. $R_CPPFLAGS"
 export LDFLAGS="$R_LDFLAGS"
 export AR="$R_AR"
@@ -81,6 +82,11 @@ echo "  CC:       $CC"
 echo "  CFLAGS:   $CFLAGS"
 echo "  LDFLAGS:  $LDFLAGS"
 echo "  AR:       $AR"
+
+
+# 4. Build ZLIB ----------------------------------------------------------------
+echo "--- [hdf5lib] Building ZLIB..."
+cd "zlib-$ZLIB_VER"
 
 if [ "$WIN" -eq 1 ]; then
   "$R_MAKE" -f win32/Makefile.gcc libz.a >/dev/null
@@ -97,7 +103,23 @@ rm *.o
 cd ..
 
 
-# 4. Build HDF5 ----------------------------------------------------------------
+# 5. Build LIBAEC (szip) -------------------------------------------------------
+echo "--- [hdf5lib] Building LIBAEC (szip)..."
+cd "libaec-$LIBAEC_VER"
+
+$CC $CPPFLAGS $CFLAGS -c encode.c encode_accessors.c decode.c vector.c sz_compat.c
+
+# Archive them into a static library named libsz.a
+"$R_AR" -rcs libsz.a encode.o encode_accessors.o decode.o vector.o sz_compat.o
+
+# Extract LIBAEC objects to merge them into the final library
+rm *.o
+"$R_AR" -x libsz.a
+
+cd ..
+
+
+# 6. Build HDF5 ----------------------------------------------------------------
 echo "--- [hdf5lib] Building HDF5..."
 cd "hdf5-$HDF5_VER"
 
@@ -113,7 +135,7 @@ $CC $CPPFLAGS $CFLAGS -o find_byte_widths$EXE ./find_byte_widths.c
 "$R_EXE" -s -e "invisible(file.copy(R.home('include'), '.', recursive = TRUE))"
 
 # Define base flags
-CPPFLAGS="-Isrc -Ihl/src -I../zlib-$ZLIB_VER -Iinclude $R_CPPFLAGS"
+CPPFLAGS="-Isrc -Ihl/src -I../zlib-$ZLIB_VER -I../libaec-$LIBAEC_VER/include -Iinclude $R_CPPFLAGS"
 CPPFLAGS="$CPPFLAGS -DH5_BUILT_AS_STATIC_LIB -DH5_DLL= -DH5HL_DLL="
 
 echo "  CC:       $CC"
@@ -129,7 +151,7 @@ done
 cd ..
 
 
-# 5. Link and Archive ----------------------------------------------------------
+# 7. Link and Archive ----------------------------------------------------------
 echo "--- [hdf5lib] Linking static library..."
 
 # Detect LTO and rchk/wllvm
@@ -150,10 +172,10 @@ esac
 if [ "$WIN" -eq 0 ] && [ "$MINIFY" -eq 1 ] && command -v ld >/dev/null 2>&1; then
   echo "  Performing partial linking (ld -r)..."
   # Merge all .o files into one big object (deduplicates symbols/sections)
-  ld -r -o libhdf5z.o "hdf5-$HDF5_VER/"*.o "zlib-$ZLIB_VER/"*.o
+  ld -r -o libhdf5z.o "hdf5-$HDF5_VER/"*.o "zlib-$ZLIB_VER/"*.o "libaec-$LIBAEC_VER/"*.o
   "$R_AR" -crs libhdf5z.a libhdf5z.o
 else
-  "$R_AR" -crs libhdf5z.a "hdf5-$HDF5_VER/"*.o "zlib-$ZLIB_VER/"*.o
+  "$R_AR" -crs libhdf5z.a "hdf5-$HDF5_VER/"*.o "zlib-$ZLIB_VER/"*.o "libaec-$LIBAEC_VER/"*.o
 fi
 
 # Strip debug symbols to reduce installed package size
@@ -163,7 +185,7 @@ if [ "$MINIFY" -eq 1 ] && command -v strip >/dev/null 2>&1; then
 fi
 
 
-# 6. Installation --------------------------------------------------------------
+# 8. Installation --------------------------------------------------------------
 echo "--- [hdf5lib] Installing..."
 cd ..
 
