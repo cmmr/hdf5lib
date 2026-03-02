@@ -135,7 +135,7 @@ $CC $CPPFLAGS $CFLAGS -o find_byte_widths$EXE ./find_byte_widths.c
 "$R_EXE" -s -e "invisible(file.copy(R.home('include'), '.', recursive = TRUE))"
 
 # Define base flags
-CPPFLAGS="-Isrc -Ihl/src -I../zlib-$ZLIB_VER -I../libaec-$LIBAEC_VER/include -Iinclude $R_CPPFLAGS"
+CPPFLAGS="-Isrc -Ihl/src -I../zlib-$ZLIB_VER -I../libaec-$LIBAEC_VER -Iinclude $R_CPPFLAGS"
 CPPFLAGS="$CPPFLAGS -DH5_BUILT_AS_STATIC_LIB -DH5_DLL= -DH5HL_DLL="
 
 echo "  CC:       $CC"
