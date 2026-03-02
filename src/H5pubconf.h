@@ -105,13 +105,16 @@
 #define H5_HAVE_FILTER_DEFLATE          1
 #define H5_HAVE_ZLIB_H                  1
 #define H5_HAVE_LIBZ                    1
+#define H5_HAVE_FILTER_SZIP             1
+#define H5_HAVE_SZLIB_H                 1
+#define H5_HAVE_LIBSZ                   1
 #define H5_HAVE_DIRENT_H                1
 #define H5_HAVE_SYS_STAT_H              1
 #define H5_HAVE_SYS_TIME_H              1
 #define H5_HAVE_SYS_TYPES_H             1
 #define H5_HAVE_UNISTD_H                1
 #define H5_HAVE_TIME_H                  1
-#define H5_HAVE_PTHREAD_H               1 /* pthreads are standard in R's toolchain */
+#define H5_HAVE_PTHREAD_H               1
 #define H5_HAVE_THREADSAFE              1
 #define H5_HAVE_THREADS                 1
 

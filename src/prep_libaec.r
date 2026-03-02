@@ -44,6 +44,17 @@ unlink(file.path(exdir, c('include', 'src')), recursive = TRUE)
 
 
 
+# Apply patches
+cat('Applying libaec patches files...\n')
+patch_dir   <- file.path('patches', paste0("libaec-", VER))
+patch_files <- list.files(patch_dir, ".patch$", full.names = TRUE)
+for (patch_file in patch_files) {
+  cat("->", basename(patch_file), "\n")
+  system2(command = 'patch', args = c('-p0', '-i', patch_file))
+}
+
+
+
 # Create the libaec tarball that will ship with hdf5lib.
 cat(paste0("Creating 'libaec-", VER, ".tar.gz'...\n"))
 invisible(file.remove(tarfile))
