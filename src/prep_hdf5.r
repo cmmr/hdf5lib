@@ -35,7 +35,7 @@ utils::untar(
 cat('Removing unsupported driver source files...\n')
 invisible(file.remove(c(
   list.files("src/hdf5-2.0.0/src/H5FDsubfiling/", "*.c", full.names = TRUE),
-  "src/hdf5-2.0.0/src/H5pubconf.h.in",
+  "src/hdf5-2.0.0/src/H5pubconf.h.in", "src/hdf5-2.0.0/src/libhdf5.settings.in",
   "src/hdf5-2.0.0/src/CMakeLists.txt", "src/hdf5-2.0.0/hl/src/CMakeLists.txt",
   "src/hdf5-2.0.0/src/H5ACmpio.c",     "src/hdf5-2.0.0/src/H5build_settings.cmake.c.in",
   "src/hdf5-2.0.0/src/H5FDdirect.c",   "src/hdf5-2.0.0/src/H5build_settings.off.c.in",
@@ -45,8 +45,7 @@ invisible(file.remove(c(
   "src/hdf5-2.0.0/src/H5FDmpio.c",     "src/hdf5-2.0.0/src/H5Fmpi.c",
   "src/hdf5-2.0.0/src/H5Smpio.c",      "src/hdf5-2.0.0/src/H5mpi.c",
   "src/hdf5-2.0.0/src/H5Obogus.c",     "src/hdf5-2.0.0/src/H5TSc11.c",
-  "src/hdf5-2.0.0/src/H5FDros3.c",     "src/hdf5-2.0.0/src/H5FDros3_s3comms.c",
-  "src/hdf5-2.0.0/src/H5Zszip.c",      "src/hdf5-2.0.0/src/libhdf5.settings.in" )))
+  "src/hdf5-2.0.0/src/H5FDros3.c",     "src/hdf5-2.0.0/src/H5FDros3_s3comms.c" )))
 
 
 # --- 3. Apply Patches ---
