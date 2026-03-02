@@ -11,11 +11,23 @@
 - **The HDF Group**. Contributor, copyright holder.  
   Copyright holder of the HDF5 library
 
-- **Jean-loup Mark**. Contributor, copyright holder.  
+- **Jean-loup Gailly**. Contributor, copyright holder.  
   Copyright holder of the zlib library
 
-- **Gailly Adler**. Contributor, copyright holder.  
+- **Mark Adler**. Contributor, copyright holder.  
   Copyright holder of the zlib library
+
+- **Mathis Rosenhauer**. Contributor, copyright holder.  
+  Copyright holder of the libaec library
+
+- **Moritz Hanke**. Contributor, copyright holder.  
+  Copyright holder of the libaec library
+
+- **Joerg Behrens**. Contributor, copyright holder.  
+  Copyright holder of the libaec library
+
+- **Luis Kornblueh**. Contributor, copyright holder.  
+  Copyright holder of the libaec library
 
 ## Citation
 
@@ -23,12 +35,12 @@ Source:
 [`DESCRIPTION`](https://github.com/cmmr/hdf5lib/blob/main/DESCRIPTION)
 
 Smith D (2026). *hdf5lib: Headers and Static Libraries for 'HDF5'*. R
-package version 2.0.0.6, <https://github.com/cmmr/hdf5lib>.
+package version 2.0.0.7, <https://github.com/cmmr/hdf5lib>.
 
     @Manual{,
       title = {hdf5lib: Headers and Static Libraries for 'HDF5'},
       author = {Daniel P. Smith},
       year = {2026},
-      note = {R package version 2.0.0.6},
+      note = {R package version 2.0.0.7},
       url = {https://github.com/cmmr/hdf5lib},
     }
