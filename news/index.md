@@ -1,5 +1,10 @@
 # Changelog
 
+## hdf5lib 2.0.0.7
+
+- Added SZIP compression support by bundling `libaec`, avoiding the
+  licensing restrictions of the original SZIP library.
+
 ## hdf5lib 2.0.0.6
 
 CRAN release: 2026-02-19

@@ -83,7 +83,7 @@
 <p><strong>Comprehensive API Coverage:</strong> Provides access to the complete core HDF5 v2.0.0 library, including both the <strong>Low-Level</strong> and <strong>High-Level</strong> C APIs.</p>
 <ul>
 <li><p>
-<b>Compression &amp; Filters:</b> Built-in support for <code>gzip/deflate</code> via bundled zlib and support for external filter plugins (e.g., Blosc, LZ4).
+<b>Compression &amp; Filters:</b> Built-in support for <code>gzip/deflate</code> and <code>szip</code> via bundled <b>zlib</b> and <b>libaec</b> libraries. This provides high-performance compression out-of-the-box without requiring any external system-level libraries. The package also supports external filter plugins (e.g., Blosc, LZ4).
 </p></li>
 <li><p>
 <b>Modern Features:</b> Includes native complex number support and improved UTF-8 handling on Windows.
