@@ -1,6 +1,6 @@
 # hdf5lib 2.0.0.7
 
-* Added SZIP compression support by bundling `libaec`, avoiding the licensing restrictions of the original SZIP library.
+* Added support for SZIP and LZ4.
 
 
 

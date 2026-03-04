@@ -17,7 +17,8 @@ Authors@R: c(
     person("Mathis", "Rosenhauer", role = c("ctb", "cph"), comment = "Copyright holder of the libaec library"),
     person("Moritz", "Hanke", role = c("ctb", "cph"), comment = "Copyright holder of the libaec library"),
     person("Joerg", "Behrens", role = c("ctb", "cph"), comment = "Copyright holder of the libaec library"),
-    person("Luis", "Kornblueh", role = c("ctb", "cph"), comment = "Copyright holder of the libaec library") )
+    person("Luis", "Kornblueh", role = c("ctb", "cph"), comment = "Copyright holder of the libaec library"),
+    person("Yann", "Collet", role = c("ctb", "cph"), comment = "Copyright holder of the lz4 library") )
 Description: 'HDF5' (Hierarchical Data Format 5) is a high-performance
     library and file format for storing and managing large, complex
     data. This package provides the static libraries and headers for

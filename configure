@@ -4,6 +4,9 @@ set -e
 ZLIB_VER="1.3.1"
 HDF5_VER="2.0.0"
 LIBAEC_VER="1.1.6"
+LZ4_VER="1.10.0"
+PLUGINS_VER="2.1.0"
+
 
 echo "--- [hdf5lib] Starting Configuration (Static) ---"
 
@@ -69,11 +72,22 @@ echo "--- [hdf5lib] Decompressing sources..."
 mkdir build
 cd build
 
-tar -xf "../src/zlib-$ZLIB_VER.tar.gz"
 tar -xf "../src/hdf5-$HDF5_VER.tar.gz"
+tar -xf "../src/zlib-$ZLIB_VER.tar.gz"
 tar -xf "../src/libaec-$LIBAEC_VER.tar.gz"
-cp ../src/H5pubconf.h        "hdf5-$HDF5_VER/src/"
-cp ../src/find_byte_widths.c "hdf5-$HDF5_VER/"
+tar -xf "../src/lz4-$LZ4_VER.tar.gz"
+
+mv "hdf5-$HDF5_VER"     hdf5
+mv "zlib-$ZLIB_VER"     gzip
+mv "libaec-$LIBAEC_VER" szip
+mv "lz4-$LZ4_VER"       lz4
+
+mkdir hdf5/plugins
+tar -xf "../src/hdf5_plugins-$PLUGINS_VER/LZ4.tar.gz" -C hdf5/plugins
+
+cp ../src/H5pubconf.h        hdf5/src/
+cp ../src/find_byte_widths.c hdf5/
+cp ../src/lz4_config.h       hdf5/plugins/LZ4/
 
 export CPPFLAGS="-I. $R_CPPFLAGS"
 export LDFLAGS="$R_LDFLAGS"
@@ -84,9 +98,9 @@ echo "  LDFLAGS:  $LDFLAGS"
 echo "  AR:       $AR"
 
 
-# 4. Build ZLIB ----------------------------------------------------------------
+# 4a. Build ZLIB ----------------------------------------------------------------
 echo "--- [hdf5lib] Building ZLIB..."
-cd "zlib-$ZLIB_VER"
+cd "gzip"
 
 if [ "$WIN" -eq 1 ]; then
   "$R_MAKE" -f win32/Makefile.gcc libz.a >/dev/null
@@ -103,25 +117,27 @@ rm *.o
 cd ..
 
 
-# 5. Build LIBAEC (szip) -------------------------------------------------------
+# 4b. Build LIBAEC (szip) -------------------------------------------------------
 echo "--- [hdf5lib] Building LIBAEC (szip)..."
-cd "libaec-$LIBAEC_VER"
+cd "szip"
 
 $CC $CPPFLAGS $CFLAGS -c encode.c encode_accessors.c decode.c vector.c sz_compat.c
 
-# Archive them into a static library named libsz.a
-"$R_AR" -rcs libsz.a encode.o encode_accessors.o decode.o vector.o sz_compat.o
+cd ..
 
-# Extract LIBAEC objects to merge them into the final library
-rm *.o
-"$R_AR" -x libsz.a
+
+# 4c. Build LZ4 ----------------------------------------------------------------
+echo "--- [hdf5lib] Building LZ4..."
+cd "lz4"
+
+$CC $CPPFLAGS $CFLAGS -c lz4.c lz4hc.c
 
 cd ..
 
 
 # 6. Build HDF5 ----------------------------------------------------------------
 echo "--- [hdf5lib] Building HDF5..."
-cd "hdf5-$HDF5_VER"
+cd "hdf5"
 
 # A. Generators
 # Compile and run generator to detect system type sizes (creates src/H5_byte_widths.h)
@@ -135,14 +151,14 @@ $CC $CPPFLAGS $CFLAGS -o find_byte_widths$EXE ./find_byte_widths.c
 "$R_EXE" -s -e "invisible(file.copy(R.home('include'), '.', recursive = TRUE))"
 
 # Define base flags
-CPPFLAGS="-Isrc -Ihl/src -I../zlib-$ZLIB_VER -I../libaec-$LIBAEC_VER -Iinclude $R_CPPFLAGS"
+CPPFLAGS="-Isrc -Ihl/src -I../gzip -I../szip -I../lz4 -Iinclude $R_CPPFLAGS"
 CPPFLAGS="$CPPFLAGS -DH5_BUILT_AS_STATIC_LIB -DH5_DLL= -DH5HL_DLL="
 
 echo "  CC:       $CC"
 echo "  CFLAGS:   $CFLAGS"
 echo "  CPPFLAGS: $CPPFLAGS"
 
-for src in src/*.c hl/src/*.c; do
+for src in src/*.c hl/src/*.c plugins/*/*.c; do
   obj=$(basename "$src" .c).o
   echo "  \$CC \$CFLAGS \$CPPFLAGS -c $src -o $obj"
   $CC $CFLAGS $CPPFLAGS -c "$src" -o "$obj"
@@ -172,10 +188,10 @@ esac
 if [ "$WIN" -eq 0 ] && [ "$MINIFY" -eq 1 ] && command -v ld >/dev/null 2>&1; then
   echo "  Performing partial linking (ld -r)..."
   # Merge all .o files into one big object (deduplicates symbols/sections)
-  ld -r -o libhdf5z.o "hdf5-$HDF5_VER/"*.o "zlib-$ZLIB_VER/"*.o "libaec-$LIBAEC_VER/"*.o
+  ld -r -o libhdf5z.o hdf5/*.o gzip/*.o szip/*.o lz4/*.o
   "$R_AR" -crs libhdf5z.a libhdf5z.o
 else
-  "$R_AR" -crs libhdf5z.a "hdf5-$HDF5_VER/"*.o "zlib-$ZLIB_VER/"*.o "libaec-$LIBAEC_VER/"*.o
+  "$R_AR" -crs libhdf5z.a hdf5/*.o gzip/*.o szip/*.o lz4/*.o
 fi
 
 # Strip debug symbols to reduce installed package size
@@ -191,9 +207,9 @@ cd ..
 
 # Install headers and library
 mkdir -p inst/lib inst/include
-cp build/"hdf5-$HDF5_VER"/src/*.h    inst/include/
-cp build/"hdf5-$HDF5_VER"/hl/src/*.h inst/include/
-cp build/libhdf5z.a                  inst/lib/
+cp build/hdf5/src/*.h    inst/include/
+cp build/hdf5/hl/src/*.h inst/include/
+cp build/libhdf5z.a      inst/lib/
 
 # Cleanup
 rm -rf src build
