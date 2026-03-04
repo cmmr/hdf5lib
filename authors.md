@@ -29,6 +29,9 @@
 - **Luis Kornblueh**. Contributor, copyright holder.  
   Copyright holder of the libaec library
 
+- **Yann Collet**. Contributor, copyright holder.  
+  Copyright holder of the lz4 library
+
 ## Citation
 
 Source:

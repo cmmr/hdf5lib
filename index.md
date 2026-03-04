@@ -237,8 +237,8 @@ library for any R package.
 ## **License**
 
 The `hdf5lib` package itself is available under the MIT license. The
-bundled HDF5, zlib, and libaec libraries are available under their own
-permissive licenses, as detailed in
+bundled HDF5, zlib, LZ4, and libaec libraries are available under their
+own permissive licenses, as detailed in
 [inst/COPYRIGHTS](https://github.com/cmmr/hdf5lib/blob/main/inst/COPYRIGHTS).
 
 *(Note: The zlib and libaec libraries are bundled internally but their
