@@ -2,8 +2,6 @@
 
 ## hdf5lib 2.0.0.7
 
-- Added support for SZIP and LZ4.
-
 ## hdf5lib 2.0.0.6
 
 CRAN release: 2026-02-19

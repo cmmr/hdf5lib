@@ -17,21 +17,6 @@
 - **Mark Adler**. Contributor, copyright holder.  
   Copyright holder of the zlib library
 
-- **Mathis Rosenhauer**. Contributor, copyright holder.  
-  Copyright holder of the libaec library
-
-- **Moritz Hanke**. Contributor, copyright holder.  
-  Copyright holder of the libaec library
-
-- **Joerg Behrens**. Contributor, copyright holder.  
-  Copyright holder of the libaec library
-
-- **Luis Kornblueh**. Contributor, copyright holder.  
-  Copyright holder of the libaec library
-
-- **Yann Collet**. Contributor, copyright holder.  
-  Copyright holder of the lz4 library
-
 ## Citation
 
 Source:
