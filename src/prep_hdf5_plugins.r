@@ -29,7 +29,9 @@ utils::untar(
   exdir   = dirname(tarfile),
   files   = paste0(paste0("hdf5_plugins-", VER, "/"), c(
     'LZ4/Additional_Legal/LICENSE',
-    'LZ4/src/H5Zlz4.c'
+    'LZ4/src/H5Zlz4.c',
+    'ZSTD/Additional_Legal/LICENSE',
+    'ZSTD/src/H5Zzstd.c'
   )))
 unlink(tarfile)
 
@@ -45,8 +47,9 @@ unlink(tarfile)
 
 
 # Put each plugin into a separate .tar.gz file
-for (plugin in list.files(exdir, full.names = TRUE)) {
-  cat("  -> ", plugin, "\n")
+plugin_dirs <- list.dirs(exdir, full.names = TRUE, recursive = FALSE)
+for (plugin in plugin_dirs) {
+  cat("  -> ", basename(plugin), "\n")
   
   for (i in list.files(plugin, recursive = TRUE)) {
     file.rename(file.path(plugin, i), file.path(plugin, basename(i)))
@@ -60,8 +63,7 @@ for (plugin in list.files(exdir, full.names = TRUE)) {
     files   = basename(plugin), 
     compression = "gzip", compression_level = 9 )
   setwd(old_dir)
-  
-  unlink(plugin, recursive = TRUE)
 }
+unlink(plugin_dirs, recursive = TRUE)
 
 cat('Done.\n')
