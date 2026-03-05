@@ -135,7 +135,7 @@ $CC $CPPFLAGS $CFLAGS -c lz4.c lz4hc.c
 cd ..
 
 
-# 6. Build HDF5 ----------------------------------------------------------------
+# 5. Build HDF5 ----------------------------------------------------------------
 echo "--- [hdf5lib] Building HDF5..."
 cd "hdf5"
 
@@ -167,7 +167,7 @@ done
 cd ..
 
 
-# 7. Link and Archive ----------------------------------------------------------
+# 6. Link and Archive ----------------------------------------------------------
 echo "--- [hdf5lib] Linking static library..."
 
 # Detect LTO and rchk/wllvm
@@ -201,7 +201,7 @@ if [ "$MINIFY" -eq 1 ] && command -v strip >/dev/null 2>&1; then
 fi
 
 
-# 8. Installation --------------------------------------------------------------
+# 7. Installation --------------------------------------------------------------
 echo "--- [hdf5lib] Installing..."
 cd ..
 
