@@ -8,20 +8,10 @@ Authors@R: c(
       email   = "dansmith01@gmail.com",
       role    = c("aut", "cre"),
       comment = c(ORCID = "0000-0002-2479-2044")),
-    person(
-      "Alkek Center for Metagenomics and Microbiome Research", 
-      role = c("cph", "fnd") ),
+    person("Alkek Center for Metagenomics and Microbiome Research", role = c("cph", "fnd") ),
     person("The HDF Group", role = c("ctb", "cph"), comment = "Copyright holder of the HDF5 library"),
     person("Jean-loup", "Gailly", role = c("ctb", "cph"), comment = "Copyright holder of the zlib library"),
-    person("Mark", "Adler", role = c("ctb", "cph"), comment = "Copyright holder of the zlib library"),
-    person("Mathis", "Rosenhauer", role = c("ctb", "cph"), comment = "Copyright holder of the libaec library"),
-    person("Moritz", "Hanke", role = c("ctb", "cph"), comment = "Copyright holder of the libaec library"),
-    person("Joerg", "Behrens", role = c("ctb", "cph"), comment = "Copyright holder of the libaec library"),
-    person("Luis", "Kornblueh", role = c("ctb", "cph"), comment = "Copyright holder of the libaec library"),
-    person("Yann", "Collet", role = c("ctb", "cph"), comment = "Copyright holder of the lz4 library"),
-    person("Dectris Ltd.", role = c("ctb", "cph"), comment = "Copyright holder of the lz4 plugin for HDF5."),
-    person("Meta Platforms, Inc. and affiliates", role = c("ctb", "cph"), comment = "Copyright holder of the zstd library"),
-    person("Andrey", "Paramonov", role = c("ctb", "cph"), comment = "Copyright holder of the zstd plugin for HDF5.") )
+    person("Mark", "Adler", role = c("ctb", "cph"), comment = "Copyright holder of the zlib library") )
 Description: 'HDF5' (Hierarchical Data Format 5) is a high-performance
     library and file format for storing and managing large, complex
     data. This package provides the static libraries and headers for
