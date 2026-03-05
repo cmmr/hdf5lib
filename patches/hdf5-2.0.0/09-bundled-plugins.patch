@@ -1,15 +1,27 @@
-diff -ru src/hdf5-orig/src/H5Zpublic.h src/hdf5-2.0.0/src/H5Zpublic.h
---- src/hdf5-orig/src/H5Zpublic.h	2025-11-11 00:00:49.000000000 +0000
-+++ src/hdf5-2.0.0/src/H5Zpublic.h	2026-03-05 00:10:31.805415300 +0000
-@@ -367,6 +367,11 @@
-  */
- H5_DLL herr_t H5Zget_filter_info(H5Z_filter_t filter, unsigned int *filter_config_flags);
+diff -ru src/hdf5-orig/src/H5Zdevelop.h src/hdf5-2.0.0/src/H5Zdevelop.h
+--- src/hdf5-orig/src/H5Zdevelop.h	2025-11-11 00:00:49.000000000 +0000
++++ src/hdf5-2.0.0/src/H5Zdevelop.h	2026-03-05 00:27:16.996357200 +0000
+@@ -171,10 +171,23 @@
+ } H5Z_class2_t;
+ //! <!-- [H5Z_class2_t_snip] -->
  
++
+ /********************/
+ /* Public Variables */
+ /********************/
+ 
++#ifdef __cplusplus
++extern "C" {
++#endif
 +
 +/* hdf5lib Bundled Plugin Declarations */
 +extern const H5Z_class2_t H5Z_LZ4[1];
 +
++#ifdef __cplusplus
++}
++#endif
 +
- #ifdef __cplusplus
- }
- #endif
++
+ /*********************/
+ /* Public Prototypes */
+ /*********************/
