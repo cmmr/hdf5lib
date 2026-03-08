@@ -134,7 +134,7 @@ echo "  ./find_byte_widths$EXE | tr -d '\r' > hdf5/src/H5_byte_widths.h"
 
 
 
-# X. Build BZIP2 ---------------------------------------------------------------
+# 5. Build BZIP2 ---------------------------------------------------------------
 echo "--- [hdf5lib] Building BZIP2..."
 cd bzip2
 
@@ -148,22 +148,8 @@ cd ..
 
 
 
-# X. Build LZF -----------------------------------------------------------------
-echo "--- [hdf5lib] Building LZF..."
-cd lzf
-
-for src in *.c; do
-  dest=$(basename "$src" .c).o
-  echo "  \$CC \$CFLAGS -c $src -o $dest"
-  $CC $CFLAGS -c $src -o $dest
-done
-
-cd ..
-
-
-
-# 5. Build Gzip (zlib-ng) ------------------------------------------------------
-echo "--- [hdf5lib] Building Gzip (zlib-ng)..."
+# 6. Build GZIP (zlib-ng) ------------------------------------------------------
+echo "--- [hdf5lib] Building GZIP (zlib-ng)..."
 cd gzip
 
 chmod +x ./configure
@@ -181,26 +167,26 @@ rm -f *.o
 cd ..
 
 
-# 6. Build Szip (libaec) -------------------------------------------------------
+# 7. Build LZ4 -----------------------------------------------------------------
+echo "--- [hdf5lib] Building LZ4..."
+cd lz4
 
-echo "--- [hdf5lib] Building Szip (libaec)..."
-cd szip
+LZ4_FLAGS="-Wno-constant-logical-operand"
 
-# Compile libaec source + our plugin bridge
-for src in src/*.c; do
+for src in *.c; do
   dest=$(basename "$src" .c).o
-  echo "  \$CC \$CFLAGS -Iinclude -c $src -o $dest"
-  $CC $CFLAGS -Iinclude -c $src -o $dest
+  echo "  \$CC \$CFLAGS \$LZ4_FLAGS -c $src -o $dest"
+  $CC $CFLAGS $LZ4_FLAGS -c $src -o $dest
 done
 
 cd ..
 
 
-# 7. Build LZ4 -----------------------------------------------------------------
-echo "--- [hdf5lib] Building LZ4..."
-cd lz4
 
-# Compile LZ4 source + our plugin bridge
+# 8. Build LZF -----------------------------------------------------------------
+echo "--- [hdf5lib] Building LZF..."
+cd lzf
+
 for src in *.c; do
   dest=$(basename "$src" .c).o
   echo "  \$CC \$CFLAGS -c $src -o $dest"
@@ -210,8 +196,22 @@ done
 cd ..
 
 
-# 8. Build Zstandard (zstd) ----------------------------------------------------
-echo "--- [hdf5lib] Building Zstd..."
+# 9. Build SZIP (libaec) -------------------------------------------------------
+
+echo "--- [hdf5lib] Building SZIP (libaec)..."
+cd szip
+
+for src in src/*.c; do
+  dest=$(basename "$src" .c).o
+  echo "  \$CC \$CFLAGS -Iinclude -c $src -o $dest"
+  $CC $CFLAGS -Iinclude -c $src -o $dest
+done
+
+cd ..
+
+
+# 10. Build ZSTD (Zstandard) ----------------------------------------------------
+echo "--- [hdf5lib] Building ZSTD..."
 cd zstd
 
 ZSTD_OPT="-DZSTD_LIB_MINIFY=1 -DZSTD_LIB_DICTBUILDER=0 -DZSTD_LIB_DEPRECATED=0"
@@ -222,7 +222,6 @@ fi
 
 echo "  ZSTD_OPT: $ZSTD_OPT"
 
-# Compile Zstd source + our plugin bridge
 for src in common/*.c compress/*.c decompress/*.c; do
   dest=$(basename "$src" .c).o
   echo "  \$CC \$CFLAGS \$ZSTD_OPT -I. -Icommon -c $src -o $dest"
@@ -232,8 +231,8 @@ done
 cd ..
 
 
-# 9. Build Blosc ---------------------------------------------------------------
-echo "--- [hdf5lib] Building Blosc..."
+# 11. Build BLOSC ---------------------------------------------------------------
+echo "--- [hdf5lib] Building BLOSC..."
 cd blosc
 
 # Fix C23 Compatibility (Remove invalid bool typedef for R >= 4.3)
@@ -247,10 +246,10 @@ touch win32/pthread.c
 # Tell Blosc that LZ4 and Zstd are available and where their headers are.
 # Suppress benign warnings from forcing the generic fallback
 BLOSC_FLAGS="-DHAVE_LZ4 -DHAVE_ZSTD -DHAVE_ZLIB -I../lz4 -I../zstd -I../gzip"
-BLOSC_FLAGS="$BLOSC_FLAGS -Wno-attributes -Wno-unused-variable -Wno-unused-function -Wno-cpp"
+BLOSC_FLAGS="$BLOSC_FLAGS -Wno-attributes -Wno-unused-function -Wno-cpp"
+BLOSC_FLAGS="$BLOSC_FLAGS -Wno-unused-variable -Wno-unused-but-set-variable"
 echo "  BLOSC_FLAGS: $BLOSC_FLAGS"
 
-# Compile Blosc core source + our plugin bridge
 for src in *.c; do
   dest=$(basename "$src" .c).o
   echo "  \$CC \$CFLAGS \$BLOSC_FLAGS -c $src -o $dest"
@@ -260,7 +259,7 @@ done
 cd ..
 
 
-# 10. Build Plugins -------------------------------------------------------------
+# 12. Build Plugins -------------------------------------------------------------
 echo "--- [hdf5lib] Building Plugins..."
 cd plugins
 
@@ -274,7 +273,7 @@ cd plugins
 cd ..
 
 
-# 11. Build HDF5 ----------------------------------------------------------------
+# 13. Build HDF5 ----------------------------------------------------------------
 echo "--- [hdf5lib] Building HDF5..."
 cd hdf5
 
@@ -291,7 +290,7 @@ done
 cd ..
 
 
-# 12. Build Utilities ----------------------------------------------------------
+# 14. Build Utilities ----------------------------------------------------------
 echo "--- [hdf5lib] Building Utilities..."
 cd utils
 
@@ -304,7 +303,7 @@ cd utils
 cd ..
 
 
-# 12. Link and Archive ---------------------------------------------------------
+# 15. Link and Archive ---------------------------------------------------------
 echo "--- [hdf5lib] Linking static library..."
 
 # Detect LTO and rchk/wllvm
@@ -338,7 +337,7 @@ if [ "$MINIFY" -eq 1 ] && command -v strip >/dev/null 2>&1; then
 fi
 
 
-# 13. Installation --------------------------------------------------------------
+# 16. Installation --------------------------------------------------------------
 echo "--- [hdf5lib] Installing..."
 cd ..
 
