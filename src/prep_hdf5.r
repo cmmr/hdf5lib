@@ -82,7 +82,7 @@ for (h_file in h_files) {
 c_files <- list.files(exdir, "\\.c$", full.names = TRUE, recursive = TRUE)
 cat('Converting', length(c_files), '.c files to R\'s C API...\n')
 for (c_file in c_files) {
-  code <- readChar(c_file, file.size(c_file))
+  code <- orig <- readChar(c_file, file.size(c_file))
   code <- gsub('\\bstdout\\b', 'Rstdout',  code) # stdout  -> Rstdout
   code <- gsub('\\bstderr\\b', 'Rstderr',  code) # stderr  -> Rstderr
   code <- gsub('\\bprintf\\b', 'Rprintf',  code) # printf  -> Rprintf
@@ -90,6 +90,12 @@ for (c_file in c_files) {
   code <- gsub('\\bfputs\\b',  'Rfputs',   code) # fputs   -> Rfputs
   code <- gsub('\\babort\\b',  'Rabort',   code) # abort   -> Rabort
   code <- gsub('\\bexit\\b',   'Rexit',    code) # exit    -> Rexit
+
+  # Insert <r_compat.h> below copyright header.
+  if (!identical(orig, code)) {
+    code <- sub('*/', '*/\n\n#include <r_compat.h>\n', code, fixed = TRUE)
+  }
+
   code <- gsub('(?s)(?<!^)/\\*.*?\\*/', '', code, perl = TRUE)
   code <- gsub('\\n\\n+', '\n\n', code)
   writeChar(code, c_file, eos = NULL)

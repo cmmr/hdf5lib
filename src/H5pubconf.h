@@ -105,6 +105,9 @@
 #define H5_HAVE_FILTER_DEFLATE          1
 #define H5_HAVE_ZLIB_H                  1
 #define H5_HAVE_LIBZ                    1
+#define H5_HAVE_FILTER_SZIP             1
+#define H5_HAVE_SZLIB_H                 1
+#define H5_HAVE_LIBSZ                   1
 #define H5_HAVE_DIRENT_H                1
 #define H5_HAVE_SYS_STAT_H              1
 #define H5_HAVE_SYS_TIME_H              1

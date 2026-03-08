@@ -1,0 +1,33 @@
+diff -ru src/libaec-orig/src/sz_compat.c src/libaec-1.1.6/src/sz_compat.c
+--- src/libaec-orig/src/sz_compat.c	2026-02-16 08:12:59.000000000 +0000
++++ src/libaec-1.1.6/src/sz_compat.c	2026-03-02 19:00:11.406249100 +0000
+@@ -312,4 +312,4 @@
+ }
+ 
+ /* netcdf searches for SZ_Compress in configure */
+-char SZ_Compress() { return SZ_OK; }
++char SZ_Compress(void) { return SZ_OK; }
+diff -ru src/libaec-orig/src/vector.c src/libaec-1.1.6/src/vector.c
+--- src/libaec-orig/src/vector.c	2023-08-19 08:24:12.000000000 +0000
++++ src/libaec-1.1.6/src/vector.c	2026-03-02 18:59:53.875401300 +0000
+@@ -10,7 +10,7 @@
+     exit(1); \
+   }
+ 
+-struct vector_t* vector_create()
++struct vector_t* vector_create(void)
+ {
+   struct vector_t *vec = malloc(sizeof(struct vector_t));
+   if (vec == NULL)
+diff -ru src/libaec-orig/src/vector.h src/libaec-1.1.6/src/vector.h
+--- src/libaec-orig/src/vector.h	2024-03-21 07:34:36.000000000 +0000
++++ src/libaec-1.1.6/src/vector.h	2026-03-02 18:59:47.754142300 +0000
+@@ -9,7 +9,7 @@
+     size_t *values;
+ };
+ 
+-struct vector_t*  vector_create();
++struct vector_t*  vector_create(void);
+ void vector_destroy(struct vector_t* vec);
+ size_t vector_size(struct vector_t* vec);
+ void vector_push_back(struct vector_t *vec, size_t offset);

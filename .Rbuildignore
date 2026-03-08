@@ -2,7 +2,7 @@
 ^hdf5lib\.Rproj$
 ^LICENSE\.md$
 ^patches$
-^src/H5pubconf$
+^src/utils/find_hdf5_deps.sh$
 ^src/.\.r$
 ^src/.\.sh$
 ^src/.-orig\.tar\.gz$

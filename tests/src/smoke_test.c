@@ -144,7 +144,53 @@ SEXP C_smoke_test(SEXP sexp_filename) {
   H5Dclose(dset2_id); dset2_id = H5I_INVALID_HID;
   
   
-  // --- 4. Close the file ---
+  // --- 4. Write compressed data using Low-Level API (SZIP TEST) ---
+  space_id = H5Screate_simple(1, dims, NULL);
+  if (space_id < 0) {
+    close_and_free();
+    Rf_error("C_smoke_test (szip): H5Screate_simple failed");
+  }
+  
+  plist_id = H5Pcreate(H5P_DATASET_CREATE);
+  if (plist_id < 0) {
+    close_and_free();
+    Rf_error("C_smoke_test (szip): H5Pcreate failed");
+  }
+  
+  status = H5Pset_chunk(plist_id, 1, chunk_dims);
+  if (status < 0) {
+    close_and_free();
+    Rf_error("C_smoke_test (szip): H5Pset_chunk failed");
+  }
+  
+  // Set szip compression filter (Nearest Neighbor coding, 8 pixels per block)
+  status = H5Pset_szip(plist_id, H5_SZIP_NN_OPTION_MASK, 8);
+  if (status < 0) {
+    close_and_free();
+    Rf_error("C_smoke_test (szip): H5Pset_szip failed. szip filter is not available.");
+  }
+  
+  dset3_id = H5Dcreate2(file_id, "/szip_compressed_data", H5T_NATIVE_INT, 
+                        space_id, H5P_DEFAULT, plist_id, H5P_DEFAULT);
+  if (dset3_id < 0) {
+    close_and_free();
+    Rf_error("C_smoke_test (szip): H5Dcreate2 failed");
+  }
+  
+  status = H5Dwrite(dset3_id, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, 
+                    H5P_DEFAULT, szip_data_write);
+  if (status < 0) {
+    close_and_free();
+    Rf_error("C_smoke_test (szip): H5Dwrite failed");
+  }
+  
+  // Close szip-test objects
+  H5Sclose(space_id); space_id = H5I_INVALID_HID;
+  H5Pclose(plist_id); plist_id = H5I_INVALID_HID;
+  H5Dclose(dset3_id); dset3_id = H5I_INVALID_HID;
+  
+  
+  // --- 5. Close the file ---
   status = H5Fclose(file_id);
   file_id = H5I_INVALID_HID; // Reset ID after close
   if (status < 0) {
@@ -154,7 +200,7 @@ SEXP C_smoke_test(SEXP sexp_filename) {
   
   // === READ PHASE ===
   
-  // --- 5. Open the file read-only ---
+  // --- 6. Open the file read-only ---
   file_id = H5Fopen(filename, H5F_ACC_RDONLY, H5P_DEFAULT);
   if (file_id < 0) {
     close_and_free();
@@ -226,7 +272,32 @@ SEXP C_smoke_test(SEXP sexp_filename) {
   H5Dclose(dset2_id); dset2_id = H5I_INVALID_HID;
   
   
-  // --- 9. Prepare Return Value ---
+  // --- 9. Read compressed data (SZIP TEST) ---
+  dset3_id = H5Dopen2(file_id, "/szip_compressed_data", H5P_DEFAULT);
+  if (dset3_id < 0) {
+    close_and_free();
+    Rf_error("C_smoke_test (szip): H5Dopen2 for '/szip_compressed_data' failed");
+  }
+  
+  status = H5Dread(dset3_id, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, 
+                   H5P_DEFAULT, szip_data_read);
+  if (status < 0) {
+    close_and_free();
+    Rf_error("C_smoke_test (szip): H5Dread for '/szip_compressed_data' failed");
+  }
+  
+  // Verify szip data
+  for (int i = 0; i < TEST_ARRAY_SIZE; i++) {
+    if (szip_data_write[i] != szip_data_read[i]) {
+      close_and_free();
+      Rf_error("C_smoke_test (szip): Data mismatch at index %d! Wrote %d, Read %d",
+               i, szip_data_write[i], szip_data_read[i]);
+    }
+  }
+  H5Dclose(dset3_id); dset3_id = H5I_INVALID_HID;
+  
+  
+  // --- 10. Prepare Return Value ---
   sexp_result = PROTECT(Rf_allocVector(STRSXP, 1));
   SET_STRING_ELT(sexp_result, 0, Rf_mkChar(version_str_read));
   
