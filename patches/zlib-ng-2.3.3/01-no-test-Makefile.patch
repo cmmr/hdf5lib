@@ -1,0 +1,24 @@
+diff -ru src/zlib-ng-orig/configure src/zlib-ng-2.3.3/configure
+--- src/zlib-ng-orig/configure	2026-02-03 21:10:03.000000000 +0000
++++ src/zlib-ng-2.3.3/configure	2026-03-08 20:50:33.893339600 +0000
+@@ -2567,20 +2567,6 @@
+     PC_CFLAGS="-DWITH_GZFILEOP"
+ fi
+ 
+-# Generate Makefile in test dir
+-mkdir -p test
+-sed < $SRCDIR/test/Makefile.in "
+-/^CC *=/s#=.*#=$CC#
+-/^CFLAGS *=/s#=.*#=$CFLAGS#
+-/^LDFLAGS *=/s#=.*#=$LDFLAGS#
+-/^EXE *=/s#=.*#=$EXE#
+-/^alltests: */s#:.*#: $TEST#
+-/^SRCDIR *=/s#=.*#=$SRCDIR/test#
+-/^SRCTOP *=/s#=.*#=$SRCDIR#
+-/^EMU_RUN *=/s#=.*#=$EMU_RUN#
+-/^LIBNAME *=/s#=.*#=$LIBNAME#
+-" > test/Makefile
+-
+ # create zlib.pc with the configure results
+ sed < $SRCDIR/zlib.pc.in "
+ /^CC *=/s#=.*#=$CC#

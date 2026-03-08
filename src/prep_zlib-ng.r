@@ -32,14 +32,14 @@ unlink(recursive = TRUE, expand = FALSE, x = intersect(
                       "PORTING.md", "README.md", "test", "tools" ))))
 
 
-# # Apply patches
-# cat('Applying zlib-ng patches files...\n')
-# patch_dir   <- file.path('patches', paste0("zlib-ng-", VER))
-# patch_files <- list.files(patch_dir, ".patch$", full.names = TRUE)
-# for (patch_file in patch_files) {
-#   cat("->", basename(patch_file), "\n")
-#   system2(command = 'patch', args = c('-p0', '-i', patch_file))
-# }
+# Apply patches
+cat('Applying zlib-ng patches files...\n')
+patch_dir   <- file.path('patches', paste0("zlib-ng-", VER))
+patch_files <- list.files(patch_dir, ".patch$", full.names = TRUE)
+for (patch_file in patch_files) {
+  cat("->", basename(patch_file), "\n")
+  system2(command = 'patch', args = c('-p0', '-i', patch_file))
+}
 
 
 
