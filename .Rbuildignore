@@ -2,10 +2,8 @@
 ^hdf5lib\.Rproj$
 ^LICENSE\.md$
 ^patches$
-^src/utils/find_hdf5_deps.sh$
-^src/.\.r$
+^src/helpers$
 ^src/.\.sh$
-^src/.-orig\.tar\.gz$
 ^cran-comments\.md$
 ^CRAN-SUBMISSION$
 ^conda$

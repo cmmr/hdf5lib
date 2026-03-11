@@ -1,0 +1,17 @@
+diff -ru src/zlib-ng-orig/configure src/zlib-ng-2.3.3/configure
+--- src/zlib-ng-orig/configure	2026-03-08 22:14:09.988476100 +0000
++++ src/zlib-ng-2.3.3/configure	2026-03-08 22:18:21.107498800 +0000
+@@ -1937,11 +1937,11 @@
+         cat > $test.c << EOF
+ int main() { return 0; }
+ EOF
+-        if try $CC -c $SFLAGS $test.c -mfloat-abi=softfp &&
++        if try $CC -Werror -c $SFLAGS $test.c -mfloat-abi=softfp &&
+            try $LDSHARED $LDSHAREDFLAGS $LDFLAGS -o $test$shared_ext $test.o $LDSHAREDLIBC; then
+             floatabi="-mfloat-abi=softfp"
+         else
+-            if try $CC -c $SFLAGS $test.c -mfloat-abi=hard &&
++            if try $CC -Werror -c $SFLAGS $test.c -mfloat-abi=hard &&
+                try $LDSHARED $LDSHAREDFLAGS $LDFLAGS -o $test$shared_ext $test.o $LDSHAREDLIBC; then
+                 floatabi="-mfloat-abi=hard"
+             fi

@@ -18,8 +18,13 @@ return 0;                                                                       
 
 static size_t bzip2_filter(
     unsigned int flags, size_t cd_nelmts, const unsigned int cd_values[], 
-                                                                      size_t nbytes, size_t *buf_size, void **buf) {
+    size_t nbytes, size_t *buf_size, void **buf) {
   
+  /* Handle completely empty dataset/chunk edge case */
+  if (nbytes == 0) {
+    return 0;
+  }
+
   /* ----- Decompression Path ----- */
   if (flags & H5Z_FLAG_REVERSE) {
     bz_stream strm;
@@ -28,6 +33,7 @@ static size_t bzip2_filter(
     strm.opaque = NULL;
     strm.next_in = (char *)*buf;
     
+    /* bzlib's avail_in is an unsigned int. Limit inputs to 4GB. */
     if (nbytes > 0xFFFFFFFF) {
       PUSH_ERR("bzip2_filter: Compressed chunk exceeds 4GB bzlib limit");
     }
@@ -79,17 +85,20 @@ static size_t bzip2_filter(
       PUSH_ERR("bzip2_filter: Decompression failed with error code %d", ret);
     }
     
+    /* Calculate final uncompressed size using pointer arithmetic rather than 
+       stream.total_out_lo32 to safely support chunks > 4GB */
     size_t final_size = (size_t)(strm.next_out - (char *)outbuf);
     BZ2_bzDecompressEnd(&strm);
     
     H5free_memory(*buf);
     *buf = outbuf;
     *buf_size = out_alloc; /* HDF5 tracks the total allocated buffer size */
-      return final_size;
+    return final_size;
   }
   
   /* ----- Compression Path ----- */
   else {
+    /* bzlib's buffer-to-buffer compression uses unsigned int lengths. Limit to 4GB. */
     if (nbytes > 0xFFFFFFFF) {
       PUSH_ERR("bzip2_filter: Uncompressed chunk exceeds 4GB bzlib limit");
     }

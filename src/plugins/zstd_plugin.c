@@ -17,11 +17,19 @@ static size_t zstd_filter(
     unsigned int flags, size_t cd_nelmts, const unsigned int cd_values[], 
     size_t nbytes, size_t *buf_size, void **buf ) {
   
-  /* Decompression Path */
+  /* Handle completely empty dataset/chunk edge case */
+  if (nbytes == 0) {
+    return 0;
+  }
+
+  /* ----- Decompression Path ----- */
   if (flags & H5Z_FLAG_REVERSE) {
+    /* Extract the exact decompressed size from the Zstd frame header */
     size_t decompSize = ZSTD_getFrameContentSize(*buf, nbytes);
+    
+    /* Safely catch Zstd error codes before passing them to the memory allocator */
     if (decompSize == ZSTD_CONTENTSIZE_ERROR || decompSize == ZSTD_CONTENTSIZE_UNKNOWN) {
-      PUSH_ERR("zstd_filter: Invalid Zstd frame content size");
+      PUSH_ERR("zstd_filter: Invalid or unknown Zstd frame content size");
     }
     
     void *outbuf = H5allocate_memory(decompSize, 0);
@@ -32,16 +40,21 @@ static size_t zstd_filter(
       H5free_memory(outbuf);
       PUSH_ERR("zstd_filter: %s", ZSTD_getErrorName(actual));
     }
-    H5free_memory(*buf); *buf = outbuf;
+    
+    H5free_memory(*buf); 
+    *buf = outbuf;
+    *buf_size = decompSize; /* HDF5 tracks the allocated buffer size */
     return actual;
   }
   
-  /* Compression Path */
+  /* ----- Compression Path ----- */
   else {
-    int aggression = (cd_nelmts > 0) ? (int)cd_values[0] : 3;
+    /* Determine compression level (aggression) */
+    int aggression = (cd_nelmts > 0) ? (int)cd_values[0] : ZSTD_CLEVEL_DEFAULT;
     if (aggression < ZSTD_minCLevel()) aggression = ZSTD_minCLevel();
     if (aggression > ZSTD_maxCLevel()) aggression = ZSTD_maxCLevel();
     
+    /* Calculate maximum possible size the compressed data could take */
     size_t compLimit = ZSTD_compressBound(nbytes);
     void *outbuf = H5allocate_memory(compLimit, 0);
     if (!outbuf) PUSH_ERR("zstd_filter: Memory allocation failed");
@@ -51,9 +64,28 @@ static size_t zstd_filter(
       H5free_memory(outbuf);
       PUSH_ERR("zstd_filter: %s", ZSTD_getErrorName(compSize));
     }
-    H5free_memory(*buf); *buf = outbuf; *buf_size = compLimit;
+    
+    /* If data is incompressible, tell HDF5 to store it natively */
+    if (compSize == 0 || compSize >= nbytes) {
+      H5free_memory(outbuf);
+      return 0;
+    }
+    
+    H5free_memory(*buf); 
+    *buf = outbuf; 
+    *buf_size = compLimit;
     return compSize;
   }
 }
 
-const H5Z_class2_t zstd_class = { H5Z_CLASS_T_VERS, H5Z_FILTER_ZSTD, 1, 1, "zstd", NULL, NULL, zstd_filter };
+/* Register the filter class */
+const H5Z_class2_t zstd_class = { 
+  H5Z_CLASS_T_VERS, 
+  H5Z_FILTER_ZSTD, 
+  1, 
+  1, 
+  "zstd", 
+  NULL, 
+  NULL, 
+  zstd_filter 
+};

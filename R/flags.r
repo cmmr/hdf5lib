@@ -108,6 +108,7 @@ ld_flags <- function(api = "latest") {
     paste0("-L", lib_dir),
     "-lhdf5z",    # Link to our libhdf5z.a static library
     "-lpthread",  # HDF5 dependency for thread-safety
+    "-lstdc++",   # Filters written in C++ need this
     if (.Platform$OS.type == "unix") "-ldl" else '-lws2_32'
   )
   

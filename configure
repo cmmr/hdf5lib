@@ -2,13 +2,16 @@
 set -e
 
 HDF5_VER="2.0.0"
-ZLIBNG_VER="2.3.3"
+BLOSC2_VER="2.23.1"
+BSHUF_VER="0.5.2"
+BZIP2_VER="1.0.8"
 LIBAEC_VER="1.1.6"
 LZ4_VER="1.10.0"
 LZF_VER="3.6"
+SNAPPY_VER="1.2.2"
+ZFP_VER="1.0.1"
+ZLIBNG_VER="2.3.3"
 ZSTD_VER="1.5.7"
-BLOSC_VER="1.21.6"
-BZIP2_VER="1.0.8"
 
 
 # 1. Prepare Build and Install Directories -------------------------------------
@@ -49,8 +52,11 @@ esac
 # 3. R Configuration Inspection ------------------------------------------------
 # Fetch compilation flags from R to ensure binary compatibility
 R_CC=$("$R_EXE" CMD config CC)
+R_CXX=$("$R_EXE" CMD config CXX)
 R_CFLAGS=$("$R_EXE" CMD config CFLAGS)
+R_CXXFLAGS=$("$R_EXE" CMD config CXXFLAGS)
 R_CPICFLAGS=$("$R_EXE" CMD config CPICFLAGS)
+R_CXXPICFLAGS=$("$R_EXE" CMD config CXXPICFLAGS)
 R_CPPFLAGS=$("$R_EXE" CMD config CPPFLAGS)
 R_AR=$("$R_EXE" CMD config AR)
 R_MAKE=$("$R_EXE" CMD config MAKE)
@@ -77,78 +83,89 @@ for flag in $R_CFLAGS; do
 done
 
 
-# 4. Set up build directory and vars -------------------------------------------
-echo "--- [hdf5lib] Extracting source tarballs..."
-
-
-tar -xf "../src/hdf5-$HDF5_VER.tar.gz"
-tar -xf "../src/zlib-ng-$ZLIBNG_VER.tar.gz"
-tar -xf "../src/libaec-$LIBAEC_VER.tar.gz"
-tar -xf "../src/lz4-$LZ4_VER.tar.gz"
-tar -xf "../src/liblzf-$LZF_VER.tar.gz"
-tar -xf "../src/zstd-$ZSTD_VER.tar.gz"
-tar -xf "../src/blosc-$BLOSC_VER.tar.gz"
-tar -xf "../src/bzip2-$BZIP2_VER.tar.gz"
-
-# Standardize directory names for the build loops
-mv "hdf5-$HDF5_VER"         hdf5
-mv "zlib-ng-$ZLIBNG_VER"    gzip
-mv "libaec-$LIBAEC_VER"     szip
-mv "lz4-$LZ4_VER/lib"       lz4
-mv "liblzf-$LZF_VER"        lzf
-mv "zstd-$ZSTD_VER/lib"     zstd
-mv "blosc-$BLOSC_VER/blosc" blosc
-mv "bzip2-$BZIP2_VER"       bzip2
-
-cp -r ../src/plugins    .
-cp -r ../src/utils      .
-cp plugins/lz4_config.h lz4/
-cp ../src/H5pubconf.h   hdf5/src/
-
-
-# Copy over R's headers so we can cleanly "include" them with just `-I../R`
-"$R_EXE" -s -e "invisible(file.copy(R.home('include'), '.', recursive = TRUE))"
-mv include R
-
-# Enable r_compat.h to be found from `-I../R`
-cp utils/r_compat.h R/
-
-
 # Construct final flags
 export CC="$R_CC"
 export AR="$R_AR"
-export CFLAGS="$R_CFLAGS $R_CPICFLAGS -DNDEBUG -I../R $R_CPPFLAGS"
+export CFLAGS="$R_CFLAGS $R_CPICFLAGS -DNDEBUG -I../lib $R_CPPFLAGS"
 
-echo "  CC:     $CC"
-echo "  AR:     $AR"
-echo "  CFLAGS: $CFLAGS"
+C_BUILD="$R_CC $R_CFLAGS $R_CPICFLAGS -DNDEBUG -I../lib $R_CPPFLAGS"
+CXX_BUILD="$R_CXX $R_CXXFLAGS $R_CXXPICFLAGS -DNDEBUG -I../lib $R_CPPFLAGS"
 
+echo "  C_BUILD:   $C_BUILD"
+echo "  CXX_BUILD: $CXX_BUILD"
+
+
+# 4. Set up build directory and vars -------------------------------------------
+echo "--- [hdf5lib] Extracting source tarballs..."
+
+tar -xf "../src/hdf5-$HDF5_VER.tar.gz"
+tar -xf "../src/filters/bitshuffle-$BSHUF_VER.tar.gz"
+tar -xf "../src/filters/c-blosc2-$BLOSC2_VER.tar.gz"
+tar -xf "../src/filters/bzip2-$BZIP2_VER.tar.gz"
+tar -xf "../src/filters/libaec-$LIBAEC_VER.tar.gz"
+tar -xf "../src/filters/liblzf-$LZF_VER.tar.gz"
+tar -xf "../src/filters/lz4-$LZ4_VER.tar.gz"
+tar -xf "../src/filters/snappy-$SNAPPY_VER.tar.gz"
+tar -xf "../src/filters/zfp-$ZFP_VER.tar.gz"
+tar -xf "../src/filters/zlib-ng-$ZLIBNG_VER.tar.gz"
+tar -xf "../src/filters/zstd-$ZSTD_VER.tar.gz"
+
+# Standardize directory names for the build loops
+mv "hdf5-$HDF5_VER"            hdf5
+mv "bitshuffle-$BSHUF_VER/src" bshuf
+mv "c-blosc2-$BLOSC2_VER"      blosc2
+mv "bzip2-$BZIP2_VER"          bzip2
+mv "libaec-$LIBAEC_VER"        szip
+mv "liblzf-$LZF_VER"           lzf
+mv "lz4-$LZ4_VER/lib"          lz4
+mv "snappy-$SNAPPY_VER"        snappy
+mv "zfp-$ZFP_VER"              zfp
+mv "zlib-ng-$ZLIBNG_VER"       gzip
+mv "zstd-$ZSTD_VER/lib"        zstd
+
+
+
+# 5. Build Shared Libs ---------------------------------------------------------
+echo "--- [hdf5lib] Building Shared Libs..."
+cp -r ../src/lib .
+cd lib
+
+"$R_EXE" -s -e "invisible(file.copy(file.path(R.home('include'), 'R_ext'), '.', recursive = TRUE))"
 
 # Compile and run generator to detect system type sizes
 # Use unquoted $CC to allow arguments like -std=gnu11
-echo "  \$CC \$CFLAGS -o find_byte_widths$EXE utils/find_byte_widths.c"
-$CC $CFLAGS -o find_byte_widths$EXE utils/find_byte_widths.c
+echo "  \$C_BUILD -o find_byte_widths$EXE find_byte_widths.c"
+$C_BUILD -o find_byte_widths$EXE find_byte_widths.c
 
-echo "  ./find_byte_widths$EXE | tr -d '\r' > hdf5/src/H5_byte_widths.h"
-./find_byte_widths$EXE | tr -d '\r' > hdf5/src/H5_byte_widths.h
+echo "  ./find_byte_widths$EXE | tr -d '\r' > H5_byte_widths.h"
+./find_byte_widths$EXE | tr -d '\r' > H5_byte_widths.h
+
+echo "  \$C_BUILD -c r_compat.c -o r_compat.o"
+$C_BUILD -c r_compat.c -o r_compat.o
+
+echo "  \$C_BUILD -I../hdf5/src -I../blosc2/include -c hdf5lib.c -o hdf5lib.o"
+$C_BUILD -I../hdf5/src -I../blosc2/include -c hdf5lib.c -o hdf5lib.o
+
+cd ..
 
 
 
-# 5. Build BZIP2 ---------------------------------------------------------------
-echo "--- [hdf5lib] Building BZIP2..."
-cd bzip2
+# 6. Build SNAPPY --------------------------------------------------------------
+echo "--- [hdf5lib] Building SNAPPY..."
+cd snappy
+cp -r ../../src/config/snappy/* .
 
-for src in *.c; do
-  dest=$(basename "$src" .c).o
-  echo "  \$CC \$CFLAGS -c $src -o $dest"
-  $CC $CFLAGS -c $src -o $dest
+for src in *.cc; do
+  dest=snappy_$(basename "$src" .cc).o
+  echo "  \$CXX_BUILD -I. -c $src -o $dest"
+  $CXX_BUILD -I. -c $src -o $dest
 done
 
 cd ..
 
 
 
-# 6. Build GZIP (zlib-ng) ------------------------------------------------------
+# 7. Build GZIP (zlib-ng) ------------------------------------------------------
 echo "--- [hdf5lib] Building GZIP (zlib-ng)..."
 cd gzip
 
@@ -167,44 +184,33 @@ rm -f *.o
 cd ..
 
 
-# 7. Build LZ4 -----------------------------------------------------------------
+# 8. Build LZ4 -----------------------------------------------------------------
 echo "--- [hdf5lib] Building LZ4..."
 cd lz4
 
 LZ4_FLAGS="-Wno-constant-logical-operand"
+echo "  LZ4_FLAGS: $LZ4_FLAGS"
 
 for src in *.c; do
-  dest=$(basename "$src" .c).o
-  echo "  \$CC \$CFLAGS \$LZ4_FLAGS -c $src -o $dest"
-  $CC $CFLAGS $LZ4_FLAGS -c $src -o $dest
+  dest=lz4_$(basename "$src" .c).o
+  echo "  \$C_BUILD \$LZ4_FLAGS -c $src -o $dest"
+  $C_BUILD $LZ4_FLAGS -c $src -o $dest
 done
 
 cd ..
 
 
+# 9. Build ZFP ---------------------------------------------------------------
+echo "--- [hdf5lib] Building ZFP..."
+cd zfp
 
-# 8. Build LZF -----------------------------------------------------------------
-echo "--- [hdf5lib] Building LZF..."
-cd lzf
-
-for src in *.c; do
-  dest=$(basename "$src" .c).o
-  echo "  \$CC \$CFLAGS -c $src -o $dest"
-  $CC $CFLAGS -c $src -o $dest
-done
-
-cd ..
-
-
-# 9. Build SZIP (libaec) -------------------------------------------------------
-
-echo "--- [hdf5lib] Building SZIP (libaec)..."
-cd szip
+ZFP_FLAGS="-DBIT_STREAM_WORD_TYPE=uint8 -Iinclude"
+echo "  ZFP_FLAGS: $ZFP_FLAGS"
 
 for src in src/*.c; do
-  dest=$(basename "$src" .c).o
-  echo "  \$CC \$CFLAGS -Iinclude -c $src -o $dest"
-  $CC $CFLAGS -Iinclude -c $src -o $dest
+  dest=zfp_$(basename "$src" .c).o
+  echo "  \$C_BUILD \$ZFP_FLAGS -c $src -o $dest"
+  $C_BUILD $ZFP_FLAGS -c $src -o $dest
 done
 
 cd ..
@@ -214,66 +220,134 @@ cd ..
 echo "--- [hdf5lib] Building ZSTD..."
 cd zstd
 
-ZSTD_OPT="-DZSTD_LIB_MINIFY=1 -DZSTD_LIB_DICTBUILDER=0 -DZSTD_LIB_DEPRECATED=0"
-ZSTD_OPT="$ZSTD_OPT -DZSTD_LEGACY_SUPPORT=0 -DZSTD_DISABLE_ASM -DZSTD_MULTITHREAD"
+ZSTD_FLAGS="-DZSTD_LIB_MINIFY=1 -DZSTD_LIB_DICTBUILDER=0 -DZSTD_LIB_DEPRECATED=0"
+ZSTD_FLAGS="$ZSTD_FLAGS -DZSTD_LEGACY_SUPPORT=0 -DZSTD_DISABLE_ASM -DZSTD_MULTITHREAD"
 if [ "$WIN" -eq 0 ]; then
-  ZSTD_OPT="$ZSTD_OPT -pthread"
+  ZSTD_FLAGS="$ZSTD_FLAGS -pthread"
 fi
 
-echo "  ZSTD_OPT: $ZSTD_OPT"
+echo "  ZSTD_FLAGS: $ZSTD_FLAGS"
 
 for src in common/*.c compress/*.c decompress/*.c; do
-  dest=$(basename "$src" .c).o
-  echo "  \$CC \$CFLAGS \$ZSTD_OPT -I. -Icommon -c $src -o $dest"
-  $CC $CFLAGS $ZSTD_OPT -I. -Icommon -c $src -o $dest
+  dest=zstd_$(basename "$src" .c).o
+  echo "  \$C_BUILD \$ZSTD_FLAGS -I. -Icommon -c $src -o $dest"
+  $C_BUILD $ZSTD_FLAGS -I. -Icommon -c $src -o $dest
 done
 
 cd ..
 
 
-# 11. Build BLOSC ---------------------------------------------------------------
-echo "--- [hdf5lib] Building BLOSC..."
-cd blosc
-
-# Fix C23 Compatibility (Remove invalid bool typedef for R >= 4.3)
-perl -pi -e 's/typedef _Bool bool;//g' shuffle.c
-
-# Bridge Blosc's MSVC thread logic to RTools' native MinGW POSIX threads
-mkdir win32
-echo '#include <pthread.h>' > win32/pthread.h
-touch win32/pthread.c
+# 11. Build BLOSC2 -------------------------------------------------------------
+echo "--- [hdf5lib] Building BLOSC2..."
+cd blosc2
+cp -r ../../src/config/blosc2/* .
 
 # Tell Blosc that LZ4 and Zstd are available and where their headers are.
 # Suppress benign warnings from forcing the generic fallback
-BLOSC_FLAGS="-DHAVE_LZ4 -DHAVE_ZSTD -DHAVE_ZLIB -I../lz4 -I../zstd -I../gzip"
-BLOSC_FLAGS="$BLOSC_FLAGS -Wno-attributes -Wno-unused-function -Wno-cpp"
-BLOSC_FLAGS="$BLOSC_FLAGS -Wno-unused-variable -Wno-unused-but-set-variable"
-echo "  BLOSC_FLAGS: $BLOSC_FLAGS"
+BLOSC2_FLAGS="-I../lz4 -I../zstd -I../gzip -I. -Iinclude -Iblosc"
+BLOSC2_FLAGS="$BLOSC2_FLAGS -Iplugins/codecs/zfp -I../zfp/include"
+BLOSC2_FLAGS="$BLOSC2_FLAGS -Wno-unused-variable"
+echo "  BLOSC2_FLAGS: $BLOSC2_FLAGS"
+
+for src in blosc/*.c plugins/codecs/*/*.c; do
+  dest=blosc2_$(basename "$src" .c).o
+  echo "  \$C_BUILD \$BLOSC2_FLAGS -c $src -o $dest"
+  $C_BUILD $BLOSC2_FLAGS -c $src -o $dest
+done
+
+if [ "$WIN" -eq 1 ]; then
+  echo "  \$C_BUILD \$BLOSC2_FLAGS -c blosc/win32/threading.c -o blosc2_threading.o"
+  $C_BUILD $BLOSC2_FLAGS -c blosc/win32/threading.c -o blosc2_threading.o
+fi
+
+echo "  \$C_BUILD -I../snappy -I. -Iinclude -c blosc2_snappy_codec.c -o blosc2_snappy_codec.o"
+$C_BUILD -I../snappy -I. -Iinclude -c blosc2_snappy_codec.c -o blosc2_snappy_codec.o
+
+cd ..
+
+
+
+# 12. Build BZIP2 ---------------------------------------------------------------
+echo "--- [hdf5lib] Building BZIP2..."
+cd bzip2
 
 for src in *.c; do
-  dest=$(basename "$src" .c).o
-  echo "  \$CC \$CFLAGS \$BLOSC_FLAGS -c $src -o $dest"
-  $CC $CFLAGS $BLOSC_FLAGS -c $src -o $dest
+  dest=bzip2_$(basename "$src" .c).o
+  echo "  \$C_BUILD -c $src -o $dest"
+  $C_BUILD -c $src -o $dest
 done
 
 cd ..
 
 
-# 12. Build Plugins -------------------------------------------------------------
+
+# 13. Build LZF -----------------------------------------------------------------
+echo "--- [hdf5lib] Building LZF..."
+cd lzf
+
+for src in *.c; do
+  dest=lzf_$(basename "$src" .c).o
+  echo "  \$C_BUILD -DLZF_STATE_ARG=1 -c $src -o $dest"
+  $C_BUILD -DLZF_STATE_ARG=1 -c $src -o $dest
+done
+
+cd ..
+
+
+# 14. Build SZIP (libaec) -------------------------------------------------------
+
+echo "--- [hdf5lib] Building SZIP (libaec)..."
+cd szip
+
+for src in src/*.c; do
+  dest=szip_$(basename "$src" .c).o
+  echo "  \$C_BUILD -Iinclude -c $src -o $dest"
+  $C_BUILD -Iinclude -c $src -o $dest
+done
+
+cd ..
+
+
+# 15. Build BITSHUFFLE ----------------------------------------------------------
+
+echo "--- [hdf5lib] Building BITSHUFFLE..."
+cd bshuf
+
+BSHUF_FLAGS="-DZSTD_SUPPORT=1 -I../lz4 -I../zstd"
+echo "  BSHUF_FLAGS: $BSHUF_FLAGS"
+
+for src in *.c; do
+  dest=bshuf_$(basename "$src" .c).o
+  echo "  \$C_BUILD \$BSHUF_FLAGS -c $src -o $dest"
+  $C_BUILD $BSHUF_FLAGS -c $src -o $dest
+done
+
+cd ..
+
+
+# 16. Build Plugins -------------------------------------------------------------
 echo "--- [hdf5lib] Building Plugins..."
+cp -r ../src/plugins .
 cd plugins
 
-  for plugin in blosc bzip2 lz4 lzf zstd; do
+  for plugin in blosc blosc2; do
     src="${plugin}_plugin.c"
     dest="${plugin}_plugin.o"
-    echo "  \$CC \$CFLAGS -I../hdf5/src -I../$plugin -c $src -o $dest"
-    $CC $CFLAGS -I../hdf5/src -I../$plugin -c $src -o $dest
+    echo "  \$C_BUILD -I../hdf5/src -DBLOSC1_COMPAT -I../blosc2/include -c $src -o $dest"
+    $C_BUILD -I../hdf5/src -DBLOSC1_COMPAT -I../blosc2/include -c $src -o $dest
+  done
+
+  for plugin in bshuf bzip2 lz4 lzf snappy zfp zstd; do
+    src="${plugin}_plugin.c"
+    dest="${plugin}_plugin.o"
+    echo "  \$C_BUILD -I../hdf5/src -I../$plugin -I../$plugin/include -I../$plugin/src -c $src -o $dest"
+    $C_BUILD -I../hdf5/src -I../$plugin -I../$plugin/include -I../$plugin/src -c $src -o $dest
   done
 
 cd ..
 
 
-# 13. Build HDF5 ----------------------------------------------------------------
+# 17. Build HDF5 ----------------------------------------------------------------
 echo "--- [hdf5lib] Building HDF5..."
 cd hdf5
 
@@ -282,28 +356,16 @@ HDF5_FLAGS="$HDF5_FLAGS -Isrc -Ihl/src -I../gzip -I../szip/include"
 echo "  HDF5_FLAGS: $HDF5_FLAGS"
 
 for src in src/*.c hl/src/*.c; do
-  obj=$(basename "$src" .c).o
-  echo "  \$CC \$CFLAGS \$HDF5_FLAGS -c $src -o $obj"
-  $CC $CFLAGS $HDF5_FLAGS -c "$src" -o "$obj"
+  dest=hdf5_$(basename "$src" .c).o
+  echo "  \$C_BUILD \$HDF5_FLAGS -c $src -o $dest"
+  $C_BUILD $HDF5_FLAGS -c "$src" -o "$dest"
 done
 
 cd ..
 
 
-# 14. Build Utilities ----------------------------------------------------------
-echo "--- [hdf5lib] Building Utilities..."
-cd utils
 
-  echo "  \$CC \$CFLAGS -c r_compat.c -o r_compat.o"
-  $CC $CFLAGS -c r_compat.c -o r_compat.o
-
-  echo "  \$CC \$CFLAGS -I../hdf5/src -c register_filters.c -o register_filters.o"
-  $CC $CFLAGS -I../hdf5/src -c register_filters.c -o register_filters.o
-
-cd ..
-
-
-# 15. Link and Archive ---------------------------------------------------------
+# 18. Link and Archive ---------------------------------------------------------
 echo "--- [hdf5lib] Linking static library..."
 
 # Detect LTO and rchk/wllvm
@@ -324,10 +386,10 @@ esac
 if [ "$WIN" -eq 0 ] && [ "$MINIFY" -eq 1 ] && command -v ld >/dev/null 2>&1; then
   echo "  Performing partial linking (ld -r)..."
   # Merge all .o files into one big object (deduplicates symbols/sections)
-  ld -r -o libhdf5z.o hdf5/*.o blosc/*.o bzip2/*.o gzip/*.o lz4/*.o lzf/*.o szip/*.o zstd/*.o plugins/*.o utils/*.o
+  ld -r -o libhdf5z.o */*.o
   "$R_AR" -crs libhdf5z.a libhdf5z.o
 else
-  "$R_AR" -crs libhdf5z.a hdf5/*.o blosc/*.o bzip2/*.o gzip/*.o lz4/*.o lzf/*.o szip/*.o zstd/*.o plugins/*.o utils/*.o
+  "$R_AR" -crs libhdf5z.a */*.o
 fi
 
 # Strip debug symbols to reduce installed package size
@@ -337,15 +399,15 @@ if [ "$MINIFY" -eq 1 ] && command -v strip >/dev/null 2>&1; then
 fi
 
 
-# 16. Installation --------------------------------------------------------------
+# 19. Installation --------------------------------------------------------------
 echo "--- [hdf5lib] Installing..."
 cd ..
 
 # Install headers and library
-cp build/hdf5/src/*.h            inst/include/
-cp build/hdf5/hl/src/*.h         inst/include/
-cp build/utils/hdf5lib_filters.h inst/include/
-cp build/libhdf5z.a              inst/lib/
+cp build/lib/*.h          inst/include/
+cp build/hdf5/src/*.h     inst/include/
+cp build/hdf5/hl/src/*.h  inst/include/
+cp build/libhdf5z.a       inst/lib/
 
 # Cleanup
 rm -rf build
