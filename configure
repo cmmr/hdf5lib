@@ -51,11 +51,8 @@ esac
 # 3. R Configuration Inspection ------------------------------------------------
 # Fetch compilation flags from R to ensure binary compatibility
 R_CC=$("$R_EXE" CMD config CC)
-R_CXX=$("$R_EXE" CMD config CXX)
 R_CFLAGS=$("$R_EXE" CMD config CFLAGS)
-R_CXXFLAGS=$("$R_EXE" CMD config CXXFLAGS)
 R_CPICFLAGS=$("$R_EXE" CMD config CPICFLAGS)
-R_CXXPICFLAGS=$("$R_EXE" CMD config CXXPICFLAGS)
 R_CPPFLAGS=$("$R_EXE" CMD config CPPFLAGS)
 R_AR=$("$R_EXE" CMD config AR)
 R_MAKE=$("$R_EXE" CMD config MAKE)
@@ -92,10 +89,7 @@ export AR="$R_AR"
 export CFLAGS="$R_CFLAGS $R_CPICFLAGS -DNDEBUG -I../lib $R_CPPFLAGS"
 
 C_BUILD="$R_CC $R_CFLAGS $R_CPICFLAGS -DNDEBUG -I../lib $R_CPPFLAGS"
-CXX_BUILD="$R_CXX $R_CXXFLAGS $R_CXXPICFLAGS -DNDEBUG -I../lib $R_CPPFLAGS"
-
 echo "  C_BUILD:   $C_BUILD"
-echo "  CXX_BUILD: $CXX_BUILD"
 
 
 # 4. Set up build directory and vars -------------------------------------------
