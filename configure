@@ -78,7 +78,7 @@ fi
 # so they can successfully link against our static library.
 for flag in $R_CFLAGS; do
   case "$flag" in
-    -fsanitize=*) echo "$flag" >> inst/exported_flags.txt ;;
+    -fsanitize=*) echo "$flag" >> ../inst/exported_flags.txt ;;
   esac
 done
 
