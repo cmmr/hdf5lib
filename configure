@@ -320,7 +320,7 @@ for obj in \
     copy trans_bitrow_eight trans_byte_elem_remainder trans_bit_byte_remainder \
     trans_elem trans_byte_bitrow_scal shuffle_bit_eightelem_scal untrans_bit_elem_scal \
     trans_bit_elem_scal trans_byte_elem_scal trans_bit_byte_scal; do
-  BSHUF_OPT="$BSHUF_OPT -Dbshuf_${obj} = bshuf_${obj}_standalone"
+  BSHUF_FLAGS="$BSHUF_FLAGS -Dbshuf_${obj} = bshuf_${obj}_standalone"
 done
 
 echo "  BSHUF_FLAGS: $BSHUF_FLAGS"
