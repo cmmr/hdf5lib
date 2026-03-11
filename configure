@@ -71,11 +71,15 @@ case " $R_CFLAGS " in
   *)       R_CFLAGS="$R_CFLAGS -O2" ;;
 esac
 
+# Suppress Clang's noisy GNU extension warnings for Blosc2 headers
+# (macOS often aliases 'gcc' to 'clang', so we check the version output)
+if "$R_CC" --version 2>&1 | grep -qi "clang"; then
+  R_CFLAGS="$R_CFLAGS -Wno-gnu-zero-variadic-macro-arguments"
+fi
 
 # Capture Runtime/Linker Flags (e.g. Sanitizers)
 # We need to propagate flags like -fsanitize=address to consumer packages
 # so they can successfully link against our static library.
-
 for flag in $R_CFLAGS; do
   case "$flag" in
     -fsanitize=*) echo "$flag" >> inst/exported_flags.txt ;;
@@ -246,7 +250,7 @@ cp -r ../../src/config/blosc2/* .
 # Suppress benign warnings from forcing the generic fallback
 BLOSC2_FLAGS="-I../lz4 -I../zstd -I../gzip -I. -Iinclude -Iblosc"
 BLOSC2_FLAGS="$BLOSC2_FLAGS -Iplugins/codecs/zfp -I../zfp/include"
-BLOSC2_FLAGS="$BLOSC2_FLAGS -Wno-unused-variable -D_GNU_SOURCE"
+BLOSC2_FLAGS="$BLOSC2_FLAGS -Wno-unused-variable -Wno-pedantic -Wno-deprecated-declarations"
 echo "  BLOSC2_FLAGS: $BLOSC2_FLAGS"
 
 for src in blosc/*.c plugins/codecs/*/*.c; do

@@ -73,7 +73,13 @@ for (c_file in c_files) {
   code <- gsub('\\bexit\\b',   'Rexit',    code) # exit    -> Rexit
 
   if (!identical(orig, code)) {
-    code <- paste0('#include <r_compat.h>\n', code)
+    if (grepl('#include', code, fixed = TRUE)) {
+      code <- sub('#include', '#include <r_compat.h>\n#include', code, fixed = TRUE)
+    }
+    else {
+      code <- paste0('#include <r_compat.h>\n', code)
+    }
+    
     writeChar(code, c_file, eos = NULL)
   }
 }
