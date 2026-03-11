@@ -9,7 +9,6 @@ extern const H5Z_class2_t bshuf_class;
 extern const H5Z_class2_t bzip2_class;
 extern const H5Z_class2_t lz4_class;
 extern const H5Z_class2_t lzf_class;
-extern const H5Z_class2_t snappy_class;
 extern const H5Z_class2_t zfp_class;
 extern const H5Z_class2_t zstd_class;
 
@@ -23,8 +22,6 @@ extern int zfp_prec_decompress(const uint8_t* input, int32_t input_len, uint8_t*
 
 
 /* --- Define Blosc2 Codecs natively --- */
-extern blosc2_codec snappy_codec; /* Still located in snappy_plugin.c */
-
 blosc2_codec ndlz_codec = {
   .compcode = BLOSC_CODEC_NDLZ,
   .compname = "ndlz",
@@ -33,7 +30,6 @@ blosc2_codec ndlz_codec = {
   .encoder  = ndlz_compress,
   .decoder  = ndlz_decompress
 };
-
 blosc2_codec zfp_prec_codec = {
   .compcode = BLOSC_CODEC_ZFP_FIXED_PRECISION,
   .compname = "zfp_prec",
@@ -51,7 +47,6 @@ herr_t hdf5lib_register_all_filters(void) {
   blosc2_init();
   
   /* 2. Shoehorn custom static codecs into Blosc2 natively */
-  blosc2_register_codec(&snappy_codec);
   blosc2_register_codec(&ndlz_codec);
   blosc2_register_codec(&zfp_prec_codec);
   
@@ -62,7 +57,6 @@ herr_t hdf5lib_register_all_filters(void) {
   if (H5Zregister(&bzip2_class)  < 0) err = -1;
   if (H5Zregister(&lz4_class)    < 0) err = -1;
   if (H5Zregister(&lzf_class)    < 0) err = -1;
-  if (H5Zregister(&snappy_class) < 0) err = -1;
   if (H5Zregister(&zfp_class)    < 0) err = -1;
   if (H5Zregister(&zstd_class)   < 0) err = -1;
   

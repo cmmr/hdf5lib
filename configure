@@ -8,7 +8,6 @@ BZIP2_VER="1.0.8"
 LIBAEC_VER="1.1.6"
 LZ4_VER="1.10.0"
 LZF_VER="3.6"
-SNAPPY_VER="1.2.2"
 ZFP_VER="1.0.1"
 ZLIBNG_VER="2.3.3"
 ZSTD_VER="1.5.7"
@@ -109,7 +108,6 @@ tar -xf "../src/filters/bzip2-$BZIP2_VER.tar.gz"
 tar -xf "../src/filters/libaec-$LIBAEC_VER.tar.gz"
 tar -xf "../src/filters/liblzf-$LZF_VER.tar.gz"
 tar -xf "../src/filters/lz4-$LZ4_VER.tar.gz"
-tar -xf "../src/filters/snappy-$SNAPPY_VER.tar.gz"
 tar -xf "../src/filters/zfp-$ZFP_VER.tar.gz"
 tar -xf "../src/filters/zlib-ng-$ZLIBNG_VER.tar.gz"
 tar -xf "../src/filters/zstd-$ZSTD_VER.tar.gz"
@@ -122,7 +120,6 @@ mv "bzip2-$BZIP2_VER"          bzip2
 mv "libaec-$LIBAEC_VER"        szip
 mv "liblzf-$LZF_VER"           lzf
 mv "lz4-$LZ4_VER/lib"          lz4
-mv "snappy-$SNAPPY_VER"        snappy
 mv "zfp-$ZFP_VER"              zfp
 mv "zlib-ng-$ZLIBNG_VER"       gzip
 mv "zstd-$ZSTD_VER/lib"        zstd
@@ -149,21 +146,6 @@ $C_BUILD -c r_compat.c -o r_compat.o
 
 echo "  \$C_BUILD -I../hdf5/src -I../blosc2/include -c hdf5lib.c -o hdf5lib.o"
 $C_BUILD -I../hdf5/src -I../blosc2/include -c hdf5lib.c -o hdf5lib.o
-
-cd ..
-
-
-
-# 6. Build SNAPPY --------------------------------------------------------------
-echo "--- [hdf5lib] Building SNAPPY..."
-cd snappy
-cp -r ../../src/config/snappy/* .
-
-for src in *.cc; do
-  dest=snappy_$(basename "$src" .cc).o
-  echo "  \$CXX_BUILD -I. -c $src -o $dest"
-  $CXX_BUILD -I. -c $src -o $dest
-done
 
 cd ..
 
@@ -264,9 +246,6 @@ if [ "$WIN" -eq 1 ]; then
   $C_BUILD $BLOSC2_FLAGS -c blosc/win32/threading.c -o blosc2_threading.o
 fi
 
-echo "  \$C_BUILD -I../snappy -I. -Iinclude -c blosc2_snappy_codec.c -o blosc2_snappy_codec.o"
-$C_BUILD -I../snappy -I. -Iinclude -c blosc2_snappy_codec.c -o blosc2_snappy_codec.o
-
 cd ..
 
 
@@ -353,7 +332,7 @@ for plugin in blosc blosc2; do
   $C_BUILD $PLUGIN_FLAGS -DBLOSC1_COMPAT -I../blosc2/include -c $src -o $dest
 done
 
-for plugin in bshuf bzip2 lz4 lzf snappy zfp zstd; do
+for plugin in bshuf bzip2 lz4 lzf zfp zstd; do
   src="${plugin}_plugin.c"
   dest="${plugin}_plugin.o"
   echo "  \$C_BUILD \$PLUGIN_FLAGS -I../$plugin -I../$plugin/include -I../$plugin/src -c $src -o $dest"

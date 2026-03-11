@@ -117,7 +117,7 @@ static size_t blosc_filter(
     int doshuffle = (cd_nelmts >= 6) ? (int)cd_values[5] : 1;
     const char* compname = "blosclz";
     
-    /* Support any backend compressor via slot 6 (e.g., lz4, zstd, snappy) */
+    /* Support any backend compressor via slot 6 (e.g., lz4, zstd) */
     if (cd_nelmts >= 7) {
       int compcode = cd_values[6];
       if (blosc_compcode_to_compname(compcode, &compname) == -1) {
