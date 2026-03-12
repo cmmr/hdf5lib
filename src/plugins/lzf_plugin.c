@@ -141,7 +141,7 @@ static size_t lzf_filter(
     if (!outbuf) PUSH_ERR("lzf_filter: Memory allocation failed");
     
     /* Allocate the 512KB LZF hash table on the heap */
-    void *htab = H5allocate_memory(sizeof(LZF_STATE), 0);
+    void *htab = H5allocate_memory(sizeof(LZF_STATE), 1);
     if (!htab) {
       H5free_memory(outbuf);
       PUSH_ERR("lzf_filter: Hash table allocation failed");

@@ -8,6 +8,7 @@ BZIP2_VER="1.0.8"
 LIBAEC_VER="1.1.6"
 LZ4_VER="1.10.0"
 LZF_VER="3.6"
+CSNAPPY_VER="6c10c30"
 ZFP_VER="1.0.1"
 ZLIBNG_VER="2.3.3"
 ZSTD_VER="1.5.7"
@@ -88,8 +89,13 @@ export CC="$R_CC"
 export AR="$R_AR"
 export CFLAGS="$R_CFLAGS $R_CPICFLAGS -DNDEBUG -I../lib $R_CPPFLAGS"
 
-C_BUILD="$R_CC $R_CFLAGS $R_CPICFLAGS -DNDEBUG -I../lib $R_CPPFLAGS"
-echo "  C_BUILD:   $C_BUILD"
+# Use shell function instead of string variable to safely inject 
+# local package flags BEFORE the system R_CPPFLAGS. This prevents 
+# global system libraries from shadowing our bundled headers.
+c_build() {
+  $R_CC $R_CFLAGS $R_CPICFLAGS -DNDEBUG -I../lib "$@" $R_CPPFLAGS
+}
+echo "  c_build: $R_CC $R_CFLAGS $R_CPICFLAGS -DNDEBUG -I../lib \"\$@\" $R_CPPFLAGS"
 
 
 # 4. Set up build directory and vars -------------------------------------------
@@ -102,6 +108,7 @@ tar -xf "../src/filters/bzip2-$BZIP2_VER.tar.gz"
 tar -xf "../src/filters/libaec-$LIBAEC_VER.tar.gz"
 tar -xf "../src/filters/liblzf-$LZF_VER.tar.gz"
 tar -xf "../src/filters/lz4-$LZ4_VER.tar.gz"
+tar -xf "../src/filters/csnappy-$CSNAPPY_VER.tar.gz"
 tar -xf "../src/filters/zfp-$ZFP_VER.tar.gz"
 tar -xf "../src/filters/zlib-ng-$ZLIBNG_VER.tar.gz"
 tar -xf "../src/filters/zstd-$ZSTD_VER.tar.gz"
@@ -114,6 +121,7 @@ mv "bzip2-$BZIP2_VER"          bzip2
 mv "libaec-$LIBAEC_VER"        szip
 mv "liblzf-$LZF_VER"           lzf
 mv "lz4-$LZ4_VER/lib"          lz4
+mv "csnappy-$CSNAPPY_VER"      snappy
 mv "zfp-$ZFP_VER"              zfp
 mv "zlib-ng-$ZLIBNG_VER"       gzip
 mv "zstd-$ZSTD_VER/lib"        zstd
@@ -129,17 +137,31 @@ cd lib
 
 # Compile and run generator to detect system type sizes
 # Use unquoted $CC to allow arguments like -std=gnu11
-echo "  \$C_BUILD -o find_byte_widths$EXE find_byte_widths.c"
-$C_BUILD -o find_byte_widths$EXE find_byte_widths.c
+echo "  c_build -o find_byte_widths$EXE find_byte_widths.c"
+c_build -o find_byte_widths$EXE find_byte_widths.c
 
 echo "  ./find_byte_widths$EXE | tr -d '\r' > H5_byte_widths.h"
 ./find_byte_widths$EXE | tr -d '\r' > H5_byte_widths.h
 
-echo "  \$C_BUILD -c r_compat.c -o r_compat.o"
-$C_BUILD -c r_compat.c -o r_compat.o
+echo "  c_build -c r_compat.c -o r_compat.o"
+c_build -c r_compat.c -o r_compat.o
 
-echo "  \$C_BUILD -I../hdf5/src -I../blosc2/include -c hdf5lib.c -o hdf5lib.o"
-$C_BUILD -I../hdf5/src -I../blosc2/include -c hdf5lib.c -o hdf5lib.o
+echo "  c_build -I../hdf5/src -I../blosc2/include -c hdf5lib.c -o hdf5lib.o"
+c_build -I../hdf5/src -I../blosc2/include -c hdf5lib.c -o hdf5lib.o
+
+cd ..
+
+
+
+# 6. Build SNAPPY (csnappy) ----------------------------------------------------
+echo "--- [hdf5lib] Building SNAPPY (csnappy)..."
+cd snappy
+
+for src in *.c; do
+  dest=snappy_$(basename "$src" .c).o
+  echo "  c_build -I. -c $src -o $dest"
+  c_build -I. -c $src -o $dest
+done
 
 cd ..
 
@@ -173,8 +195,8 @@ echo "  LZ4_FLAGS: $LZ4_FLAGS"
 
 for src in *.c; do
   dest=lz4_$(basename "$src" .c).o
-  echo "  \$C_BUILD \$LZ4_FLAGS -c $src -o $dest"
-  $C_BUILD $LZ4_FLAGS -c $src -o $dest
+  echo "  c_build \$LZ4_FLAGS -c $src -o $dest"
+  c_build $LZ4_FLAGS -c $src -o $dest
 done
 
 cd ..
@@ -189,8 +211,8 @@ echo "  ZFP_FLAGS: $ZFP_FLAGS"
 
 for src in src/*.c; do
   dest=zfp_$(basename "$src" .c).o
-  echo "  \$C_BUILD \$ZFP_FLAGS -c $src -o $dest"
-  $C_BUILD $ZFP_FLAGS -c $src -o $dest
+  echo "  c_build \$ZFP_FLAGS -c $src -o $dest"
+  c_build $ZFP_FLAGS -c $src -o $dest
 done
 
 cd ..
@@ -210,8 +232,8 @@ echo "  ZSTD_FLAGS: $ZSTD_FLAGS"
 
 for src in common/*.c compress/*.c decompress/*.c; do
   dest=zstd_$(basename "$src" .c).o
-  echo "  \$C_BUILD \$ZSTD_FLAGS -I. -Icommon -c $src -o $dest"
-  $C_BUILD $ZSTD_FLAGS -I. -Icommon -c $src -o $dest
+  echo "  c_build \$ZSTD_FLAGS -I. -Icommon -c $src -o $dest"
+  c_build $ZSTD_FLAGS -I. -Icommon -c $src -o $dest
 done
 
 cd ..
@@ -231,14 +253,17 @@ echo "  BLOSC2_FLAGS: $BLOSC2_FLAGS"
 
 for src in blosc/*.c plugins/codecs/*/*.c; do
   dest=blosc2_$(basename "$src" .c).o
-  echo "  \$C_BUILD \$BLOSC2_FLAGS -c $src -o $dest"
-  $C_BUILD $BLOSC2_FLAGS -c $src -o $dest
+  echo "  c_build \$BLOSC2_FLAGS -c $src -o $dest"
+  c_build $BLOSC2_FLAGS -c $src -o $dest
 done
 
 if [ "$WIN" -eq 1 ]; then
-  echo "  \$C_BUILD \$BLOSC2_FLAGS -c blosc/win32/threading.c -o blosc2_threading.o"
-  $C_BUILD $BLOSC2_FLAGS -c blosc/win32/threading.c -o blosc2_threading.o
+  echo "  c_build \$BLOSC2_FLAGS -c blosc/win32/threading.c -o blosc2_threading.o"
+  c_build $BLOSC2_FLAGS -c blosc/win32/threading.c -o blosc2_threading.o
 fi
+
+echo "  c_build -I../snappy -I. -Iinclude -c blosc2_snappy_codec.c -o blosc2_snappy_codec.o"
+c_build -I../snappy -I. -Iinclude -c blosc2_snappy_codec.c -o blosc2_snappy_codec.o
 
 cd ..
 
@@ -250,8 +275,8 @@ cd bzip2
 
 for src in *.c; do
   dest=bzip2_$(basename "$src" .c).o
-  echo "  \$C_BUILD -c $src -o $dest"
-  $C_BUILD -c $src -o $dest
+  echo "  c_build -c $src -o $dest"
+  c_build -c $src -o $dest
 done
 
 cd ..
@@ -262,10 +287,13 @@ cd ..
 echo "--- [hdf5lib] Building LZF..."
 cd lzf
 
+LZF_FLAGS="-DLZF_STATE_ARG=1 -DSTRICT_ALIGN=1"
+echo "  LZF_FLAGS: $LZF_FLAGS"
+
 for src in *.c; do
   dest=lzf_$(basename "$src" .c).o
-  echo "  \$C_BUILD -DLZF_STATE_ARG=1 -c $src -o $dest"
-  $C_BUILD -DLZF_STATE_ARG=1 -c $src -o $dest
+  echo "  c_build \$LZF_FLAGS -c $src -o $dest"
+  c_build $LZF_FLAGS -c $src -o $dest
 done
 
 cd ..
@@ -278,8 +306,8 @@ cd szip
 
 for src in src/*.c; do
   dest=szip_$(basename "$src" .c).o
-  echo "  \$C_BUILD -Iinclude -c $src -o $dest"
-  $C_BUILD -Iinclude -c $src -o $dest
+  echo "  c_build -Iinclude -c $src -o $dest"
+  c_build -Iinclude -c $src -o $dest
 done
 
 cd ..
@@ -304,8 +332,8 @@ echo "  BSHUF_FLAGS: $BSHUF_FLAGS"
 
 for src in *.c; do
   dest=bshuf_$(basename "$src" .c).o
-  echo "  \$C_BUILD \$BSHUF_FLAGS -c $src -o $dest"
-  $C_BUILD $BSHUF_FLAGS -c $src -o $dest
+  echo "  c_build \$BSHUF_FLAGS -c $src -o $dest"
+  c_build $BSHUF_FLAGS -c $src -o $dest
 done
 
 cd ..
@@ -322,15 +350,15 @@ echo "  PLUGIN_FLAGS: $PLUGIN_FLAGS"
 for plugin in blosc blosc2; do
   src="${plugin}_plugin.c"
   dest="${plugin}_plugin.o"
-  echo "  \$C_BUILD \$PLUGIN_FLAGS -DBLOSC1_COMPAT -I../blosc2/include -c $src -o $dest"
-  $C_BUILD $PLUGIN_FLAGS -DBLOSC1_COMPAT -I../blosc2/include -c $src -o $dest
+  echo "  c_build \$PLUGIN_FLAGS -DBLOSC1_COMPAT -I../blosc2/include -c $src -o $dest"
+  c_build $PLUGIN_FLAGS -DBLOSC1_COMPAT -I../blosc2/include -c $src -o $dest
 done
 
-for plugin in bshuf bzip2 lz4 lzf zfp zstd; do
+for plugin in bshuf bzip2 lz4 lzf snappy zfp zstd; do
   src="${plugin}_plugin.c"
   dest="${plugin}_plugin.o"
-  echo "  \$C_BUILD \$PLUGIN_FLAGS -I../$plugin -I../$plugin/include -I../$plugin/src -c $src -o $dest"
-  $C_BUILD $PLUGIN_FLAGS -I../$plugin -I../$plugin/include -I../$plugin/src -c $src -o $dest
+  echo "  c_build \$PLUGIN_FLAGS -I../$plugin -I../$plugin/include -I../$plugin/src -c $src -o $dest"
+  c_build $PLUGIN_FLAGS -I../$plugin -I../$plugin/include -I../$plugin/src -c $src -o $dest
 done
 
 cd ..
@@ -346,8 +374,8 @@ echo "  HDF5_FLAGS: $HDF5_FLAGS"
 
 for src in src/*.c hl/src/*.c; do
   dest=hdf5_$(basename "$src" .c).o
-  echo "  \$C_BUILD \$HDF5_FLAGS -c $src -o $dest"
-  $C_BUILD $HDF5_FLAGS -c "$src" -o "$dest"
+  echo "  c_build \$HDF5_FLAGS -c $src -o $dest"
+  c_build $HDF5_FLAGS -c "$src" -o "$dest"
 done
 
 cd ..

@@ -1,0 +1,31 @@
+diff -ru src/c-blosc2-orig/blosc/frame.c src/c-blosc2-2.23.1/blosc/frame.c
+--- src/c-blosc2-orig/blosc/frame.c	2026-03-03 09:50:48.000000000 +0000
++++ src/c-blosc2-2.23.1/blosc/frame.c	2026-03-11 23:16:42.039320800 +0000
+@@ -1052,20 +1052,19 @@
+       return BLOSC2_ERROR_FAILURE;
+     }
+   }
+-
++  
+   // Copy the offsets chunk at the end of the frame
+   if (frame->urlpath == NULL) {
+-    memcpy(frame->cframe + h2len + cbytes, off_chunk, off_cbytes);
++    if (off_chunk != NULL) {
++      memcpy(frame->cframe + h2len + cbytes, off_chunk, off_cbytes);
++    }
+   }
+   else {
+-    io_cb->write(off_chunk, off_cbytes, 1, io_pos, fp);
++    if (off_chunk != NULL) {
++      io_cb->write(off_chunk, off_cbytes, 1, io_pos, fp);
++    }
+     io_cb->close(fp);
+   }
+-  free(off_chunk);
+-  rc = frame_update_trailer(frame, schunk);
+-  if (rc < 0) {
+-    return rc;
+-  }
+ 
+   return frame->len;
+ }

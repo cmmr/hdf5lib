@@ -210,9 +210,9 @@ static herr_t H5Z_zfp_set_local(hid_t dcpl_id, hid_t type_id, hid_t chunk_space_
     int ndims, ndims_used = 0;
     size_t dsize, hdr_bits, hdr_bytes;
     size_t mem_cd_nelmts = H5Z_ZFP_CD_NELMTS_MEM;
-    unsigned int mem_cd_values[H5Z_ZFP_CD_NELMTS_MEM];
+    unsigned int mem_cd_values[H5Z_ZFP_CD_NELMTS_MEM] = {0};
     size_t hdr_cd_nelmts = H5Z_ZFP_CD_NELMTS_MAX;
-    unsigned int hdr_cd_values[H5Z_ZFP_CD_NELMTS_MAX];
+    unsigned int hdr_cd_values[H5Z_ZFP_CD_NELMTS_MAX] = {0};
     unsigned int flags = 0;
     herr_t retval = 0;
     hsize_t dims[H5S_MAX_RANK], dims_used[H5S_MAX_RANK];
