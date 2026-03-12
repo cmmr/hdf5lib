@@ -20,10 +20,17 @@
 #define H5Z_FILTER_BLOSC2    32026
 
 /* --- Test Mask Architecture --- */
-#define TEST_FLT 1
-#define TEST_CMP 2
-#define TEST_ARR 4
-#define TEST_ALL (TEST_FLT | TEST_CMP | TEST_ARR)
+#define TEST_FLT 1   /* Standard Floating Point Data */
+#define TEST_CMP 2   /* Compound Datatypes */
+#define TEST_ARR 4   /* Array Datatypes */
+#define TEST_ZRO 8   /* Highly Compressible (Zeros) -> Tests Buffer Resizes */
+#define TEST_RND 16  /* Incompressible (Random) -> Tests Fallback mechanisms */
+#define TEST_UNC 32  /* Unchunked/Contiguous layout */
+#define TEST_EMP 64  /* Empty dataset -> Tests nbytes == 0 chunk logic */
+
+#define TEST_ALL (TEST_FLT | TEST_CMP | TEST_ARR | TEST_ZRO | TEST_RND | TEST_UNC | TEST_EMP)
+/* Filters like ZFP only officially support numerical matrices */
+#define TEST_NUMERIC_ONLY (TEST_FLT | TEST_ZRO | TEST_UNC | TEST_EMP)
 
 /* --- Verbose Error Macro --- */
 #define CHECK(expr, step_msg) do { \
@@ -35,7 +42,7 @@
 
 /* --- Filter Configuration Architecture --- */
 typedef struct {
-  const char*  name;
+  const char* name;
   H5Z_filter_t id;
   size_t       nelmts;
   unsigned int cd_values[7];
@@ -194,6 +201,165 @@ cleanup:
   return ret;
 }
 
+/* 4. Highly Compressible Data Test (Tests Memory Resizing during Decompression) */
+static int test_highly_compressible_data(hid_t fid, const FilterConfig* cfg) {
+  #define HC_SIZE 100000
+  float *data = NULL, *data_out = NULL;
+  hsize_t dims[1] = {HC_SIZE}, chunkdims[1] = {10000};
+  hid_t sid = -1, plist = -1, dset = -1;
+  int ret = -1;
+
+  data = malloc(HC_SIZE * sizeof(float));
+  data_out = malloc(HC_SIZE * sizeof(float));
+  if (!data || !data_out) goto cleanup;
+  
+  /* Constant values compress massively, forcing decompression buffer loops to work */
+  for(int i=0; i<HC_SIZE; i++) { data[i] = 0.0f; data_out[i] = -1.0f; }
+
+  CHECK(sid = H5Screate_simple(1, dims, NULL), "H5Screate_simple");
+  CHECK(plist = H5Pcreate(H5P_DATASET_CREATE), "H5Pcreate");
+  CHECK(H5Pset_chunk(plist, 1, chunkdims), "H5Pset_chunk");
+  CHECK(apply_filter(plist, cfg), "apply_filter");
+
+  char dset_name[128];
+  snprintf(dset_name, sizeof(dset_name), "/compressible_%s", cfg->name);
+  CHECK(dset = H5Dcreate2(fid, dset_name, H5T_NATIVE_FLOAT, sid, H5P_DEFAULT, plist, H5P_DEFAULT), "H5Dcreate2");
+  CHECK(H5Dwrite(dset, H5T_NATIVE_FLOAT, H5S_ALL, H5S_ALL, H5P_DEFAULT, data), "H5Dwrite");
+  CHECK(H5Dread(dset, H5T_NATIVE_FLOAT, H5S_ALL, H5S_ALL, H5P_DEFAULT, data_out), "H5Dread");
+
+  for(int i=0; i<HC_SIZE; i++) {
+    if(data[i] - data_out[i] > 0.1 || data_out[i] - data[i] > 0.1) {
+      Rprintf("\n      -> Compressible data mismatch at index %d", i);
+      goto cleanup;
+    }
+  }
+  ret = 0;
+
+cleanup:
+  if (data) free(data);
+  if (data_out) free(data_out);
+  if (dset >= 0) H5Dclose(dset);
+  if (plist >= 0) H5Pclose(plist);
+  if (sid >= 0) H5Sclose(sid);
+  return ret;
+}
+
+/* 5. Incompressible Data Test (Tests Plugin Fallback paths natively) */
+static int test_incompressible_data(hid_t fid, const FilterConfig* cfg) {
+  #define RND_SIZE 10000
+  unsigned char *data = NULL, *data_out = NULL;
+  hsize_t dims[1] = {RND_SIZE}, chunkdims[1] = {1000};
+  hid_t sid = -1, plist = -1, dset = -1;
+  int ret = -1;
+
+  data = malloc(RND_SIZE);
+  data_out = malloc(RND_SIZE);
+  if (!data || !data_out) goto cleanup;
+  
+  /* Pseudo-random generation ensures algorithms cannot compress it */
+  srand(12345);
+  for(int i=0; i<RND_SIZE; i++) { 
+    data[i] = (unsigned char)(rand() % 256); 
+    data_out[i] = 0; 
+  }
+
+  CHECK(sid = H5Screate_simple(1, dims, NULL), "H5Screate_simple");
+  CHECK(plist = H5Pcreate(H5P_DATASET_CREATE), "H5Pcreate");
+  CHECK(H5Pset_chunk(plist, 1, chunkdims), "H5Pset_chunk");
+  CHECK(apply_filter(plist, cfg), "apply_filter");
+
+  char dset_name[128];
+  snprintf(dset_name, sizeof(dset_name), "/incompressible_%s", cfg->name);
+  CHECK(dset = H5Dcreate2(fid, dset_name, H5T_NATIVE_UCHAR, sid, H5P_DEFAULT, plist, H5P_DEFAULT), "H5Dcreate2");
+  CHECK(H5Dwrite(dset, H5T_NATIVE_UCHAR, H5S_ALL, H5S_ALL, H5P_DEFAULT, data), "H5Dwrite");
+  CHECK(H5Dread(dset, H5T_NATIVE_UCHAR, H5S_ALL, H5S_ALL, H5P_DEFAULT, data_out), "H5Dread");
+
+  for(int i=0; i<RND_SIZE; i++) {
+    if(data[i] != data_out[i]) {
+      Rprintf("\n      -> Incompressible data mismatch at index %d", i);
+      goto cleanup;
+    }
+  }
+  ret = 0;
+
+cleanup:
+  if (data) free(data);
+  if (data_out) free(data_out);
+  if (dset >= 0) H5Dclose(dset);
+  if (plist >= 0) H5Pclose(plist);
+  if (sid >= 0) H5Sclose(sid);
+  return ret;
+}
+
+/* 6. Unchunked / Contiguous Data Control Test */
+static int test_unchunked_data(hid_t fid, const FilterConfig* cfg) {
+  #define UNC_SIZE 1024
+  int data[UNC_SIZE], data_out[UNC_SIZE];
+  hsize_t dims[1] = {UNC_SIZE};
+  hid_t sid = -1, plist = -1, dset = -1;
+  int ret = -1;
+
+  for(int i=0; i<UNC_SIZE; i++) { data[i] = i; data_out[i] = -1; }
+
+  CHECK(sid = H5Screate_simple(1, dims, NULL), "H5Screate_simple");
+  CHECK(plist = H5Pcreate(H5P_DATASET_CREATE), "H5Pcreate");
+  
+  /* Explicitly DO NOT chunk. HDF5 filters strictly require a chunked layout.
+     Applying a filter over a contiguous layout will result in an HDF5 failure.
+     This function acts as a control to ensure basic I/O succeeds. */
+
+  char dset_name[128];
+  snprintf(dset_name, sizeof(dset_name), "/unchunked_%s", cfg->name);
+  CHECK(dset = H5Dcreate2(fid, dset_name, H5T_NATIVE_INT, sid, H5P_DEFAULT, plist, H5P_DEFAULT), "H5Dcreate2");
+  CHECK(H5Dwrite(dset, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT, data), "H5Dwrite");
+  CHECK(H5Dread(dset, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT, data_out), "H5Dread");
+
+  for(int i=0; i<UNC_SIZE; i++) {
+    if(data[i] != data_out[i]) {
+      Rprintf("\n      -> Unchunked data mismatch at index %d", i);
+      goto cleanup;
+    }
+  }
+  ret = 0;
+
+cleanup:
+  if (dset >= 0) H5Dclose(dset);
+  if (plist >= 0) H5Pclose(plist);
+  if (sid >= 0) H5Sclose(sid);
+  return ret;
+}
+
+/* 7. Empty Dataset Logic Path (Tests `if (nbytes == 0)` short-circuits) */
+static int test_empty_dataset(hid_t fid, const FilterConfig* cfg) {
+  hsize_t dims[1] = {0}; /* 0 Elements Extent */
+  hsize_t maxdims[1] = {H5S_UNLIMITED};
+  hsize_t chunkdims[1] = {128};
+  hid_t sid = -1, plist = -1, dset = -1;
+  int ret = -1;
+
+  CHECK(sid = H5Screate_simple(1, dims, maxdims), "H5Screate_simple");
+  CHECK(plist = H5Pcreate(H5P_DATASET_CREATE), "H5Pcreate");
+  CHECK(H5Pset_chunk(plist, 1, chunkdims), "H5Pset_chunk");
+  CHECK(apply_filter(plist, cfg), "apply_filter");
+
+  char dset_name[128];
+  snprintf(dset_name, sizeof(dset_name), "/empty_%s", cfg->name);
+  CHECK(dset = H5Dcreate2(fid, dset_name, H5T_NATIVE_FLOAT, sid, H5P_DEFAULT, plist, H5P_DEFAULT), "H5Dcreate2");
+  
+  /* Trigger the I/O pipeline for an empty layout */
+  float dummy = 0.0f;
+  CHECK(H5Dwrite(dset, H5T_NATIVE_FLOAT, H5S_ALL, H5S_ALL, H5P_DEFAULT, &dummy), "H5Dwrite");
+  CHECK(H5Dread(dset, H5T_NATIVE_FLOAT, H5S_ALL, H5S_ALL, H5P_DEFAULT, &dummy), "H5Dread");
+
+  ret = 0;
+
+cleanup:
+  if (dset >= 0) H5Dclose(dset);
+  if (plist >= 0) H5Pclose(plist);
+  if (sid >= 0) H5Sclose(sid);
+  return ret;
+}
+
 /* =========================================================================
  * MAIN R INVOCATION
  * ========================================================================= */
@@ -231,8 +397,8 @@ SEXP C_smoke_test(SEXP sexp_filename) {
   FilterConfig filters[] = {
     /* Standard Library Chaining */
     {"zlibng_gzip", H5Z_FILTER_DEFLATE, 1, {9},                           TEST_ALL},
-    {"szip_ec",     H5Z_FILTER_SZIP,    2, {H5_SZIP_EC_OPTION_MASK, 8},   TEST_FLT},
-    {"szip_nn",     H5Z_FILTER_SZIP,    2, {H5_SZIP_NN_OPTION_MASK, 8},   TEST_FLT},
+    {"szip_ec",     H5Z_FILTER_SZIP,    2, {H5_SZIP_EC_OPTION_MASK, 8},   TEST_NUMERIC_ONLY},
+    {"szip_nn",     H5Z_FILTER_SZIP,    2, {H5_SZIP_NN_OPTION_MASK, 8},   TEST_NUMERIC_ONLY},
     {"bzip2",       H5Z_FILTER_BZIP2,   1, {9},                           TEST_ALL},
     {"lzf",         H5Z_FILTER_LZF,     0, {0},                           TEST_ALL},
     {"lz4",         H5Z_FILTER_LZ4,     2, {0, 0},                        TEST_ALL},
@@ -241,9 +407,9 @@ SEXP C_smoke_test(SEXP sexp_filename) {
     {"snappy",      H5Z_FILTER_SNAPPY,  0, {0},                           TEST_ALL},
     {"bshuf_pure",  H5Z_FILTER_BSHUF,   2, {0, 0},                        TEST_ALL},
     {"bshuf_lz4",   H5Z_FILTER_BSHUF,   2, {0, 2},                        TEST_ALL},
-    {"zfp_prec",    H5Z_FILTER_ZFP,     6, {2, 0, 16, 0, 0, 0},           TEST_FLT},
-    {"zfp_rev",     H5Z_FILTER_ZFP,     6, {5, 0, 0, 0, 0, 0},            TEST_FLT},
-    {"zfp_expert",  H5Z_FILTER_ZFP,     6, {4, 0, 1, 16, 16, 0},          TEST_FLT},
+    {"zfp_prec",    H5Z_FILTER_ZFP,     6, {2, 0, 16, 0, 0, 0},           TEST_NUMERIC_ONLY},
+    {"zfp_rev",     H5Z_FILTER_ZFP,     6, {5, 0, 0, 0, 0, 0},            TEST_NUMERIC_ONLY},
+    {"zfp_expert",  H5Z_FILTER_ZFP,     6, {4, 0, 1, 16, 16, 0},          TEST_NUMERIC_ONLY},
     
     /* Legacy Blosc1 Architecture */
     {"blosc_lz",    H5Z_FILTER_BLOSC,   7, {0, 0, 0, 0, 5, 1, 0},         TEST_ALL},
@@ -260,7 +426,7 @@ SEXP C_smoke_test(SEXP sexp_filename) {
     {"blosc2_snappy",H5Z_FILTER_BLOSC2, 7, {0, 0, 0, 0, 5, 1, 3},         TEST_ALL},
     {"blosc2_zlib", H5Z_FILTER_BLOSC2,  7, {0, 0, 0, 0, 5, 1, 4},         TEST_ALL},
     {"blosc2_zstd", H5Z_FILTER_BLOSC2,  7, {0, 0, 0, 0, 5, 1, 5},         TEST_ALL},
-    {"blosc2_zfp",  H5Z_FILTER_BLOSC2,  7, {0, 0, 0, 0, 5, 1, 6},         TEST_FLT}, 
+    {"blosc2_zfp",  H5Z_FILTER_BLOSC2,  7, {0, 0, 0, 0, 5, 1, 6},         TEST_NUMERIC_ONLY}, 
     {"blosc2_ndlz", H5Z_FILTER_BLOSC2,  7, {0, 0, 0, 0, 5, 1, 11},        TEST_ALL}
   };
   
@@ -273,9 +439,13 @@ SEXP C_smoke_test(SEXP sexp_filename) {
     int err = 0;
     
     /* Execute expected combinations */
-    if (filters[i].test_mask & TEST_FLT) { if (test_float_data(file_id, &filters[i])    < 0) err++; }
-    if (filters[i].test_mask & TEST_CMP) { if (test_compound_data(file_id, &filters[i]) < 0) err++; }
-    if (filters[i].test_mask & TEST_ARR) { if (test_array_data(file_id, &filters[i])    < 0) err++; }
+    if (filters[i].test_mask & TEST_FLT) { if (test_float_data(file_id, &filters[i])               < 0) err++; }
+    if (filters[i].test_mask & TEST_CMP) { if (test_compound_data(file_id, &filters[i])            < 0) err++; }
+    if (filters[i].test_mask & TEST_ARR) { if (test_array_data(file_id, &filters[i])               < 0) err++; }
+    if (filters[i].test_mask & TEST_ZRO) { if (test_highly_compressible_data(file_id, &filters[i]) < 0) err++; }
+    if (filters[i].test_mask & TEST_RND) { if (test_incompressible_data(file_id, &filters[i])      < 0) err++; }
+    if (filters[i].test_mask & TEST_UNC) { if (test_unchunked_data(file_id, &filters[i])           < 0) err++; }
+    if (filters[i].test_mask & TEST_EMP) { if (test_empty_dataset(file_id, &filters[i])            < 0) err++; }
     
     if (err > 0) {
       Rprintf(" [FAILED]\n");
