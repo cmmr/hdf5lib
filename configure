@@ -249,7 +249,7 @@ cp -r ../../src/config/blosc2/* .
 BLOSC2_FLAGS="-I../lz4 -I../zstd -I../gzip -I. -Iinclude -Iblosc"
 BLOSC2_FLAGS="$BLOSC2_FLAGS -Iplugins/codecs/zfp -I../zfp/include"
 BLOSC2_FLAGS="$BLOSC2_FLAGS -Wno-unused-variable -Wno-pedantic"
-BLOSC2_FLAGS="$BLOSC2_FLAGS -Wno-deprecated-declarations -DBLOSC_STRICT_ALIGN=1"
+BLOSC2_FLAGS="$BLOSC2_FLAGS -Wno-deprecated-declarations"
 echo "  BLOSC2_FLAGS: $BLOSC2_FLAGS"
 
 for src in blosc/*.c plugins/codecs/*/*.c; do
