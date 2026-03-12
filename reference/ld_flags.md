@@ -31,5 +31,5 @@ A scalar character vector containing the linker flags.
 
 ``` r
 ld_flags()
-#> [1] "-L/home/runner/work/_temp/Library/hdf5lib/lib -lhdf5z -lpthread -ldl"
+#> [1] "-L/home/runner/work/_temp/Library/hdf5lib/libs -lhdf5z -lpthread -ldl"
 ```

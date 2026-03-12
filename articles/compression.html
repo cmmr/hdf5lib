@@ -82,17 +82,19 @@ automatically decompresses it for you. This can lead to significant
 savings in storage space and faster I/O performance by reducing the
 amount of data that needs to be transferred from disk.</p>
 <p><code>hdf5lib</code> provides built-in support for <code>gzip</code>
-compression and enables the HDF5 library’s dynamic filter mechanism,
-allowing users to leverage a wide range of other compression
-algorithms.</p>
+and <code>szip</code> compression natively, and additionally bundles a
+full suite of high-performance modern filter plugins. It also enables
+the HDF5 library’s dynamic filter mechanism, allowing users to leverage
+an even wider range of external compression algorithms at runtime.</p>
 <div class="section level2">
-<h2 id="built-in-compression-gzipdeflate">Built-in Compression (gzip/deflate)<a class="anchor" aria-label="anchor" href="#built-in-compression-gzipdeflate"></a>
+<h2 id="native-compression-gzip-and-szip">Native Compression (gzip and szip)<a class="anchor" aria-label="anchor" href="#native-compression-gzip-and-szip"></a>
 </h2>
-<p><code>hdf5lib</code> bundles the <code>zlib</code> library, which
-provides the <code>deflate</code> (commonly known as <code>gzip</code>)
-compression algorithm. This means that any package linking to
-<code>hdf5lib</code> can create and read <code>gzip</code>-compressed
-datasets out-of-the-box, with no extra configuration.</p>
+<p><code>hdf5lib</code> bundles the <code>zlib</code> and
+<code>libaec</code> libraries, which provide the <code>deflate</code>
+(commonly known as <code>gzip</code>) and <code>szip</code> compression
+algorithms directly to the core HDF5 library. This means any package
+linking to <code>hdf5lib</code> can create and read these datasets
+out-of-the-box, with no extra configuration or plugin registration.</p>
 <p>To create a compressed dataset, you must do two things:</p>
 <ol style="list-style-type: decimal">
 <li>
@@ -101,13 +103,14 @@ data to be stored in “chunks.” You must define a chunk size for your
 dataset.</li>
 <li>
 <strong>Set the Filter:</strong> You must add the
-<code>deflate</code> filter to the dataset creation property list.</li>
+<code>deflate</code> (or other) filter to the dataset creation property
+list.</li>
 </ol>
 <div class="section level3">
 <h3 id="c-example">C++ Example<a class="anchor" aria-label="anchor" href="#c-example"></a>
 </h3>
 <p>The following <code>Rcpp</code> example demonstrates how to create a
-chunked and compressed dataset.</p>
+chunked and <code>gzip</code>-compressed dataset.</p>
 <div class="sourceCode" id="cb1"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;Rcpp.h&gt;</span></span>
 <span id="cb1-2"><a href="#cb1-2" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;hdf5.h&gt;</span></span>
 <span id="cb1-3"><a href="#cb1-3" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;vector&gt;</span></span>
@@ -139,7 +142,7 @@ chunked and compressed dataset.</p>
 <span id="cb1-29"><a href="#cb1-29" tabindex="-1"></a></span>
 <span id="cb1-30"><a href="#cb1-30" tabindex="-1"></a>    <span class="co">// 5. Create the dataset using the property list</span></span>
 <span id="cb1-31"><a href="#cb1-31" tabindex="-1"></a>    <span class="dt">hid_t</span> dset_id <span class="op">=</span> H5Dcreate2<span class="op">(</span>file_id<span class="op">,</span> dsetname<span class="op">.</span>c_str<span class="op">(),</span> H5T_NATIVE_INT<span class="op">,</span></span>
-<span id="cb1-32"><a href="#cb1-32" tabindex="-1"></a>                             space_id<span class="op">,</span> H5P_DEFAULT<span class="op">,</span> dcpl_id<span class="op">,</span> H5P_DEFAULT<span class="op">);</span></span>
+<span id="cb1-32"><a href="#cb1-32" tabindex="-1"></a>                                space_id<span class="op">,</span> H5P_DEFAULT<span class="op">,</span> dcpl_id<span class="op">,</span> H5P_DEFAULT<span class="op">);</span></span>
 <span id="cb1-33"><a href="#cb1-33" tabindex="-1"></a></span>
 <span id="cb1-34"><a href="#cb1-34" tabindex="-1"></a>    <span class="co">// 6. Write the data</span></span>
 <span id="cb1-35"><a href="#cb1-35" tabindex="-1"></a>    H5Dwrite<span class="op">(</span>dset_id<span class="op">,</span> H5T_NATIVE_INT<span class="op">,</span> H5S_ALL<span class="op">,</span> H5S_ALL<span class="op">,</span> H5P_DEFAULT<span class="op">,</span> data<span class="op">.</span>data<span class="op">());</span></span>
@@ -155,46 +158,278 @@ decompression will be handled automatically.</p>
 </div>
 </div>
 <div class="section level2">
-<h2 id="external-filters-blosc-lz4-etc-">External Filters (Blosc, LZ4, etc.)<a class="anchor" aria-label="anchor" href="#external-filters-blosc-lz4-etc-"></a>
+<h2 id="bundled-filter-plugins">Bundled Filter Plugins<a class="anchor" aria-label="anchor" href="#bundled-filter-plugins"></a>
 </h2>
-<p>HDF5 supports a much wider range of compression algorithms (e.g.,
-Blosc, LZ4, Bzip2) through a dynamic plugin mechanism. These plugins are
-shared libraries (<code>.so</code> on Linux, <code>.dylib</code> on
-macOS, <code>.dll</code> on Windows) that the HDF5 library can load at
-runtime to handle new compression formats.</p>
+<p>In addition to native GZIP and SZIP, <code>hdf5lib</code> bundles
+several high-performance filter plugins.</p>
+<div class="section level3">
+<h3 id="initializing-the-plugins-best-practice">Initializing the Plugins (Best Practice)<a class="anchor" aria-label="anchor" href="#initializing-the-plugins-best-practice"></a>
+</h3>
+<p>To use the non-native plugins (everything except GZIP and SZIP), you
+must explicitly register them using the functions provided in
+<code>hdf5lib.h</code>.</p>
+<p><strong>Crucial Warning on Performance:</strong> When you register
+filters using <code>hdf5lib_register_all_filters()</code>, it modifies
+the global state of the HDF5 library and initializes the Blosc2 engine,
+which spins up a background pool of worker threads for parallel
+compression. Tearing this down via
+<code>hdf5lib_destroy_all_filters()</code> joins and destroys those
+threads.</p>
+<p>You should <strong>never</strong> register and destroy filters
+per-I/O operation. Doing so will severely impact performance through
+thread thrashing and locking overhead. Instead, it is highly recommended
+to tie registration to your R package’s lifecycle using
+<code>.onLoad</code> and <code>.onUnload</code> hooks.</p>
+<p><strong>1. Create C Wrappers (e.g.,
+<code>src/init.c</code>)</strong></p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;Rinternals.h&gt;</span></span>
+<span id="cb2-2"><a href="#cb2-2" tabindex="-1"></a><span class="pp">#include </span><span class="im">"hdf5lib.h"</span></span>
+<span id="cb2-3"><a href="#cb2-3" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" tabindex="-1"></a>SEXP r_register_hdf5_filters<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb2-5"><a href="#cb2-5" tabindex="-1"></a>    hdf5lib_register_all_filters<span class="op">();</span></span>
+<span id="cb2-6"><a href="#cb2-6" tabindex="-1"></a>    <span class="cf">return</span> R_NilValue<span class="op">;</span></span>
+<span id="cb2-7"><a href="#cb2-7" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb2-8"><a href="#cb2-8" tabindex="-1"></a></span>
+<span id="cb2-9"><a href="#cb2-9" tabindex="-1"></a>SEXP r_destroy_hdf5_filters<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb2-10"><a href="#cb2-10" tabindex="-1"></a>    hdf5lib_destroy_all_filters<span class="op">();</span></span>
+<span id="cb2-11"><a href="#cb2-11" tabindex="-1"></a>    <span class="cf">return</span> R_NilValue<span class="op">;</span></span>
+<span id="cb2-12"><a href="#cb2-12" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p><strong>2. Set up R Hooks (e.g., <code>R/zzz.R</code>)</strong></p>
+<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">.onLoad</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">libname</span>, <span class="va">pkgname</span><span class="op">)</span> <span class="op">{</span></span>
+<span>    <span class="co"># Initialize plugins and thread pools once when the package loads</span></span>
+<span>    <span class="fu"><a href="https://rdrr.io/r/base/CallExternal.html" class="external-link">.Call</a></span><span class="op">(</span><span class="st">"r_register_hdf5_filters"</span>, PACKAGE <span class="op">=</span> <span class="va">pkgname</span><span class="op">)</span></span>
+<span><span class="op">}</span></span>
+<span></span>
+<span><span class="va">.onUnload</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">libpath</span><span class="op">)</span> <span class="op">{</span></span>
+<span>    <span class="co"># Tear down thread pools cleanly on exit</span></span>
+<span>    <span class="fu"><a href="https://rdrr.io/r/base/CallExternal.html" class="external-link">.Call</a></span><span class="op">(</span><span class="st">"r_destroy_hdf5_filters"</span>, PACKAGE <span class="op">=</span> <span class="st">"yourpackage"</span><span class="op">)</span></span>
+<span><span class="op">}</span></span></code></pre></div>
+</div>
+<div class="section level3">
+<h3 id="available-filters-summary">Available Filters Summary<a class="anchor" aria-label="anchor" href="#available-filters-summary"></a>
+</h3>
+<p>The following table summarizes the compression filters available
+natively or via bundled plugins in <code>hdf5lib</code>.</p>
+<table class="table">
+<colgroup>
+<col width="25%">
+<col width="25%">
+<col width="25%">
+<col width="25%">
+</colgroup>
+<thead><tr class="header">
+<th align="left">Filter Name</th>
+<th align="left">HDF5 Filter ID</th>
+<th align="left">Target Use Case</th>
+<th align="left">Data Restrictions</th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td align="left"><strong>GZIP (Deflate)</strong></td>
+<td align="left">
+<code>1</code> (Native)</td>
+<td align="left">General purpose, universal compatibility.</td>
+<td align="left">None</td>
+</tr>
+<tr class="even">
+<td align="left"><strong>SZIP</strong></td>
+<td align="left">
+<code>4</code> (Native)</td>
+<td align="left">Legacy scientific data compression.</td>
+<td align="left">
+<strong>Numeric data only.</strong> Strict block size
+rules.</td>
+</tr>
+<tr class="odd">
+<td align="left"><strong>BZIP2</strong></td>
+<td align="left"><code>307</code></td>
+<td align="left">General purpose, high compression ratio.</td>
+<td align="left">None</td>
+</tr>
+<tr class="even">
+<td align="left"><strong>LZF</strong></td>
+<td align="left"><code>32000</code></td>
+<td align="left">Very fast, lightweight compression.</td>
+<td align="left">None</td>
+</tr>
+<tr class="odd">
+<td align="left"><strong>Blosc / Blosc2</strong></td>
+<td align="left">
+<code>32001</code> / <code>32026</code>
+</td>
+<td align="left">Meta-compressor. Extremely fast, multi-threaded capable
+block compression.</td>
+<td align="left">None</td>
+</tr>
+<tr class="even">
+<td align="left"><strong>Snappy</strong></td>
+<td align="left"><code>32003</code></td>
+<td align="left">Fast, low-CPU overhead compression (Google).</td>
+<td align="left">None</td>
+</tr>
+<tr class="odd">
+<td align="left"><strong>LZ4</strong></td>
+<td align="left"><code>32004</code></td>
+<td align="left">Lightning fast decompression.</td>
+<td align="left">None</td>
+</tr>
+<tr class="even">
+<td align="left"><strong>Bitshuffle</strong></td>
+<td align="left"><code>32008</code></td>
+<td align="left">Reorders bits for highly compressible layouts.</td>
+<td align="left">None</td>
+</tr>
+<tr class="odd">
+<td align="left"><strong>ZFP</strong></td>
+<td align="left"><code>32013</code></td>
+<td align="left">Lossy/lossless compression for multidimensional
+arrays.</td>
+<td align="left">
+<strong>Numeric arrays only</strong> (Float/Int).</td>
+</tr>
+<tr class="even">
+<td align="left"><strong>Zstandard (Zstd)</strong></td>
+<td align="left"><code>32015</code></td>
+<td align="left">Modern standard balancing extreme speed and high
+compression.</td>
+<td align="left">None</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="section level3">
+<h3 id="filter-details-and-cd_values">Filter Details and <code>cd_values</code><a class="anchor" aria-label="anchor" href="#filter-details-and-cd_values"></a>
+</h3>
+<p>When applying a filter via
+<code>H5Pset_filter(plist_id, filter_id, flags, cd_nelmts, cd_values)</code>,
+you must pass an array of <code>unsigned int</code> values known as
+<code>cd_values</code> (Client Data Values). These configure how the
+filter behaves (e.g., compression level).</p>
+<p>Below are the expected parameters for each bundled filter.</p>
+<p><strong>GZIP / Deflate (<code>H5Z_FILTER_DEFLATE</code>)</strong>
+Instead of <code>H5Pset_filter</code>, you can apply this conveniently
+using <code>H5Pset_deflate(plist_id, level)</code>. * <strong>Elements
+(<code>cd_nelmts</code>)</strong>: 1 *
+<strong><code>cd_values[0]</code></strong>: Compression level from
+<code>0</code> (no compression) to <code>9</code> (maximum compression).
+Default is usually <code>6</code>.</p>
+<p><strong>SZIP (<code>H5Z_FILTER_SZIP</code>)</strong> You can apply it
+using
+<code>H5Pset_szip(plist_id, options_mask, pixels_per_block)</code>. *
+<strong>Restriction:</strong> <strong>Numeric data only.</strong> Does
+not support strings or variable length types. The chunk size (in
+elements) must be an exact multiple of the block size. *
+<strong>Elements (<code>cd_nelmts</code>)</strong>: 2 *
+<strong><code>cd_values[0]</code></strong>: Options mask (e.g.,
+<code>H5_SZIP_NN_OPTION_MASK</code> or
+<code>H5_SZIP_EC_OPTION_MASK</code>). *
+<strong><code>cd_values[1]</code></strong>: Pixels per block. Must be
+even and is typically <code>8</code>, <code>16</code>, or
+<code>32</code>.</p>
+<p><strong>BZIP2 (<code>H5Z_FILTER_BZIP2</code>)</strong> *
+<strong>Elements (<code>cd_nelmts</code>)</strong>: 1 *
+<strong><code>cd_values[0]</code></strong>: Block size / Compression
+Level from <code>1</code> (fastest) to <code>9</code> (best). Default is
+<code>9</code>.</p>
+<p><strong>LZF (<code>H5Z_FILTER_LZF</code>)</strong> * <strong>Elements
+(<code>cd_nelmts</code>)</strong>: 0 (No configuration parameters
+required).</p>
+<p><strong>Blosc (<code>H5Z_FILTER_BLOSC</code>) &amp; Blosc2
+(<code>H5Z_FILTER_BLOSC2</code>)</strong> * <strong>Elements
+(<code>cd_nelmts</code>)</strong>: 7 *
+<strong><code>cd_values[0-3]</code></strong>: Reserved (Pass
+<code>0</code>). * <strong><code>cd_values[4]</code></strong>:
+Compression level (<code>0</code> to <code>9</code>). *
+<strong><code>cd_values[5]</code></strong>: Shuffle mode (<code>0</code>
+= no shuffle, <code>1</code> = byte shuffle, <code>2</code> = bit
+shuffle). * <strong><code>cd_values[6]</code></strong>: Compressor ID
+(<code>0</code>=blosclz, <code>1</code>=lz4, <code>2</code>=lz4hc,
+<code>3</code>=snappy, <code>4</code>=zlib, <code>5</code>=zstd,
+<code>6</code>=zfp (Blosc2 only), <code>11</code>=ndlz (Blosc2
+only)).</p>
+<p><strong>Snappy (<code>H5Z_FILTER_SNAPPY</code>)</strong> *
+<strong>Elements (<code>cd_nelmts</code>)</strong>: 0 (No configuration
+parameters required).</p>
+<p><strong>LZ4 (<code>H5Z_FILTER_LZ4</code>)</strong> * <strong>Elements
+(<code>cd_nelmts</code>)</strong>: 2 *
+<strong><code>cd_values[0]</code></strong>: Reserved/padding (Pass
+<code>0</code>). * <strong><code>cd_values[1]</code></strong>:
+Compression level. Passing <code>0</code> uses standard fast LZ4.
+Passing a value <code>&gt;0</code> (e.g., <code>9</code>) enables LZ4-HC
+(High Compression).</p>
+<p><strong>Bitshuffle (<code>H5Z_FILTER_BSHUF</code>)</strong> *
+<strong>Elements (<code>cd_nelmts</code>)</strong>: 2 *
+<strong><code>cd_values[0]</code></strong>: Block size. Pass
+<code>0</code> to let the library choose the optimal default (1024). *
+<strong><code>cd_values[1]</code></strong>: Compression algorithm. Pass
+<code>0</code> for raw bitshuffling (no compression) or <code>2</code>
+to apply LZ4 compression after shuffling.</p>
+<p><strong>ZFP (<code>H5Z_FILTER_ZFP</code>)</strong> *
+<strong>Restriction:</strong> <strong>Numeric arrays only.</strong> Does
+not support strings, compound data types, or 1D arrays of bytes. *
+<strong>Elements (<code>cd_nelmts</code>)</strong>: 6. *
+<strong><code>cd_values[0]</code></strong>: The compression mode.
+<code>1</code>=Rate, <code>2</code>=Precision, <code>3</code>=Accuracy,
+<code>4</code>=Expert, <code>5</code>=Reversible (Lossless). *
+<strong><code>cd_values[1-5]</code></strong>: Mode-specific parameters.
+For instance, in Precision mode (<code>cd_values[0]=2</code>),
+<code>cd_values[2]</code> specifies the bits of precision to keep,
+padding the rest with zeros (e.g.,
+<code>{2, 0, 16, 0, 0, 0}</code>).</p>
+<p><strong>Zstandard / Zstd (<code>H5Z_FILTER_ZSTD</code>)</strong> *
+<strong>Elements (<code>cd_nelmts</code>)</strong>: 1 *
+<strong><code>cd_values[0]</code></strong>: Compression level, generally
+from <code>1</code> to <code>22</code>. A good default is
+<code>3</code>.</p>
+</div>
+</div>
+<div class="section level2">
+<h2 id="dynamically-loading-additional-external-filters">Dynamically Loading Additional External Filters<a class="anchor" aria-label="anchor" href="#dynamically-loading-additional-external-filters"></a>
+</h2>
+<p>While <code>hdf5lib</code> bundles an extensive suite of filters, it
+cannot include every possible algorithm. For instance, high-performance
+filters written in C++ like <strong>SZ3</strong> or <strong>VBZ</strong>
+are not bundled in order to maintain the package’s strict C-only,
+zero-dependency compilation footprint.</p>
+<p>However, HDF5 supports dynamically loading these algorithms at
+runtime through its plugin mechanism. These plugins are shared libraries
+(<code>.so</code> on Linux, <code>.dylib</code> on macOS,
+<code>.dll</code> on Windows) that the HDF5 library can load when it
+encounters a compressed dataset.</p>
 <p><code>hdf5lib</code> is compiled with the necessary flags to enable
-this dynamic loading feature. However, <strong><code>hdf5lib</code> does
-not bundle any external filters.</strong> It is the end-user’s
-responsibility to install them.</p>
+this dynamic loading feature.</p>
 <div class="section level3">
 <h3 id="how-it-works-for-the-user">How It Works for the User<a class="anchor" aria-label="anchor" href="#how-it-works-for-the-user"></a>
 </h3>
 <ol style="list-style-type: decimal">
-<li><p><strong>Install the Filter:</strong> The user must obtain and
-install the desired filter plugin. These are often distributed by other
-scientific software packages (e.g., <code>h5py</code> for Python) or can
-be compiled from source.</p></li>
-<li><p><strong>Set the Plugin Path:</strong> The user must tell the HDF5
+<li>
+<strong>Install the Filter:</strong> The user must obtain and
+install the desired filter plugin (like the SZ3 or VBZ plugin). These
+can often be compiled from source or are distributed by other scientific
+software packages (e.g., <code>h5py</code> for Python).</li>
+<li>
+<strong>Set the Plugin Path:</strong> The user must tell the HDF5
 library where to find the installed plugins by setting the
-<code>HDF5_PLUGIN_PATH</code> environment variable.</p></li>
+<code>HDF5_PLUGIN_PATH</code> environment variable.</li>
 </ol>
 <p>Once the environment is configured, any R package that links to
 <code>hdf5lib</code> (such as <code>h5lite</code> or your own package)
-will be able to read and write datasets using that filter without any
-changes to its own code.</p>
-<p>For example, if a user has the Blosc filter plugin installed in
+will be able to read and write datasets using that external filter
+without any changes to its own C/C++ code.</p>
+<p>For example, if a user has the SZ3 filter plugin installed in
 <code>/opt/hdf5/plugins</code>, they can enable it in R like this:</p>
-<div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Tell HDF5 where to find filter plugins</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/Sys.setenv.html" class="external-link">Sys.setenv</a></span><span class="op">(</span>HDF5_PLUGIN_PATH <span class="op">=</span> <span class="st">"/opt/hdf5/plugins/"</span><span class="op">)</span></span>
 <span></span>
-<span><span class="co"># Now, any function that uses hdf5lib can read a Blosc-compressed file.</span></span>
+<span><span class="co"># Now, any function that uses hdf5lib can read an SZ3-compressed file.</span></span>
 <span><span class="co"># For example, with 'h5lite' which links against hdf5lib:</span></span>
-<span><span class="co"># data &lt;- h5lite::h5_read("my_blosc_file.h5", "my_dataset")</span></span></code></pre></div>
+<span><span class="co"># data &lt;- h5lite::h5_read("my_sz3_file.h5", "my_dataset")</span></span></code></pre></div>
 <p>This powerful design means that as a package developer linking to
-<code>hdf5lib</code>, you get <code>gzip</code> support for free, and
-your package automatically gains the ability to work with any
-compression filter your users have installed.</p>
+<code>hdf5lib</code>, you get native GZIP/SZIP and the bundled plugins
+for free, while your package automatically retains the ability to work
+with any external compression filter your users have installed.</p>
 </div>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

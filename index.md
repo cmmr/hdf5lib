@@ -25,11 +25,13 @@ developers to use in the `LinkingTo` field of their `DESCRIPTION` file.
   HDF5 v2.0.0 library, including both the **Low-Level** and
   **High-Level** C APIs.
 
-  - **Compression & Filters:** Built-in support for `gzip/deflate` and
-    `szip` via bundled **zlib** and **libaec** libraries. This provides
-    high-performance compression out-of-the-box without requiring any
-    external system-level libraries. The package also supports external
-    filter plugins (e.g., Blosc, LZ4).
+  - **Compression & Filters:** Bundles an extensive suite of compression
+    filters directly within the package. This includes native
+    `gzip/deflate` and `szip`, as well as high-performance plugins for
+    **Bzip2**, **LZF**, **LZ4**, **Zstandard (Zstd)**, **Snappy**,
+    **Bitshuffle**, **ZFP**, **Blosc**, and **Blosc2**. These provide
+    state-of-the-art compression out-of-the-box without requiring any
+    external system-level libraries.
 
   - **Modern Features:** Includes native complex number support and
     improved UTF-8 handling on Windows.
@@ -105,20 +107,59 @@ to using `src/Makevars` if it’s not found. Since these commands are
 platform-independent, this single file works for all operating
 systems.)*
 
-### **3. Include Headers in Your C/C++ Code**
+### **3. Manage Global Filter State (Important)**
 
-You can now include the HDF5 headers directly in your package’s `src`
-files.
+To utilize the bundled compression plugins (LZ4, Zstd, Blosc, etc.),
+they must be registered with the HDF5 library. Because registering
+filters modifies global state and spins up background thread pools (via
+Blosc2), you should **never** register filters on a per-I/O basis, as
+this will severely impact performance.
+
+Instead, expose the registration functions to R and call them exactly
+once during your package’s load/unload cycle.
+
+**Create C Wrappers (e.g., in `src/init.c`):**
+
+``` c
+#include <Rinternals.h>
+#include "hdf5lib.h"
+
+SEXP r_register_hdf5_filters() {
+    hdf5lib_register_all_filters();
+    return R_NilValue;
+}
+
+SEXP r_destroy_hdf5_filters() {
+    hdf5lib_destroy_all_filters();
+    return R_NilValue;
+}
+```
+
+**Hook into R Package Load (e.g., in `R/zzz.R`):**
+
+``` r
+.onLoad <- function(libname, pkgname) {
+    # Register plugins and spin up Blosc thread pools once per session
+    .Call("r_register_hdf5_filters", PACKAGE = pkgname)
+}
+
+.onUnload <- function(libpath) {
+    # Cleanly tear down threads and free memory to prevent Valgrind warnings
+    .Call("r_destroy_hdf5_filters", PACKAGE = "myrpackage")
+}
+```
+
+### **4. Include Headers in Your C/C++ Code**
+
+With the filters safely registered at the package level, you can now
+include the standard HDF5 headers and perform native I/O in your C/C++
+functions. Decompression of any supported filter will happen entirely
+transparently.
 
 ``` c
 #include <R.h>  
 #include <Rinternals.h>
-
-// Include the main HDF5 header  
 #include <hdf5.h>
-
-// Optionally include the High-Level header for H5LT etc.  
-#include <hdf5_hl.h>
 
 SEXP read_my_hdf5_data(SEXP filename) {  
     hid_t file_id;  
@@ -128,6 +169,7 @@ SEXP read_my_hdf5_data(SEXP filename) {
     file_id = H5Fopen(fname, H5F_ACC_RDONLY, H5P_DEFAULT);
 
     // ... your code using HDF5 APIs ...
+    // Any required decompression happens automatically here.
 
     H5Fclose(file_id);  
     return R_NilValue;  

@@ -83,7 +83,7 @@
 <p><strong>Comprehensive API Coverage:</strong> Provides access to the complete core HDF5 v2.0.0 library, including both the <strong>Low-Level</strong> and <strong>High-Level</strong> C APIs.</p>
 <ul>
 <li><p>
-<b>Compression &amp; Filters:</b> Built-in support for <code>gzip/deflate</code> and <code>szip</code> via bundled <b>zlib</b> and <b>libaec</b> libraries. This provides high-performance compression out-of-the-box without requiring any external system-level libraries. The package also supports external filter plugins (e.g., Blosc, LZ4).
+<b>Compression &amp; Filters:</b> Bundles an extensive suite of compression filters directly within the package. This includes native <code>gzip/deflate</code> and <code>szip</code>, as well as high-performance plugins for <b>Bzip2</b>, <b>LZF</b>, <b>LZ4</b>, <b>Zstandard (Zstd)</b>, <b>Snappy</b>, <b>Bitshuffle</b>, <b>ZFP</b>, <b>Blosc</b>, and <b>Blosc2</b>. These provide state-of-the-art compression out-of-the-box without requiring any external system-level libraries.
 </p></li>
 <li><p>
 <b>Modern Features:</b> Includes native complex number support and improved UTF-8 handling on Windows.
@@ -134,31 +134,58 @@
 <p><em>(Note: You only need this one <code>src/Makevars</code> file. The R build system on Windows will use <code>src/Makevars.win</code> if it exists, but will fall back to using <code>src/Makevars</code> if it’s not found. Since these commands are platform-independent, this single file works for all operating systems.)</em></p>
 </div>
 <div class="section level3">
-<h3 id="id_3-include-headers-in-your-cc-code">
-<strong>3. Include Headers in Your C/C++ Code</strong><a class="anchor" aria-label="anchor" href="#id_3-include-headers-in-your-cc-code"></a>
+<h3 id="id_3-manage-global-filter-state-important">
+<strong>3. Manage Global Filter State (Important)</strong><a class="anchor" aria-label="anchor" href="#id_3-manage-global-filter-state-important"></a>
 </h3>
-<p>You can now include the HDF5 headers directly in your package’s <code>src</code> files.</p>
-<div class="sourceCode" id="cb5"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb5-1"><a href="#cb5-1" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;R.h&gt;</span><span class="pp">  </span></span>
-<span id="cb5-2"><a href="#cb5-2" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;Rinternals.h&gt;</span></span>
+<p>To utilize the bundled compression plugins (LZ4, Zstd, Blosc, etc.), they must be registered with the HDF5 library. Because registering filters modifies global state and spins up background thread pools (via Blosc2), you should <strong>never</strong> register filters on a per-I/O basis, as this will severely impact performance.</p>
+<p>Instead, expose the registration functions to R and call them exactly once during your package’s load/unload cycle.</p>
+<p><strong>Create C Wrappers (e.g., in <code>src/init.c</code>):</strong></p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb5-1"><a href="#cb5-1" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;Rinternals.h&gt;</span></span>
+<span id="cb5-2"><a href="#cb5-2" tabindex="-1"></a><span class="pp">#include </span><span class="im">"hdf5lib.h"</span></span>
 <span id="cb5-3"><a href="#cb5-3" tabindex="-1"></a></span>
-<span id="cb5-4"><a href="#cb5-4" tabindex="-1"></a><span class="co">// Include the main HDF5 header  </span></span>
-<span id="cb5-5"><a href="#cb5-5" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;hdf5.h&gt;</span></span>
-<span id="cb5-6"><a href="#cb5-6" tabindex="-1"></a></span>
-<span id="cb5-7"><a href="#cb5-7" tabindex="-1"></a><span class="co">// Optionally include the High-Level header for H5LT etc.  </span></span>
-<span id="cb5-8"><a href="#cb5-8" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;hdf5_hl.h&gt;</span></span>
-<span id="cb5-9"><a href="#cb5-9" tabindex="-1"></a></span>
-<span id="cb5-10"><a href="#cb5-10" tabindex="-1"></a>SEXP read_my_hdf5_data<span class="op">(</span>SEXP filename<span class="op">)</span> <span class="op">{</span>  </span>
-<span id="cb5-11"><a href="#cb5-11" tabindex="-1"></a>    hid_t file_id<span class="op">;</span>  </span>
-<span id="cb5-12"><a href="#cb5-12" tabindex="-1"></a>    <span class="dt">const</span> <span class="dt">char</span> <span class="op">*</span>fname <span class="op">=</span> CHAR<span class="op">(</span>STRING_ELT<span class="op">(</span>filename<span class="op">,</span> <span class="dv">0</span><span class="op">));</span></span>
-<span id="cb5-13"><a href="#cb5-13" tabindex="-1"></a></span>
-<span id="cb5-14"><a href="#cb5-14" tabindex="-1"></a>    <span class="co">// Call HDF5 functions directly  </span></span>
-<span id="cb5-15"><a href="#cb5-15" tabindex="-1"></a>    file_id <span class="op">=</span> H5Fopen<span class="op">(</span>fname<span class="op">,</span> H5F_ACC_RDONLY<span class="op">,</span> H5P_DEFAULT<span class="op">);</span></span>
-<span id="cb5-16"><a href="#cb5-16" tabindex="-1"></a></span>
-<span id="cb5-17"><a href="#cb5-17" tabindex="-1"></a>    <span class="co">// ... your code using HDF5 APIs ...</span></span>
-<span id="cb5-18"><a href="#cb5-18" tabindex="-1"></a></span>
-<span id="cb5-19"><a href="#cb5-19" tabindex="-1"></a>    H5Fclose<span class="op">(</span>file_id<span class="op">);</span>  </span>
-<span id="cb5-20"><a href="#cb5-20" tabindex="-1"></a>    <span class="cf">return</span> R_NilValue<span class="op">;</span>  </span>
-<span id="cb5-21"><a href="#cb5-21" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<span id="cb5-4"><a href="#cb5-4" tabindex="-1"></a>SEXP r_register_hdf5_filters<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb5-5"><a href="#cb5-5" tabindex="-1"></a>    hdf5lib_register_all_filters<span class="op">();</span></span>
+<span id="cb5-6"><a href="#cb5-6" tabindex="-1"></a>    <span class="cf">return</span> R_NilValue<span class="op">;</span></span>
+<span id="cb5-7"><a href="#cb5-7" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb5-8"><a href="#cb5-8" tabindex="-1"></a></span>
+<span id="cb5-9"><a href="#cb5-9" tabindex="-1"></a>SEXP r_destroy_hdf5_filters<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb5-10"><a href="#cb5-10" tabindex="-1"></a>    hdf5lib_destroy_all_filters<span class="op">();</span></span>
+<span id="cb5-11"><a href="#cb5-11" tabindex="-1"></a>    <span class="cf">return</span> R_NilValue<span class="op">;</span></span>
+<span id="cb5-12"><a href="#cb5-12" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p><strong>Hook into R Package Load (e.g., in <code>R/zzz.R</code>):</strong></p>
+<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">.onLoad</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">libname</span>, <span class="va">pkgname</span><span class="op">)</span> <span class="op">{</span></span>
+<span>    <span class="co"># Register plugins and spin up Blosc thread pools once per session</span></span>
+<span>    <span class="fu"><a href="https://rdrr.io/r/base/CallExternal.html" class="external-link">.Call</a></span><span class="op">(</span><span class="st">"r_register_hdf5_filters"</span>, PACKAGE <span class="op">=</span> <span class="va">pkgname</span><span class="op">)</span></span>
+<span><span class="op">}</span></span>
+<span></span>
+<span><span class="va">.onUnload</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">libpath</span><span class="op">)</span> <span class="op">{</span></span>
+<span>    <span class="co"># Cleanly tear down threads and free memory to prevent Valgrind warnings</span></span>
+<span>    <span class="fu"><a href="https://rdrr.io/r/base/CallExternal.html" class="external-link">.Call</a></span><span class="op">(</span><span class="st">"r_destroy_hdf5_filters"</span>, PACKAGE <span class="op">=</span> <span class="st">"myrpackage"</span><span class="op">)</span></span>
+<span><span class="op">}</span></span></code></pre></div>
+</div>
+<div class="section level3">
+<h3 id="id_4-include-headers-in-your-cc-code">
+<strong>4. Include Headers in Your C/C++ Code</strong><a class="anchor" aria-label="anchor" href="#id_4-include-headers-in-your-cc-code"></a>
+</h3>
+<p>With the filters safely registered at the package level, you can now include the standard HDF5 headers and perform native I/O in your C/C++ functions. Decompression of any supported filter will happen entirely transparently.</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;R.h&gt;</span><span class="pp">  </span></span>
+<span id="cb7-2"><a href="#cb7-2" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;Rinternals.h&gt;</span></span>
+<span id="cb7-3"><a href="#cb7-3" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;hdf5.h&gt;</span></span>
+<span id="cb7-4"><a href="#cb7-4" tabindex="-1"></a></span>
+<span id="cb7-5"><a href="#cb7-5" tabindex="-1"></a>SEXP read_my_hdf5_data<span class="op">(</span>SEXP filename<span class="op">)</span> <span class="op">{</span>  </span>
+<span id="cb7-6"><a href="#cb7-6" tabindex="-1"></a>    hid_t file_id<span class="op">;</span>  </span>
+<span id="cb7-7"><a href="#cb7-7" tabindex="-1"></a>    <span class="dt">const</span> <span class="dt">char</span> <span class="op">*</span>fname <span class="op">=</span> CHAR<span class="op">(</span>STRING_ELT<span class="op">(</span>filename<span class="op">,</span> <span class="dv">0</span><span class="op">));</span></span>
+<span id="cb7-8"><a href="#cb7-8" tabindex="-1"></a></span>
+<span id="cb7-9"><a href="#cb7-9" tabindex="-1"></a>    <span class="co">// Call HDF5 functions directly  </span></span>
+<span id="cb7-10"><a href="#cb7-10" tabindex="-1"></a>    file_id <span class="op">=</span> H5Fopen<span class="op">(</span>fname<span class="op">,</span> H5F_ACC_RDONLY<span class="op">,</span> H5P_DEFAULT<span class="op">);</span></span>
+<span id="cb7-11"><a href="#cb7-11" tabindex="-1"></a></span>
+<span id="cb7-12"><a href="#cb7-12" tabindex="-1"></a>    <span class="co">// ... your code using HDF5 APIs ...</span></span>
+<span id="cb7-13"><a href="#cb7-13" tabindex="-1"></a>    <span class="co">// Any required decompression happens automatically here.</span></span>
+<span id="cb7-14"><a href="#cb7-14" tabindex="-1"></a></span>
+<span id="cb7-15"><a href="#cb7-15" tabindex="-1"></a>    H5Fclose<span class="op">(</span>file_id<span class="op">);</span>  </span>
+<span id="cb7-16"><a href="#cb7-16" tabindex="-1"></a>    <span class="cf">return</span> R_NilValue<span class="op">;</span>  </span>
+<span id="cb7-17"><a href="#cb7-17" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
 </div>
 </div>
 <div class="section level2">
