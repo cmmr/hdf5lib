@@ -1,4 +1,3 @@
-
 # **HDF5 C Library for R** <img src="man/figures/logo.png" align="right" width="174" height="200" alt="hdf5lib logo" />
 
 [![cran](https://img.shields.io/cran/v/hdf5lib?logo=r&label=CRAN)](https://CRAN.R-project.org/package=hdf5lib)
@@ -8,21 +7,18 @@
 
 This package provides **no R functions** and is intended for R package developers to use in the `LinkingTo` field of their `DESCRIPTION` file.
 
-
-
 ## Features
 
 -   **Portable & Self-Contained:** Builds the HDF5 library from source using only standard R build tools. This ensures your package works "out of the box" on any system without requiring pre-installed libraries or administrative privileges.
 
 -   **Comprehensive API Coverage:** Provides access to the complete core HDF5 v2.0.0 library, including both the **Low-Level** and **High-Level** C APIs.
 
-    -   <p><b>Compression & Filters:</b> Built-in support for <code>gzip/deflate</code> and <code>szip</code> via bundled <b>zlib</b> and <b>libaec</b> libraries. This provides high-performance compression out-of-the-box without requiring any external system-level libraries. The package also supports external filter plugins (e.g., Blosc, LZ4).</p>
+    -   <p><b>Compression & Filters:</b> Bundles an extensive suite of compression filters directly within the package. This includes native <code>gzip/deflate</code> and <code>szip</code>, as well as high-performance plugins for <b>Bzip2</b>, <b>LZF</b>, <b>LZ4</b>, <b>Zstandard (Zstd)</b>, <b>Snappy</b>, <b>Bitshuffle</b>, <b>ZFP</b>, <b>Blosc</b>, and <b>Blosc2</b>. These provide state-of-the-art compression out-of-the-box without requiring any external system-level libraries.</p>
     -   <p><b>Modern Features:</b> Includes native complex number support and improved UTF-8 handling on Windows.</p>
 
 -   **Flexible API Versioning:** Downstream packages can compile against specific HDF5 API versions (e.g., 2.0, 1.14, 1.12). This allows you to lock your package to a specific API, ensuring future `hdf5lib` updates won't break your build.
 
 -   **Safe for Parallel Code:** Compiled with thread-safety enabled to prevent data corruption when using multi-threaded frameworks like `RcppParallel`. *You must still use a file locking mechanism if (1) you use the High-Level (HL) APIs, which are not thread-safe, or (2) you are accessing the file from multiple processes rather than multiple threads.*
-
 
 ## **Installation**
 
@@ -41,12 +37,9 @@ pak::pak("cmmr/hdf5lib")
 
 **Note:** As this package builds the HDF5 library from source, the one-time installation may take several minutes. ⏳
 
-
-
 ## **Usage (For Developers)**
 
 To use this library in your own R package, you need to add `hdf5lib` to `LinkingTo`, create a `src/Makevars` file to link against its static library, and then include the HDF5 headers in your C/C++ code.
-
 
 ### **1. Update your `DESCRIPTION` file**
 
@@ -61,7 +54,6 @@ LinkingTo: hdf5lib
 
 This step ensures the R build system can find the HDF5 header files in `hdf5lib`.
 
-
 ### **2. Create `src/Makevars`**
 
 Create a file named `Makevars` inside your package's `src/` directory. This tells the build system how to find and link your package against the static HDF5 library. You can optionally use the `api` parameter to lock in a specific HDF5 API version (e.g., 2.0, 1.14, 1.12, 1.10, 1.8, 1.6) to prevent future updates to HDF5 from breaking your package.
@@ -75,20 +67,49 @@ PKG_LIBS     = `$(R_HOME)/bin/Rscript -e "cat(hdf5lib::ld_flags(api = 2.0))"`
 
 *(Note: You only need this one `src/Makevars` file. The R build system on Windows will use `src/Makevars.win` if it exists, but will fall back to using `src/Makevars` if it's not found. Since these commands are platform-independent, this single file works for all operating systems.)*
 
+### **3. Manage Global Filter State (Important)**
 
-### **3. Include Headers in Your C/C++ Code**
+To utilize the bundled compression plugins (LZ4, Zstd, Blosc, etc.), they must be registered with the HDF5 library. Because registering filters modifies global state and spins up background thread pools (via Blosc2), you should **never** register filters on a per-I/O basis, as this will severely impact performance.
 
-You can now include the HDF5 headers directly in your package's `src` files.
+Instead, expose the registration functions to R and call them exactly once during your package's load/unload cycle.
+
+**Create C Wrappers (e.g., in `src/init.c`):**
+```c
+#include <Rinternals.h>
+#include "hdf5lib.h"
+
+SEXP r_register_hdf5_filters() {
+    hdf5lib_register_all_filters();
+    return R_NilValue;
+}
+
+SEXP r_destroy_hdf5_filters() {
+    hdf5lib_destroy_all_filters();
+    return R_NilValue;
+}
+```
+
+**Hook into R Package Load (e.g., in `R/zzz.R`):**
+```r
+.onLoad <- function(libname, pkgname) {
+    # Register plugins and spin up Blosc thread pools once per session
+    .Call("r_register_hdf5_filters", PACKAGE = pkgname)
+}
+
+.onUnload <- function(libpath) {
+    # Cleanly tear down threads and free memory to prevent Valgrind warnings
+    .Call("r_destroy_hdf5_filters", PACKAGE = "myrpackage")
+}
+```
+
+### **4. Include Headers in Your C/C++ Code**
+
+With the filters safely registered at the package level, you can now include the standard HDF5 headers and perform native I/O in your C/C++ functions. Decompression of any supported filter will happen entirely transparently.
 
 ``` c
 #include <R.h>  
 #include <Rinternals.h>
-
-// Include the main HDF5 header  
 #include <hdf5.h>
-
-// Optionally include the High-Level header for H5LT etc.  
-#include <hdf5_hl.h>
 
 SEXP read_my_hdf5_data(SEXP filename) {  
     hid_t file_id;  
@@ -98,13 +119,12 @@ SEXP read_my_hdf5_data(SEXP filename) {
     file_id = H5Fopen(fname, H5F_ACC_RDONLY, H5P_DEFAULT);
 
     // ... your code using HDF5 APIs ...
+    // Any required decompression happens automatically here.
 
     H5Fclose(file_id);  
     return R_NilValue;  
 }
 ```
-
-
 
 ## **Included HDF5 APIs**
 
@@ -114,7 +134,6 @@ This package provides access to the **complete core HDF5 C API** (v2.0.0). Devel
 
 While the **full core API** is available, the following highlights represent the most commonly used modules:
 
-
 ### **High-Level (HL) APIs (Simplified wrappers)**
 
 The HL APIs provide "lite" versions of complex operations, making it significantly easier to perform common tasks without manual memory or hyperslab management.
@@ -122,7 +141,6 @@ The HL APIs provide "lite" versions of complex operations, making it significant
 - **H5LT (Lite):** Simplified dataset and attribute operations (e.g., `H5LTmake_dataset_int`, `H5LTread_dataset_double`, `H5LTget_dataset_info`).
 - **H5IM (Image):** Standardized functions for working with image data (e.g., `H5IMmake_image_24bit`, `H5IMread_image`).
 - **H5TB (Table):** Functions for creating and manipulating tabular data structures (e.g., `H5TBmake_table`, `H5TBappend_records`).
-
 
 ### **Low-Level APIs (Comprehensive core functionality)**
 
@@ -138,12 +156,9 @@ The package exposes the **full range** of core HDF5 modules for fine-grained con
 
 > **Note:** For a complete list of all available functions, please refer to the official [HDF5 Reference Manual](https://support.hdfgroup.org/documentation/hdf5/latest/_r_m.html). Any function documented there can be called from your package after including the headers as shown above.
 
-
 ### **Looking for an R Interface?**
 
 If you are looking for a high-level R interface rather than writing C/C++ code, check out the [**h5lite**](https://github.com/cmmr/h5lite) package. It uses `hdf5lib` under the hood to provide a fast, "no-nonsense" way to read and write HDF5 files directly from R with a single function call.
-
-
 
 ## **Relationship to `Rhdf5lib`**
 
@@ -159,14 +174,10 @@ The [`Rhdf5lib`](https://doi.org/doi:10.18129/B9.bioc.Rhdf5lib) package also pro
 
 `hdf5lib` is intended to be a simple and reliable provider of the HDF5 C library for any R package.
 
-
-
 ## **License**
 
 The `hdf5lib` package itself is available under the MIT license. The bundled HDF5, zlib, LZ4, Zstandard, and libaec libraries are available under their own permissive licenses, as detailed in [inst/COPYRIGHTS](https://github.com/cmmr/hdf5lib/blob/main/inst/COPYRIGHTS).
 
 *(Note: Only the HDF5 library headers are exposed).*
-
-
 
 ![](https://cmmr-repos.goatcounter.com/count?p=/hdf5lib)
