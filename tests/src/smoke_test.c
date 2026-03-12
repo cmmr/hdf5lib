@@ -287,6 +287,9 @@ SEXP C_smoke_test(SEXP sexp_filename) {
 
   H5Fclose(file_id);
 
+  /* Destroy global filter state to prevent Valgrind TLS memory leaks */
+  hdf5lib_destroy_all_filters();
+
   /* Enforce Strict Failure */
   if (total_errors > 0) {
     Rf_error("HDF5 Plugin Smoke Tests Failed! (%d filters broken). Check compilation and linking.", total_errors);

@@ -69,3 +69,11 @@ herr_t hdf5lib_register_all_filters(void) {
   
   return err;
 }
+
+
+/* --- Cleanup Function --- */
+herr_t hdf5lib_destroy_all_filters(void) {
+  /* Safely tear down the Blosc thread pool and TLS memory */
+  blosc2_destroy();
+  return 0;
+}
