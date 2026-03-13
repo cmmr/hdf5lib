@@ -8,14 +8,20 @@
 #include <blosc2.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h> /* Required for stderr/fprintf */
 
 #define H5Z_FILTER_BLOSC 32001
 #define FILTER_BLOSC_VERSION 2
 #define BLOSC_VERSION_FORMAT 2
 #define BLOSC_MAX_TYPESIZE 255
 
+/* Force the error message directly to the console before HDF5 has a chance to swallow it */
 #define PUSH_ERR(...) do { \
-    H5Epush(H5E_DEFAULT, __FILE__, __func__, __LINE__, H5E_ERR_CLS_g, H5E_PLINE, H5E_CANTFILTER, __VA_ARGS__); \
+    fprintf(stderr, "\n>>> [BLOSC_PLUGIN ERROR at line %d]: ", __LINE__); \
+    fprintf(stderr, __VA_ARGS__); \
+    fprintf(stderr, " <<<\n"); \
+    fflush(stderr); \
+    H5Epush(H5E_DEFAULT, __FILE__, __func__, __LINE__, H5E_ERR_CLS_g, H5E_PLINE, H5E_CANTFILTER, "Filter failed"); \
     return 0; \
 } while(0)
 
@@ -81,14 +87,14 @@ static size_t blosc_filter(
     blosc_cbuffer_sizes(*buf, &uncomp_size, &screensize, &typesize);
     
     void *outbuf = H5allocate_memory(uncomp_size, 0);
-    if (!outbuf) PUSH_ERR("blosc_filter: Memory allocation failed");
+    if (!outbuf) PUSH_ERR("Memory allocation failed for %zu bytes", uncomp_size);
     
     /* Use context engine for decompression to tap into rich error states */
     blosc2_dparams dparams = BLOSC2_DPARAMS_DEFAULTS;
     blosc2_context *dctx = blosc2_create_dctx(dparams);
     if (!dctx) {
         H5free_memory(outbuf);
-        PUSH_ERR("blosc_filter: Failed to create Blosc2 decompression context");
+        PUSH_ERR("Failed to create Blosc2 decompression context");
     }
 
     int status = blosc2_decompress_ctx(dctx, *buf, (int32_t)nbytes, outbuf, (int32_t)uncomp_size);
@@ -109,7 +115,7 @@ static size_t blosc_filter(
         else if (compcode == 5) compname = "zstd";
         else if (compcode == 6) compname = "zfp";
 
-        PUSH_ERR("blosc_filter: Decompression failed (status %d). Chunk requires codec: %s (compcode %d). Is this codec compiled and registered in c-blosc2?", status, compname, compcode);
+        PUSH_ERR("Decompression failed (status %d). Chunk requires codec: %s (compcode %d). Is this codec compiled and registered in c-blosc2?", status, compname, compcode);
     }
     
     H5free_memory(*buf); 
@@ -121,7 +127,7 @@ static size_t blosc_filter(
   /* ----- Compression Path ----- */
   else {
     if (cd_nelmts < 4) {
-      PUSH_ERR("blosc_filter: Blosc requires at least 4 cd_values");
+      PUSH_ERR("Blosc requires at least 4 cd_values");
     }
     
     size_t typesize = cd_values[2];
@@ -135,7 +141,7 @@ static size_t blosc_filter(
     
     size_t out_alloc = nbytes + 64; 
     void *outbuf = H5allocate_memory(out_alloc, 0);
-    if (!outbuf) PUSH_ERR("blosc_filter: Memory allocation failed");
+    if (!outbuf) PUSH_ERR("Memory allocation failed for compression");
     
     int comp_size = 0;
 
