@@ -1,46 +1,39 @@
-name: Interoperability Tests
-
+name: Python-R Interoperability
 on:
   workflow_dispatch:
   push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
+    branches: [ "main" ]
 
 jobs:
-  interop-test:
+  interop-tests:
     runs-on: ubuntu-latest
+    
     steps:
-      - name: Checkout Repository
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Python
+      - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
 
-      - name: Install Python Dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install numpy h5py hdf5plugin
-
-      - name: Set up R
+      - name: Setup R
         uses: r-lib/actions/setup-r@v2
         with:
-          r-version: 'release'
+          use-public-rspm: true
 
-      - name: Install R Dependencies
-        run: install.packages("Rcpp")
-        shell: Rscript {0}
+      - name: Install Python Dependencies
+        run: pip install h5py hdf5plugin numpy
+
+      - name: Generate Interop Test File (Python)
+        working-directory: tests/interop
+        run: python write_zoo.py
 
       - name: Build and Install hdf5lib
-        run: R CMD INSTALL .
+        run: |
+          R CMD build .
+          R CMD INSTALL hdf5lib_*.tar.gz
 
-      - name: Step 1 - Python Writes HDF5 (28 Filter Combinations)
-        run: python tests/interop/write_python_hdf5.py
-
-      - name: Step 2 - R/hdf5lib Reads and Rewrites HDF5 (Filter Swapping)
-        run: Rscript tests/interop/read_write_r_hdf5.r
-
-      - name: Step 3 - Python Verifies Rewritten HDF5
-        run: python tests/interop/verify_python_hdf5.py
+      - name: Run Read Verification (R -> C)
+        working-directory: tests/interop
+        run: Rscript test_interop.r
