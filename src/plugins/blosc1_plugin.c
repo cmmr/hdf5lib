@@ -126,9 +126,10 @@ static size_t blosc_filter(
       }
     }
     
-    /* Allocate output exactly as large as input plus the 16-byte Blosc header overhead. 
-       If data is incompressible, Blosc uses this overhead to store it raw natively. */
-    size_t out_alloc = nbytes + 16; 
+    /* Allocate output large enough for worst-case incompressible expansion.
+       Blosc2's BLOSC2_MAX_OVERHEAD is 32 bytes. We allocate 64 bytes of padding 
+       to guarantee we never hit a destsize limit bailout inside c-blosc2. */
+    size_t out_alloc = nbytes + 64; 
     void *outbuf = H5allocate_memory(out_alloc, 0);
     if (!outbuf) PUSH_ERR("blosc_filter: Memory allocation failed");
     
@@ -137,7 +138,6 @@ static size_t blosc_filter(
         PUSH_ERR("blosc_filter: Failed to set Blosc compressor");
     }
 
-    /* Provide out_alloc instead of nbytes for the destsize limit */
     int comp_size = blosc_compress(clevel, doshuffle, typesize, nbytes, *buf, outbuf, out_alloc);
     
     /* Only return 0 on actual errors, not incompressible bailouts */
