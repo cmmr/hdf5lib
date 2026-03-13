@@ -246,8 +246,8 @@ cp -r ../../src/config/blosc2/* .
 
 # Tell Blosc that LZ4 and Zstd are available and where their headers are.
 # Suppress benign warnings from forcing the generic fallback
-BLOSC2_FLAGS="-I../lz4 -I../zstd -I../gzip -I. -Iinclude -Iblosc"
-BLOSC2_FLAGS="$BLOSC2_FLAGS -Iplugins/codecs/zfp -I../zfp/include"
+BLOSC2_FLAGS="-I../lz4 -I../zstd -I../gzip -I../snappy -I../zfp/include"
+BLOSC2_FLAGS="$BLOSC2_FLAGS -I. -Iinclude -Iblosc"
 BLOSC2_FLAGS="$BLOSC2_FLAGS -Wno-unused-variable -Wno-pedantic"
 BLOSC2_FLAGS="$BLOSC2_FLAGS -Wno-deprecated-declarations -DBLOSC_STRICT_ALIGN=1"
 echo "  BLOSC2_FLAGS: $BLOSC2_FLAGS"

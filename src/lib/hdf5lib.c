@@ -24,8 +24,6 @@ extern int zfp_prec_decompress(const uint8_t* input, int32_t input_len, uint8_t*
 
 /* --- Define Blosc2 Codecs natively --- */
 
-extern blosc2_codec snappy_codec; /* Located in blosc2_snappy_codec.c */
-
 blosc2_codec ndlz_codec = {
   .compcode = BLOSC_CODEC_NDLZ,
   .compname = "ndlz",
@@ -52,7 +50,6 @@ herr_t hdf5lib_register_all_filters(void) {
   blosc2_init();
   
   /* 2. Shoehorn custom static codecs into Blosc2 natively */
-  blosc2_register_codec(&snappy_codec);
   blosc2_register_codec(&ndlz_codec);
   blosc2_register_codec(&zfp_prec_codec);
   

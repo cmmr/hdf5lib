@@ -5,6 +5,7 @@
 #define HAVE_LZ4 1
 #define HAVE_ZSTD 1
 #define HAVE_ZLIB 1
+#define HAVE_SNAPPY 1  /* <-- Natively trick Blosc2 into activating compcode 3 */
 
 /* Support original blosc API */
 #define BLOSC1_COMPAT 1
