@@ -4,7 +4,7 @@ import hdf5plugin
 
 names = [
     "zlibng_gzip", "szip_ec", "szip_nn", "bzip2", "lzf", "lz4", "lz4hc", "zstd",
-    "snappy", "bshuf_pure", "bshuf_lz4", "zfp_prec", "zfp_rev", "zfp_expert",
+    "bshuf_pure", "bshuf_lz4", "zfp_prec", "zfp_rev", "zfp_expert",
     "blosc_lz", "blosc_lz4", "blosc_lz4hc", "blosc_snappy", "blosc_zlib", "blosc_zstd",
     "blosc2_lz", "blosc2_lz4", "blosc2_lz4hc", "blosc2_snappy", "blosc2_zlib",
     "blosc2_zstd", "blosc2_zfp", "blosc2_ndlz"
@@ -13,8 +13,8 @@ names = [
 with h5py.File('python_out.h5', 'r') as f_orig:
     with h5py.File('r_out.h5', 'r') as f_new:
         
-        for i in range(28):
-            next_i = (i + 1) % 28
+        for i in range(27):
+            next_i = (i + 1) % 27
             orig_name = names[i]
             new_name = "out_" + names[next_i]
             
@@ -32,4 +32,4 @@ with h5py.File('python_out.h5', 'r') as f_orig:
                 err_msg=f"Data corruption detected during {orig_name} -> {new_name} transition."
             )
 
-print("\nSUCCESS: All 28 inter-language HDF5 filter permutations completed a full round-trip.")
+print("\nSUCCESS: All 27 inter-language HDF5 filter permutations completed a full round-trip.")

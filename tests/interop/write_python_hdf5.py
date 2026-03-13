@@ -5,7 +5,8 @@ import hdf5plugin
 # 1024 size enables 128-element chunks, maintaining divisible-by-8 constraints for szip
 data_float = np.random.rand(1024).astype(np.float64)
 
-# Map the 28 smoke_test.c combinations directly to h5py's C-API passthrough tuples
+# Map the 27 smoke_test.c combinations directly to h5py's C-API passthrough tuples
+# (Note: Standalone 'snappy' / ID 32003 is omitted as it is not bundled by hdf5plugin)
 configs = {
     "zlibng_gzip": {"compression": "gzip", "compression_opts": 9},
     "szip_ec": {"compression": "szip", "compression_opts": ("ec", 8)},
@@ -15,7 +16,6 @@ configs = {
     "lz4": {"compression": 32004, "compression_opts": (0, 0)},
     "lz4hc": {"compression": 32004, "compression_opts": (0, 9)},
     "zstd": {"compression": 32015, "compression_opts": (3,)},
-    "snappy": {"compression": 32003, "compression_opts": None},
     "bshuf_pure": {"compression": 32008, "compression_opts": (0, 0)},
     "bshuf_lz4": {"compression": 32008, "compression_opts": (0, 2)},
     "zfp_prec": {"compression": 32013, "compression_opts": (2, 0, 16, 0, 0, 0)},
@@ -44,4 +44,4 @@ with h5py.File('python_out.h5', 'w') as f:
             del opts_copy["compression_opts"]
         f.create_dataset(name, data=data_float, chunks=(128,), **opts_copy)
 
-print("Python successfully wrote 'python_out.h5' with 28 filter permutations.")
+print("Python successfully wrote 'python_out.h5' with 27 filter permutations.")

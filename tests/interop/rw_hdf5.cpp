@@ -10,7 +10,6 @@ using namespace Rcpp;
 #define H5Z_FILTER_SZIP      4
 #define H5Z_FILTER_LZF       32000
 #define H5Z_FILTER_BLOSC     32001
-#define H5Z_FILTER_SNAPPY    32003
 #define H5Z_FILTER_LZ4       32004
 #define H5Z_FILTER_BSHUF     32008
 #define H5Z_FILTER_ZFP       32013
@@ -24,7 +23,8 @@ struct FilterConfig {
   unsigned int cd_values[7];
 };
 
-FilterConfig filters[28] = {
+// Array reduced to 27 matching the available interop configurations
+FilterConfig filters[27] = {
   {"zlibng_gzip", H5Z_FILTER_DEFLATE, 1, {9}},
   {"szip_ec",     H5Z_FILTER_SZIP,    2, {H5_SZIP_EC_OPTION_MASK, 8}},
   {"szip_nn",     H5Z_FILTER_SZIP,    2, {H5_SZIP_NN_OPTION_MASK, 8}},
@@ -33,7 +33,6 @@ FilterConfig filters[28] = {
   {"lz4",         H5Z_FILTER_LZ4,     2, {0, 0}},
   {"lz4hc",       H5Z_FILTER_LZ4,     2, {0, 9}},
   {"zstd",        H5Z_FILTER_ZSTD,    1, {3}},
-  {"snappy",      H5Z_FILTER_SNAPPY,  0, {0}},
   {"bshuf_pure",  H5Z_FILTER_BSHUF,   2, {0, 0}},
   {"bshuf_lz4",   H5Z_FILTER_BSHUF,   2, {0, 2}},
   {"zfp_prec",    H5Z_FILTER_ZFP,     6, {2, 0, 16, 0, 0, 0}},
@@ -62,8 +61,8 @@ void process_hdf5() {
     hid_t file_in = H5Fopen("python_out.h5", H5F_ACC_RDONLY, H5P_DEFAULT);
     hid_t file_out = H5Fcreate("r_out.h5", H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT);
 
-    for (int i = 0; i < 28; i++) {
-        int next_i = (i + 1) % 28;
+    for (int i = 0; i < 27; i++) {
+        int next_i = (i + 1) % 27;
         
         std::vector<double> data(1024);
         H5LTread_dataset_double(file_in, filters[i].name, data.data());
