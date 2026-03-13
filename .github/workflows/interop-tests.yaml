@@ -39,7 +39,7 @@ jobs:
         run: python tests/interop/write_python_hdf5.py
 
       - name: Step 2 - R/hdf5lib Reads and Rewrites HDF5 (Filter Swapping)
-        run: Rscript tests/interop/read_write_r_hdf5.R
+        run: Rscript tests/interop/read_write_r_hdf5.r
 
       - name: Step 3 - Python Verifies Rewritten HDF5
         run: python tests/interop/verify_python_hdf5.py
