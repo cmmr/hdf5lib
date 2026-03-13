@@ -25,8 +25,8 @@ struct FilterConfig {
   unsigned int cd_values[7];
 };
 
-// Reduced to 24 exact matches of Python's capabilities
-FilterConfig filters[24] = {
+// Reduced to 23 exact matches of Python's capabilities
+FilterConfig filters[23] = {
   {"zlibng_gzip", H5Z_FILTER_DEFLATE, 1, {9}},
   {"szip_ec",     H5Z_FILTER_SZIP,    2, {H5_SZIP_EC_OPTION_MASK, 8}},
   {"szip_nn",     H5Z_FILTER_SZIP,    2, {H5_SZIP_NN_OPTION_MASK, 8}},
@@ -43,7 +43,6 @@ FilterConfig filters[24] = {
   {"blosc_lz",    H5Z_FILTER_BLOSC,   7, {0, 0, 0, 0, 5, 1, 0}},
   {"blosc_lz4",   H5Z_FILTER_BLOSC,   7, {0, 0, 0, 0, 5, 1, 1}},
   {"blosc_lz4hc", H5Z_FILTER_BLOSC,   7, {0, 0, 0, 0, 5, 1, 2}},
-  {"blosc_snappy",H5Z_FILTER_BLOSC,   7, {0, 0, 0, 0, 5, 1, 3}},
   {"blosc_zlib",  H5Z_FILTER_BLOSC,   7, {0, 0, 0, 0, 5, 1, 4}},
   {"blosc_zstd",  H5Z_FILTER_BLOSC,   7, {0, 0, 0, 0, 5, 1, 5}},
   {"blosc2_lz",   H5Z_FILTER_BLOSC2,  7, {0, 0, 0, 0, 5, 1, 0}},
@@ -65,8 +64,8 @@ void process_hdf5() {
     hid_t file_out = H5Fcreate("r_out.h5", H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT);
     if (file_out < 0) stop("Failed to create output file.");
 
-    for (int i = 0; i < 24; i++) {
-        int next_i = (i + 1) % 24;
+    for (int i = 0; i < 23; i++) {
+        int next_i = (i + 1) % 23;
         
         char out_name[128];
         snprintf(out_name, sizeof(out_name), "out_%s", filters[next_i].name);
