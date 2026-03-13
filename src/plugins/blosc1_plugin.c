@@ -126,9 +126,10 @@ static size_t blosc_filter(
       }
     }
     
-    /* Allocate output exactly as large as input. 
-       If compression inflates it, blosc_compress catches it. */
-    void *outbuf = H5allocate_memory(nbytes, 0);
+    /* Allocate output exactly as large as input plus the 16-byte Blosc header overhead. 
+       If data is incompressible, Blosc uses this overhead to store it raw natively. */
+    size_t out_alloc = nbytes + 16; 
+    void *outbuf = H5allocate_memory(out_alloc, 0);
     if (!outbuf) PUSH_ERR("blosc_filter: Memory allocation failed");
     
     if (blosc_set_compressor(compname) < 0) {
@@ -136,17 +137,18 @@ static size_t blosc_filter(
         PUSH_ERR("blosc_filter: Failed to set Blosc compressor");
     }
 
-    int comp_size = blosc_compress(clevel, doshuffle, typesize, nbytes, *buf, outbuf, nbytes);
+    /* Provide out_alloc instead of nbytes for the destsize limit */
+    int comp_size = blosc_compress(clevel, doshuffle, typesize, nbytes, *buf, outbuf, out_alloc);
     
+    /* Only return 0 on actual errors, not incompressible bailouts */
     if (comp_size <= 0) {
-      /* Data was incompressible or error occurred. Store uncompressed natively. */
       H5free_memory(outbuf); 
-      return 0;
+      PUSH_ERR("blosc_filter: Blosc compression failed");
     }
     
     H5free_memory(*buf); 
     *buf = outbuf;
-    *buf_size = nbytes; // HDF5 tracks allocated buffer size
+    *buf_size = out_alloc; // HDF5 tracks allocated buffer size
     return (size_t)comp_size;
   }
 }

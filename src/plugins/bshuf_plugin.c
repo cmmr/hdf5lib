@@ -189,12 +189,6 @@ static size_t bshuf_filter(
       PUSH_ERR("bshuf_filter: Bitshuffle compression failed");
     }
 
-    /* Fallback: If compression inflated the data, store it uncompressed natively */
-    if (final_out_size >= nbytes) {
-      H5free_memory(out_buf);
-      return 0; 
-    }
-
     H5free_memory(*buf);
     *buf = out_buf;
     *buf_size = out_alloc;

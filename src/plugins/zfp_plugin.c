@@ -504,13 +504,7 @@ static size_t H5Z_filter_zfp(unsigned int flags, size_t cd_nelmts, const unsigne
         stream_close(bstr); bstr = NULL;
 
         if (zsize == 0) PUSH_AND_GOTO(H5E_CANTFILTER, 0, "compression failed");
-        if (zsize >= msize) {
-            /* If data inflated, discard and store uncompressed natively */
-            H5free_memory(newbuf);
-            newbuf = NULL;
-            return 0;
-        }
-
+        
         H5free_memory(*buf);
         *buf = newbuf;
         newbuf = NULL;

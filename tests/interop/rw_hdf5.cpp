@@ -1,10 +1,11 @@
-// [[Rcpp::depends(hdf5lib)]]
-#include <Rcpp.h>
+#include <R.h>
+#include <Rinternals.h>
+#include <stdio.h>
+#include <stdlib.h>
+
 #include <hdf5.h>
 #include <hdf5_hl.h>
 #include "hdf5lib.h"
-
-using namespace Rcpp;
 
 #define H5Z_FILTER_BZIP2     307
 #define H5Z_FILTER_SZIP      4
@@ -16,14 +17,13 @@ using namespace Rcpp;
 #define H5Z_FILTER_ZSTD      32015
 #define H5Z_FILTER_BLOSC2    32026
 
-struct FilterConfig {
+typedef struct {
   const char* name;
   H5Z_filter_t id;
   size_t nelmts;
   unsigned int cd_values[7];
-};
+} FilterConfig;
 
-// Array reduced to 27 matching the available interop configurations
 FilterConfig filters[27] = {
   {"zlibng_gzip", H5Z_FILTER_DEFLATE, 1, {9}},
   {"szip_ec",     H5Z_FILTER_SZIP,    2, {H5_SZIP_EC_OPTION_MASK, 8}},
@@ -54,28 +54,27 @@ FilterConfig filters[27] = {
   {"blosc2_ndlz", H5Z_FILTER_BLOSC2,  7, {0, 0, 0, 0, 5, 1, 11}}
 };
 
-// [[Rcpp::export]]
-void process_hdf5() {
+SEXP C_process_hdf5(SEXP r_file_in, SEXP r_file_out) {
+    const char *file_in_name = CHAR(STRING_ELT(r_file_in, 0));
+    const char *file_out_name = CHAR(STRING_ELT(r_file_out, 0));
+
     if (hdf5lib_register_all_filters() < 0) {
         Rf_error("Failed to register HDF5 plugins.");
     }
 
-    // Disable default HDF5 error printing so our custom R errors are cleaner
     H5Eset_auto(H5E_DEFAULT, NULL, NULL);
 
-    hid_t file_in = H5Fopen("python_out.h5", H5F_ACC_RDONLY, H5P_DEFAULT);
-    if (file_in < 0) Rf_error("Failed to open input file: python_out.h5");
-
-    hid_t file_out = H5Fcreate("r_out.h5", H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT);
-    if (file_out < 0) Rf_error("Failed to create output file: r_out.h5");
+    hid_t file_in = H5Fopen(file_in_name, H5F_ACC_RDONLY, H5P_DEFAULT);
+    if (file_in < 0) Rf_error("Failed to open input file: %s", file_in_name);
+    
+    hid_t file_out = H5Fcreate(file_out_name, H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT);
+    if (file_out < 0) Rf_error("Failed to create output file: %s", file_out_name);
 
     for (int i = 0; i < 27; i++) {
         int next_i = (i + 1) % 27;
         
-        std::vector<double> data(1024);
-        
-        // Check for read failures (e.g., illegal SZIP metadata applied to floats)
-        if (H5LTread_dataset_double(file_in, filters[i].name, data.data()) < 0) {
+        double data[1024];
+        if (H5LTread_dataset_double(file_in, filters[i].name, data) < 0) {
             Rf_error("Failed to READ dataset: %s", filters[i].name);
         }
 
@@ -94,7 +93,7 @@ void process_hdf5() {
             Rf_error("Failed to set chunking for: %s", out_name);
         }
         
-        // Check for filter application failures
+        /* Apply filters. Native wrappers automatically use H5Z_FLAG_OPTIONAL */
         if (filters[next_i].id == H5Z_FILTER_DEFLATE) {
             if (H5Pset_deflate(dcpl, filters[next_i].cd_values[0]) < 0)
                 Rf_error("Failed to apply Deflate filter on: %s", out_name);
@@ -109,19 +108,18 @@ void process_hdf5() {
         hid_t dset = H5Dcreate2(file_out, out_name, H5T_NATIVE_DOUBLE, space, H5P_DEFAULT, dcpl, H5P_DEFAULT);
         if (dset < 0) Rf_error("Failed to CREATE dataset: %s", out_name);
         
-        // Check for write failures
-        if (H5Dwrite(dset, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT, data.data()) < 0) {
+        if (H5Dwrite(dset, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT, data) < 0) {
             Rf_error("Failed to WRITE dataset: %s", out_name);
         }
         
-        // Clean up resources for this loop iteration
         if (H5Dclose(dset) < 0) Rf_error("Failed to close dataset: %s", out_name);
         if (H5Pclose(dcpl) < 0) Rf_error("Failed to close property list: %s", out_name);
         if (H5Sclose(space) < 0) Rf_error("Failed to close dataspace: %s", out_name);
     }
 
-    // Clean up file handles and global filter state
     H5Fclose(file_out);
     H5Fclose(file_in);
     hdf5lib_destroy_all_filters();
+    
+    return R_NilValue;
 }

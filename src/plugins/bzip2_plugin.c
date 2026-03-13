@@ -127,12 +127,6 @@ static size_t bzip2_filter(
       PUSH_ERR("bzip2_filter: Compression failed with error code %d", ret);
     }
     
-    /* If data is incompressible, HDF5 can store it natively */
-    if (dest_len >= nbytes) {
-      H5free_memory(outbuf);
-      return 0;
-    }
-    
     H5free_memory(*buf);
     *buf = outbuf;
     *buf_size = comp_limit;

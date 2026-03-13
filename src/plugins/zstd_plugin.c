@@ -65,12 +65,6 @@ static size_t zstd_filter(
       PUSH_ERR("zstd_filter: %s", ZSTD_getErrorName(compSize));
     }
     
-    /* If data is incompressible, tell HDF5 to store it natively */
-    if (compSize == 0 || compSize >= nbytes) {
-      H5free_memory(outbuf);
-      return 0;
-    }
-    
     H5free_memory(*buf); 
     *buf = outbuf; 
     *buf_size = compLimit;

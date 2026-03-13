@@ -151,9 +151,9 @@ static size_t lzf_filter(
     
     H5free_memory(htab);
     
-    if (status == 0 || status >= nbytes) {
+    if (status == 0) {
       H5free_memory(outbuf);
-      return 0; 
+      PUSH_ERR("lzf_filter: Compression failed");
     }
   }
     

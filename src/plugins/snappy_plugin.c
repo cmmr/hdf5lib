@@ -79,10 +79,10 @@ static size_t snappy_filter(
     
     H5free_memory(workmem);
     
-    /* If data is incompressible, tell HDF5 to store it natively */
-    if (comp_len == 0 || comp_len >= (uint32_t)nbytes) {
+    /* Strictly check for 0 (error) */
+    if (comp_len == 0) {
       H5free_memory(outbuf);
-      return 0;
+      PUSH_ERR("snappy_filter: Snappy compression failed");
     }
     
     H5free_memory(*buf);

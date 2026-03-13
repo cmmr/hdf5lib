@@ -235,12 +235,12 @@ static size_t blosc2_filter_function(
         PUSH_ERR("blosc2_filter: Cannot convert B2ND array to buffer");
       }
 
-      /* IF INCOMPRESSIBLE: Free internal allocations and tell HDF5 to store natively */
-      if (status >= (int64_t)nbytes) {
+      /* IF ERROR: Free internal allocations and trigger upstream failure */
+      if (status <= 0) {
           if (needs_free) free(tmp_out);
           b2nd_free(array); 
           b2nd_free_ctx(ctx);
-          return 0;
+          PUSH_ERR("blosc2_filter: B2ND compression failed");
       }
 
       /* Safely copy into HDF5-managed memory */
@@ -273,12 +273,12 @@ static size_t blosc2_filter_function(
       uint8_t *tmp_out = NULL;
       status = blosc2_schunk_to_buffer(schunk, &tmp_out, &needs_free);
       
-      /* IF INCOMPRESSIBLE OR ERROR: Free internal allocations and tell HDF5 to store natively */
-      if (status <= 0 || status >= (int64_t)nbytes) {
+      /* IF ERROR: Free internal allocations and trigger upstream failure */
+      if (status <= 0) {
           if (needs_free) free(tmp_out);
           blosc2_schunk_free(schunk); 
           blosc2_free_ctx(cctx);
-          return 0;
+          PUSH_ERR("blosc2_filter: Super-chunk compression failed");
       }
 
       /* Safely copy into HDF5-managed memory */
