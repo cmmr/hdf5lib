@@ -11,7 +11,7 @@ configs = {
     "zlibng_gzip": {"compression": "gzip", "compression_opts": 9},
     "szip_ec": {"compression": "szip", "compression_opts": ("ec", 8)},
     "szip_nn": {"compression": "szip", "compression_opts": ("nn", 8)},
-    "bzip2": hdf5plugin.Bzip2(clevel=9),
+    "bzip2": hdf5plugin.BZip2(clevel=9),  # <-- Fixed capitalization here
     "lzf": {"compression": 32000},
     "lz4": hdf5plugin.LZ4(),
     "lz4hc": {"compression": 32004, "compression_opts": (0, 9)},
@@ -65,20 +65,28 @@ with h5py.File('python_out.h5', 'w') as f:
         filter_id, flags, values, filter_name = plist.get_filter(0)
         
         # Determine expected integer ID from our configuration dict
-        expected_comp = opts['compression']
-        expected_id = expected_comp
-        if expected_comp == 'gzip':
-            expected_id = 1  # H5Z_FILTER_DEFLATE
-        elif expected_comp == 'szip':
-            expected_id = 4  # H5Z_FILTER_SZIP
+        # hdf5plugin objects provide a .filter_id attribute
+        if hasattr(opts, 'filter_id'):
+            expected_id = opts.filter_id
+        elif 'compression' in opts:
+            expected_comp = opts['compression']
+            expected_id = expected_comp
+            if expected_comp == 'gzip':
+                expected_id = 1  # H5Z_FILTER_DEFLATE
+            elif expected_comp == 'szip':
+                expected_id = 4  # H5Z_FILTER_SZIP
             
         if filter_id != expected_id:
             raise AssertionError(f"[{name}] FAILURE: Expected Filter ID {expected_id}, but got {filter_id}")
             
         # Specific regression test: Verify Blosc/Blosc2 internal codecs (Snappy, LZ4, etc.)
         # Index 6 in the Blosc cd_values array holds the sub-compressor ID.
-        if filter_id in (32001, 32026) and 'compression_opts' in opts:
-            expected_compcode = opts['compression_opts'][6] 
+        if filter_id in (32001, 32026):
+            if hasattr(opts, 'filter_options'):
+                expected_compcode = opts.filter_options[6]
+            else:
+                expected_compcode = opts['compression_opts'][6] 
+                
             actual_compcode = values[6]
             if actual_compcode != expected_compcode:
                 raise AssertionError(f"[{name}] FAILURE: Expected Blosc compcode {expected_compcode}, but got {actual_compcode}")
