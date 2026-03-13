@@ -22,7 +22,7 @@ configs = {
     "zfp_rev": {"compression": 32013, "compression_opts": (5, 0, 0, 0, 0, 0)},
     "zfp_expert": {"compression": 32013, "compression_opts": (4, 0, 1, 16, 16, 0)},
     
-    # Blosc/Blosc2 MUST use explicit hdf5plugin wrappers to prevent global state bleed
+    # Blosc1 explicit wrappers use `shuffle=`
     "blosc_lz": hdf5plugin.Blosc(cname='blosclz', clevel=5, shuffle=hdf5plugin.Blosc.SHUFFLE),
     "blosc_lz4": hdf5plugin.Blosc(cname='lz4', clevel=5, shuffle=hdf5plugin.Blosc.SHUFFLE),
     "blosc_lz4hc": hdf5plugin.Blosc(cname='lz4hc', clevel=5, shuffle=hdf5plugin.Blosc.SHUFFLE),
@@ -30,14 +30,15 @@ configs = {
     "blosc_zlib": hdf5plugin.Blosc(cname='zlib', clevel=5, shuffle=hdf5plugin.Blosc.SHUFFLE),
     "blosc_zstd": hdf5plugin.Blosc(cname='zstd', clevel=5, shuffle=hdf5plugin.Blosc.SHUFFLE),
     
-    "blosc2_lz": hdf5plugin.Blosc2(cname='blosclz', clevel=5, shuffle=hdf5plugin.Blosc2.SHUFFLE),
-    "blosc2_lz4": hdf5plugin.Blosc2(cname='lz4', clevel=5, shuffle=hdf5plugin.Blosc2.SHUFFLE),
-    "blosc2_lz4hc": hdf5plugin.Blosc2(cname='lz4hc', clevel=5, shuffle=hdf5plugin.Blosc2.SHUFFLE),
-    "blosc2_snappy": hdf5plugin.Blosc2(cname='snappy', clevel=5, shuffle=hdf5plugin.Blosc2.SHUFFLE),
-    "blosc2_zlib": hdf5plugin.Blosc2(cname='zlib', clevel=5, shuffle=hdf5plugin.Blosc2.SHUFFLE),
-    "blosc2_zstd": hdf5plugin.Blosc2(cname='zstd', clevel=5, shuffle=hdf5plugin.Blosc2.SHUFFLE),
-    "blosc2_zfp": hdf5plugin.Blosc2(cname='zfp', clevel=5, shuffle=hdf5plugin.Blosc2.SHUFFLE),
-    "blosc2_ndlz": hdf5plugin.Blosc2(cname='ndlz', clevel=5, shuffle=hdf5plugin.Blosc2.SHUFFLE)
+    # Blosc2 explicit wrappers MUST use `filters=` instead of `shuffle=`
+    "blosc2_lz": hdf5plugin.Blosc2(cname='blosclz', clevel=5, filters=hdf5plugin.Blosc2.SHUFFLE),
+    "blosc2_lz4": hdf5plugin.Blosc2(cname='lz4', clevel=5, filters=hdf5plugin.Blosc2.SHUFFLE),
+    "blosc2_lz4hc": hdf5plugin.Blosc2(cname='lz4hc', clevel=5, filters=hdf5plugin.Blosc2.SHUFFLE),
+    "blosc2_snappy": hdf5plugin.Blosc2(cname='snappy', clevel=5, filters=hdf5plugin.Blosc2.SHUFFLE),
+    "blosc2_zlib": hdf5plugin.Blosc2(cname='zlib', clevel=5, filters=hdf5plugin.Blosc2.SHUFFLE),
+    "blosc2_zstd": hdf5plugin.Blosc2(cname='zstd', clevel=5, filters=hdf5plugin.Blosc2.SHUFFLE),
+    "blosc2_zfp": hdf5plugin.Blosc2(cname='zfp', clevel=5, filters=hdf5plugin.Blosc2.SHUFFLE),
+    "blosc2_ndlz": hdf5plugin.Blosc2(cname='ndlz', clevel=5, filters=hdf5plugin.Blosc2.SHUFFLE)
 }
 
 with h5py.File('python_out.h5', 'w') as f:
@@ -82,7 +83,11 @@ with h5py.File('python_out.h5', 'w') as f:
             
         # Verify Blosc/Blosc2 internal sub-compressor logic
         if filter_id in (32001, 32026):
-            expected_compcode = opts.filter_options[6]
+            if hasattr(opts, 'filter_options'):
+                expected_compcode = opts.filter_options[6]
+            else:
+                expected_compcode = opts['compression_opts'][6]
+                
             actual_compcode = values[6]
             if actual_compcode != expected_compcode:
                 raise AssertionError(f"[{name}] FAILURE: Expected Blosc compcode {expected_compcode}, but got {actual_compcode}")
