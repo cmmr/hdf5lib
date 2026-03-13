@@ -19,31 +19,23 @@
     return 0; \
 } while(0)
 
-/* * Intercepts dataset metadata before the filter pipeline fires to automatically 
- * populate the cd_values array with datatype sizes and compression parameters.
- */
 static herr_t blosc_set_local(hid_t dcpl, hid_t type, hid_t space) {
   unsigned int flags;
   size_t cd_nelmts = 8;
   unsigned int cd_values[8] = {0, 0, 0, 0, 0, 0, 0, 0};
 
-  /* Retrieve existing filter parameters */
   if (H5Pget_filter_by_id(dcpl, H5Z_FILTER_BLOSC, &flags, &cd_nelmts, cd_values, 0, NULL, NULL) < 0) {
     return -1;
   }
 
-  /* Ensure we have at least the minimum required slots */
   if (cd_nelmts < 4) cd_nelmts = 4;
 
-  /* Set Blosc format version info in slots 0 and 1 */
   cd_values[0] = FILTER_BLOSC_VERSION;
   cd_values[1] = BLOSC_VERSION_FORMAT;
 
-  /* Calculate typesize (Slot 2) */
   size_t typesize = H5Tget_size(type);
   if (typesize == 0) return -1;
 
-  /* If the type is an array, get the size of the base element for shuffling */
   H5T_class_t classt = H5Tget_class(type);
   if (classt == H5T_ARRAY) {
     hid_t super_type = H5Tget_super(type);
@@ -51,25 +43,22 @@ static herr_t blosc_set_local(hid_t dcpl, hid_t type, hid_t space) {
     H5Tclose(super_type);
   }
 
-  /* Blosc bit-shuffle has a hard limit of 255 bytes. Fall back to 1 if exceeded. */
   if (typesize > BLOSC_MAX_TYPESIZE) {
     typesize = 1;
   }
   cd_values[2] = (unsigned int)typesize;
 
-  /* Calculate the uncompressed chunk size (Slot 3) */
   int ndims;
   hsize_t chunkdims[32];
   ndims = H5Pget_chunk(dcpl, 32, chunkdims);
   if (ndims < 0) return -1;
 
-  size_t chunksize = H5Tget_size(type); // Use full typesize here, not base
+  size_t chunksize = H5Tget_size(type);
   for (int i = 0; i < ndims; i++) {
     chunksize *= chunkdims[i];
   }
   cd_values[3] = (unsigned int)(chunksize & 0xFFFFFFFF);
 
-  /* Modify the dataset creation property list with the updated cd_values */
   if (H5Pmodify_filter(dcpl, H5Z_FILTER_BLOSC, flags, cd_nelmts, cd_values) < 0) {
     return -1;
   }
@@ -81,7 +70,6 @@ static size_t blosc_filter(
     unsigned int flags, size_t cd_nelmts, const unsigned int cd_values[], 
     size_t nbytes, size_t *buf_size, void **buf) {
   
-  /* Handle completely empty dataset/chunk edge case */
   if (nbytes == 0) {
     return 0; 
   }
@@ -90,7 +78,6 @@ static size_t blosc_filter(
   if (flags & H5Z_FLAG_REVERSE) {
     size_t nchunks, screensize, typesize;
     
-    /* Safely extract exact decompressed size embedded in the Blosc header */
     blosc_cbuffer_sizes(*buf, &nchunks, &screensize, &typesize);
     
     void *outbuf = H5allocate_memory(nchunks, 0);
@@ -116,31 +103,34 @@ static size_t blosc_filter(
     size_t typesize = cd_values[2];
     int clevel = (cd_nelmts >= 5) ? (int)cd_values[4] : 5;
     int doshuffle = (cd_nelmts >= 6) ? (int)cd_values[5] : 1;
-    const char* compname = "blosclz";
+    int compcode = BLOSC_BLOSCLZ;
     
-    /* Support any backend compressor via slot 6 (e.g., lz4, zstd) */
     if (cd_nelmts >= 7) {
-      int compcode = cd_values[6];
-      if (blosc_compcode_to_compname(compcode, &compname) == -1) {
-        PUSH_ERR("blosc_filter: Requested Blosc compressor not available");
-      }
+      compcode = cd_values[6];
     }
     
-    /* Allocate output large enough for worst-case incompressible expansion.
-       Blosc2's BLOSC2_MAX_OVERHEAD is 32 bytes. We allocate 64 bytes of padding 
-       to guarantee we never hit a destsize limit bailout inside c-blosc2. */
     size_t out_alloc = nbytes + 64; 
     void *outbuf = H5allocate_memory(out_alloc, 0);
     if (!outbuf) PUSH_ERR("blosc_filter: Memory allocation failed");
     
-    if (blosc_set_compressor(compname) < 0) {
+    /* Bypass the legacy blosc_set_compressor string matcher and use modern 
+       context engine to fully support dynamic codecs like Snappy/NDLZ */
+    blosc2_cparams cparams = BLOSC2_CPARAMS_DEFAULTS;
+    cparams.compcode = compcode;
+    cparams.clevel = clevel;
+    cparams.typesize = (int32_t)typesize;
+    cparams.filters[BLOSC_LAST_FILTER] = doshuffle;
+    cparams.blocksize = 0;
+
+    blosc2_context *cctx = blosc2_create_cctx(cparams);
+    if (!cctx) {
         H5free_memory(outbuf);
-        PUSH_ERR("blosc_filter: Failed to set Blosc compressor");
+        PUSH_ERR("blosc_filter: Failed to create Blosc2 context");
     }
 
-    int comp_size = blosc_compress(clevel, doshuffle, typesize, nbytes, *buf, outbuf, out_alloc);
+    int comp_size = blosc2_compress_ctx(cctx, *buf, (int32_t)nbytes, outbuf, (int32_t)out_alloc);
+    blosc2_free_ctx(cctx);
     
-    /* Only return 0 on actual errors, not incompressible bailouts */
     if (comp_size <= 0) {
       H5free_memory(outbuf); 
       PUSH_ERR("blosc_filter: Blosc compression failed");
@@ -148,12 +138,11 @@ static size_t blosc_filter(
     
     H5free_memory(*buf); 
     *buf = outbuf;
-    *buf_size = out_alloc; // HDF5 tracks allocated buffer size
+    *buf_size = out_alloc;
     return (size_t)comp_size;
   }
 }
 
-/* Register the Blosc class */
 const H5Z_class2_t blosc_class = { 
   H5Z_CLASS_T_VERS, 
   H5Z_FILTER_BLOSC, 

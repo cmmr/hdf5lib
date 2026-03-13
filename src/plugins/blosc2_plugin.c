@@ -185,10 +185,6 @@ static size_t blosc2_filter_function(
     doshuffle = cd_values[5];
     if (cd_nelmts >= 7) {
       compcode = cd_values[6];
-      const char *compname;
-      if (blosc2_compcode_to_compname(compcode, &compname) == -1) {
-        PUSH_ERR("blosc2_filter: Requested compressor code not supported by this Blosc2 build");
-      }
     }
 
     blosc2_cparams cparams = BLOSC2_CPARAMS_DEFAULTS;
