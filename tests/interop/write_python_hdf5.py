@@ -2,11 +2,11 @@ import h5py
 import numpy as np
 import hdf5plugin
 
+# Generate both float and integer test arrays
 # 1024 size enables 128-element chunks, maintaining divisible-by-8 constraints for szip
 data_float = np.random.rand(1024).astype(np.float64)
+data_int = np.arange(1024, dtype=np.int32)
 
-# Map the 27 smoke_test.c combinations directly to h5py's C-API passthrough tuples
-# (Note: Standalone 'snappy' / ID 32003 is omitted as it is not bundled by hdf5plugin)
 configs = {
     "zlibng_gzip": {"compression": "gzip", "compression_opts": 9},
     "szip_ec": {"compression": "szip", "compression_opts": ("ec", 8)},
@@ -42,6 +42,10 @@ with h5py.File('python_out.h5', 'w') as f:
         opts_copy = dict(opts)
         if opts_copy["compression_opts"] is None:
             del opts_copy["compression_opts"]
-        f.create_dataset(name, data=data_float, chunks=(128,), **opts_copy)
+            
+        # Route Integer data strictly to the szip_nn filter to prevent metadata corruption
+        dataset_data = data_int if name == "szip_nn" else data_float
+        
+        f.create_dataset(name, data=dataset_data, chunks=(128,), **opts_copy)
 
 print("Python successfully wrote 'python_out.h5' with 27 filter permutations.")
