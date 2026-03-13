@@ -61,7 +61,8 @@ void process_hdf5() {
         stop("Failed to register HDF5 plugins.");
     }
 
-    H5Eset_auto(H5E_DEFAULT, NULL, NULL);
+    // ENABLE default HDF5 error printing to stderr so we can see the internal stack trace!
+    H5Eset_auto(H5E_DEFAULT, (H5E_auto2_t)H5Eprint, stderr);
 
     hid_t file_in = H5Fopen("python_out.h5", H5F_ACC_RDONLY, H5P_DEFAULT);
     if (file_in < 0) stop("Failed to open input file: python_out.h5");
@@ -72,13 +73,15 @@ void process_hdf5() {
     for (int i = 0; i < 27; i++) {
         int next_i = (i + 1) % 27;
         
+        char out_name[128];
+        snprintf(out_name, sizeof(out_name), "out_%s", filters[next_i].name);
+
+        Rprintf("--- Iteration %d: Reading %s, Writing %s ---\n", i, filters[i].name, out_name);
+
         std::vector<double> data(1024);
         if (H5LTread_dataset_double(file_in, filters[i].name, data.data()) < 0) {
             stop("Failed to READ dataset: %s", filters[i].name);
         }
-
-        char out_name[128];
-        snprintf(out_name, sizeof(out_name), "out_%s", filters[next_i].name);
 
         hsize_t dims[1] = {1024};
         hid_t space = H5Screate_simple(1, dims, NULL);
@@ -92,7 +95,6 @@ void process_hdf5() {
             stop("Failed to set chunking for: %s", out_name);
         }
         
-        /* Apply filters natively */
         if (filters[next_i].id == H5Z_FILTER_DEFLATE) {
             if (H5Pset_deflate(dcpl, filters[next_i].cd_values[0]) < 0)
                 stop("Failed to apply Deflate filter on: %s", out_name);
@@ -100,7 +102,6 @@ void process_hdf5() {
             if (H5Pset_szip(dcpl, filters[next_i].cd_values[0], filters[next_i].cd_values[1]) < 0)
                 stop("Failed to apply SZIP filter on: %s", out_name);
         } else {
-            /* H5Z_FLAG_MANDATORY explicitly tests that plugins don't return 0 */
             if (H5Pset_filter(dcpl, filters[next_i].id, H5Z_FLAG_MANDATORY, filters[next_i].nelmts, filters[next_i].cd_values) < 0)
                 stop("Failed to apply filter %d on: %s", filters[next_i].id, out_name);
         }
@@ -112,9 +113,13 @@ void process_hdf5() {
             stop("Failed to WRITE dataset: %s", out_name);
         }
         
+        Rprintf("    Data written, attempting to close %s (triggering chunk flush/compression)...\n", out_name);
         if (H5Dclose(dset) < 0) stop("Failed to close dataset: %s", out_name);
+        
         if (H5Pclose(dcpl) < 0) stop("Failed to close property list: %s", out_name);
         if (H5Sclose(space) < 0) stop("Failed to close dataspace: %s", out_name);
+        
+        Rprintf("    Successfully finished %s.\n", out_name);
     }
 
     H5Fclose(file_out);
