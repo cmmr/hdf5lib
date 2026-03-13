@@ -56,8 +56,7 @@ static herr_t apply_filter(hid_t plist, const FilterConfig* cfg) {
   } else if (cfg->id == H5Z_FILTER_SZIP) {
     return H5Pset_szip(plist, cfg->cd_values[0], cfg->cd_values[1]);
   } else {
-    /* Use H5Z_FLAG_OPTIONAL so incompressible chunks don't fail the pipeline */
-    return H5Pset_filter(plist, cfg->id, H5Z_FLAG_OPTIONAL, cfg->nelmts, cfg->cd_values);
+    return H5Pset_filter(plist, cfg->id, H5Z_FLAG_MANDATORY, cfg->nelmts, cfg->cd_values);
   }
 }
 
