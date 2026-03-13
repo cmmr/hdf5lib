@@ -307,81 +307,133 @@ you must pass an array of <code>unsigned int</code> values known as
 <code>cd_values</code> (Client Data Values). These configure how the
 filter behaves (e.g., compression level).</p>
 <p>Below are the expected parameters for each bundled filter.</p>
-<p><strong>GZIP / Deflate (<code>H5Z_FILTER_DEFLATE</code>)</strong>
-Instead of <code>H5Pset_filter</code>, you can apply this conveniently
-using <code>H5Pset_deflate(plist_id, level)</code>. * <strong>Elements
-(<code>cd_nelmts</code>)</strong>: 1 *
+<p><strong>GZIP / Deflate (<code>H5Z_FILTER_DEFLATE</code>)</strong></p>
+<p>Instead of <code>H5Pset_filter</code>, you can apply this
+conveniently using <code>H5Pset_deflate(plist_id, level)</code>.</p>
+<ul>
+<li>
+<strong>Elements (<code>cd_nelmts</code>)</strong>: 1</li>
+<li>
 <strong><code>cd_values[0]</code></strong>: Compression level from
 <code>0</code> (no compression) to <code>9</code> (maximum compression).
-Default is usually <code>6</code>.</p>
-<p><strong>SZIP (<code>H5Z_FILTER_SZIP</code>)</strong> You can apply it
-using
-<code>H5Pset_szip(plist_id, options_mask, pixels_per_block)</code>. *
-<strong>Restriction:</strong> <strong>Numeric data only.</strong> Does
-not support strings or variable length types. The chunk size (in
-elements) must be an exact multiple of the block size. *
-<strong>Elements (<code>cd_nelmts</code>)</strong>: 2 *
+Default is usually <code>6</code>.</li>
+</ul>
+<p><strong>SZIP (<code>H5Z_FILTER_SZIP</code>)</strong></p>
+<p>You can apply it using
+<code>H5Pset_szip(plist_id, options_mask, pixels_per_block)</code>.</p>
+<ul>
+<li>
+<strong>Restriction:</strong> <strong>Numeric data only.</strong>
+Does not support strings or variable length types. The chunk size (in
+elements) must be an exact multiple of the block size.</li>
+<li>
+<strong>Elements (<code>cd_nelmts</code>)</strong>: 2</li>
+<li>
 <strong><code>cd_values[0]</code></strong>: Options mask (e.g.,
 <code>H5_SZIP_NN_OPTION_MASK</code> or
-<code>H5_SZIP_EC_OPTION_MASK</code>). *
-<strong><code>cd_values[1]</code></strong>: Pixels per block. Must be
-even and is typically <code>8</code>, <code>16</code>, or
-<code>32</code>.</p>
-<p><strong>BZIP2 (<code>H5Z_FILTER_BZIP2</code>)</strong> *
-<strong>Elements (<code>cd_nelmts</code>)</strong>: 1 *
+<code>H5_SZIP_EC_OPTION_MASK</code>).</li>
+<li>
+<strong><code>cd_values[1]</code></strong>: Pixels per block. Must
+be even and is typically <code>8</code>, <code>16</code>, or
+<code>32</code>.</li>
+</ul>
+<p><strong>BZIP2 (<code>H5Z_FILTER_BZIP2</code>)</strong></p>
+<ul>
+<li>
+<strong>Elements (<code>cd_nelmts</code>)</strong>: 1</li>
+<li>
 <strong><code>cd_values[0]</code></strong>: Block size / Compression
 Level from <code>1</code> (fastest) to <code>9</code> (best). Default is
-<code>9</code>.</p>
-<p><strong>LZF (<code>H5Z_FILTER_LZF</code>)</strong> * <strong>Elements
-(<code>cd_nelmts</code>)</strong>: 0 (No configuration parameters
-required).</p>
+<code>9</code>.</li>
+</ul>
+<p><strong>LZF (<code>H5Z_FILTER_LZF</code>)</strong></p>
+<ul>
+<li>
+<strong>Elements (<code>cd_nelmts</code>)</strong>: 0 (No
+configuration parameters required).</li>
+</ul>
 <p><strong>Blosc (<code>H5Z_FILTER_BLOSC</code>) &amp; Blosc2
-(<code>H5Z_FILTER_BLOSC2</code>)</strong> * <strong>Elements
-(<code>cd_nelmts</code>)</strong>: 7 *
+(<code>H5Z_FILTER_BLOSC2</code>)</strong></p>
+<ul>
+<li>
+<strong>Elements (<code>cd_nelmts</code>)</strong>: 7</li>
+<li>
 <strong><code>cd_values[0-3]</code></strong>: Reserved (Pass
-<code>0</code>). * <strong><code>cd_values[4]</code></strong>:
-Compression level (<code>0</code> to <code>9</code>). *
-<strong><code>cd_values[5]</code></strong>: Shuffle mode (<code>0</code>
-= no shuffle, <code>1</code> = byte shuffle, <code>2</code> = bit
-shuffle). * <strong><code>cd_values[6]</code></strong>: Compressor ID
+<code>0</code>).</li>
+<li>
+<strong><code>cd_values[4]</code></strong>: Compression level
+(<code>0</code> to <code>9</code>).</li>
+<li>
+<strong><code>cd_values[5]</code></strong>: Shuffle mode
+(<code>0</code> = no shuffle, <code>1</code> = byte shuffle,
+<code>2</code> = bit shuffle).</li>
+<li>
+<strong><code>cd_values[6]</code></strong>: Compressor ID
 (<code>0</code>=blosclz, <code>1</code>=lz4, <code>2</code>=lz4hc,
 <code>3</code>=snappy, <code>4</code>=zlib, <code>5</code>=zstd,
 <code>6</code>=zfp (Blosc2 only), <code>11</code>=ndlz (Blosc2
-only)).</p>
-<p><strong>Snappy (<code>H5Z_FILTER_SNAPPY</code>)</strong> *
-<strong>Elements (<code>cd_nelmts</code>)</strong>: 0 (No configuration
-parameters required).</p>
-<p><strong>LZ4 (<code>H5Z_FILTER_LZ4</code>)</strong> * <strong>Elements
-(<code>cd_nelmts</code>)</strong>: 2 *
+only)).</li>
+</ul>
+<p><strong>Snappy (<code>H5Z_FILTER_SNAPPY</code>)</strong></p>
+<ul>
+<li>
+<strong>Elements (<code>cd_nelmts</code>)</strong>: 0 (No
+configuration parameters required).</li>
+</ul>
+<p><strong>LZ4 (<code>H5Z_FILTER_LZ4</code>)</strong></p>
+<ul>
+<li>
+<strong>Elements (<code>cd_nelmts</code>)</strong>: 2</li>
+<li>
 <strong><code>cd_values[0]</code></strong>: Reserved/padding (Pass
-<code>0</code>). * <strong><code>cd_values[1]</code></strong>:
-Compression level. Passing <code>0</code> uses standard fast LZ4.
-Passing a value <code>&gt;0</code> (e.g., <code>9</code>) enables LZ4-HC
-(High Compression).</p>
-<p><strong>Bitshuffle (<code>H5Z_FILTER_BSHUF</code>)</strong> *
-<strong>Elements (<code>cd_nelmts</code>)</strong>: 2 *
+<code>0</code>).</li>
+<li>
+<strong><code>cd_values[1]</code></strong>: Compression level.
+Passing <code>0</code> uses standard fast LZ4. Passing a value
+<code>&gt;0</code> (e.g., <code>9</code>) enables LZ4-HC (High
+Compression).</li>
+</ul>
+<p><strong>Bitshuffle (<code>H5Z_FILTER_BSHUF</code>)</strong></p>
+<ul>
+<li>
+<strong>Elements (<code>cd_nelmts</code>)</strong>: 2</li>
+<li>
 <strong><code>cd_values[0]</code></strong>: Block size. Pass
-<code>0</code> to let the library choose the optimal default (1024). *
-<strong><code>cd_values[1]</code></strong>: Compression algorithm. Pass
-<code>0</code> for raw bitshuffling (no compression) or <code>2</code>
-to apply LZ4 compression after shuffling.</p>
-<p><strong>ZFP (<code>H5Z_FILTER_ZFP</code>)</strong> *
-<strong>Restriction:</strong> <strong>Numeric arrays only.</strong> Does
-not support strings, compound data types, or 1D arrays of bytes. *
-<strong>Elements (<code>cd_nelmts</code>)</strong>: 6. *
+<code>0</code> to let the library choose the optimal default
+(1024).</li>
+<li>
+<strong><code>cd_values[1]</code></strong>: Compression algorithm.
+Pass <code>0</code> for raw bitshuffling (no compression) or
+<code>2</code> to apply LZ4 compression after shuffling.</li>
+</ul>
+<p><strong>ZFP (<code>H5Z_FILTER_ZFP</code>)</strong></p>
+<ul>
+<li>
+<strong>Restriction:</strong> <strong>Numeric arrays only.</strong>
+Does not support strings, compound data types, or 1D arrays of
+bytes.</li>
+<li>
+<strong>Elements (<code>cd_nelmts</code>)</strong>: 6.</li>
+<li>
 <strong><code>cd_values[0]</code></strong>: The compression mode.
 <code>1</code>=Rate, <code>2</code>=Precision, <code>3</code>=Accuracy,
-<code>4</code>=Expert, <code>5</code>=Reversible (Lossless). *
-<strong><code>cd_values[1-5]</code></strong>: Mode-specific parameters.
-For instance, in Precision mode (<code>cd_values[0]=2</code>),
-<code>cd_values[2]</code> specifies the bits of precision to keep,
-padding the rest with zeros (e.g.,
-<code>{2, 0, 16, 0, 0, 0}</code>).</p>
-<p><strong>Zstandard / Zstd (<code>H5Z_FILTER_ZSTD</code>)</strong> *
-<strong>Elements (<code>cd_nelmts</code>)</strong>: 1 *
-<strong><code>cd_values[0]</code></strong>: Compression level, generally
-from <code>1</code> to <code>22</code>. A good default is
-<code>3</code>.</p>
+<code>4</code>=Expert, <code>5</code>=Reversible (Lossless).</li>
+<li>
+<strong><code>cd_values[1-5]</code></strong>: Mode-specific
+parameters. For instance, in Precision mode
+(<code>cd_values[0]=2</code>), <code>cd_values[2]</code> specifies the
+bits of precision to keep, padding the rest with zeros (e.g.,
+<code>{2, 0, 16, 0, 0, 0}</code>).</li>
+</ul>
+<p><strong>Zstandard / Zstd (<code>H5Z_FILTER_ZSTD</code>)</strong></p>
+<ul>
+<li>
+<strong>Elements (<code>cd_nelmts</code>)</strong>: 1</li>
+<li>
+<strong><code>cd_values[0]</code></strong>: Compression level,
+generally from <code>1</code> to <code>22</code>. A good default is
+<code>3</code>.</li>
+</ul>
 </div>
 </div>
 <div class="section level2">

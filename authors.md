@@ -9,13 +9,62 @@
   holder, funder.
 
 - **The HDF Group**. Contributor, copyright holder.  
-  Copyright holder of the HDF5 library
+  HDF5 library
+
+- **The Board of Trustees of the University of Illinois**. Copyright
+  holder.  
+  NCSA HDF5
 
 - **Jean-loup Gailly**. Contributor, copyright holder.  
-  Copyright holder of the zlib library
+  zlib-ng library
 
 - **Mark Adler**. Contributor, copyright holder.  
-  Copyright holder of the zlib library
+  zlib-ng library
+
+- **Kiyoshi Masui**. Contributor, copyright holder.  
+  bitshuffle library
+
+- **Julian R Seward**. Contributor, copyright holder.  
+  bzip2 library
+
+- **Francesc Alted**. Contributor, copyright holder.  
+  blosc2 library
+
+- **Blosc Development Team**. Copyright holder.  
+  blosc2 library
+
+- **Zeev Tarento**. Contributor, copyright holder.  
+  csnappy library
+
+- **Google Inc.**. Copyright holder.  
+  csnappy library
+
+- **Mathis Rosenhauer**. Contributor, copyright holder.  
+  libaec library
+
+- **Moritz Hanke**. Contributor.  
+  libaec library
+
+- **Joerg Behrens**. Contributor.  
+  libaec library
+
+- **Luis Kornblueh**. Contributor.  
+  libaec library
+
+- **Marc Alexander Lehmann**. Contributor, copyright holder.  
+  liblzf library
+
+- **Yann Collet**. Contributor, copyright holder.  
+  lz4 and zstd filters
+
+- **Lawrence Livermore National Security, LLC**. Copyright holder.  
+  zfp library
+
+- **Meta Platforms, Inc. and affiliates**. Copyright holder.  
+  zstd library
+
+- **Yuta Mori**. Contributor.  
+  zstd library
 
 ## Citation
 

@@ -162,62 +162,88 @@ level).
 
 Below are the expected parameters for each bundled filter.
 
-**GZIP / Deflate (`H5Z_FILTER_DEFLATE`)** Instead of `H5Pset_filter`,
-you can apply this conveniently using `H5Pset_deflate(plist_id, level)`.
-\* **Elements (`cd_nelmts`)**: 1 \* **`cd_values[0]`**: Compression
-level from `0` (no compression) to `9` (maximum compression). Default is
-usually `6`.
+**GZIP / Deflate (`H5Z_FILTER_DEFLATE`)**
 
-**SZIP (`H5Z_FILTER_SZIP`)** You can apply it using
-`H5Pset_szip(plist_id, options_mask, pixels_per_block)`. \*
-**Restriction:** **Numeric data only.** Does not support strings or
-variable length types. The chunk size (in elements) must be an exact
-multiple of the block size. \* **Elements (`cd_nelmts`)**: 2 \*
-**`cd_values[0]`**: Options mask (e.g., `H5_SZIP_NN_OPTION_MASK` or
-`H5_SZIP_EC_OPTION_MASK`). \* **`cd_values[1]`**: Pixels per block. Must
-be even and is typically `8`, `16`, or `32`.
+Instead of `H5Pset_filter`, you can apply this conveniently using
+`H5Pset_deflate(plist_id, level)`.
 
-**BZIP2 (`H5Z_FILTER_BZIP2`)** \* **Elements (`cd_nelmts`)**: 1 \*
-**`cd_values[0]`**: Block size / Compression Level from `1` (fastest) to
-`9` (best). Default is `9`.
+- **Elements (`cd_nelmts`)**: 1
+- **`cd_values[0]`**: Compression level from `0` (no compression) to `9`
+  (maximum compression). Default is usually `6`.
 
-**LZF (`H5Z_FILTER_LZF`)** \* **Elements (`cd_nelmts`)**: 0 (No
-configuration parameters required).
+**SZIP (`H5Z_FILTER_SZIP`)**
 
-**Blosc (`H5Z_FILTER_BLOSC`) & Blosc2 (`H5Z_FILTER_BLOSC2`)** \*
-**Elements (`cd_nelmts`)**: 7 \* **`cd_values[0-3]`**: Reserved (Pass
-`0`). \* **`cd_values[4]`**: Compression level (`0` to `9`). \*
-**`cd_values[5]`**: Shuffle mode (`0` = no shuffle, `1` = byte shuffle,
-`2` = bit shuffle). \* **`cd_values[6]`**: Compressor ID (`0`=blosclz,
-`1`=lz4, `2`=lz4hc, `3`=snappy, `4`=zlib, `5`=zstd, `6`=zfp (Blosc2
-only), `11`=ndlz (Blosc2 only)).
+You can apply it using
+`H5Pset_szip(plist_id, options_mask, pixels_per_block)`.
 
-**Snappy (`H5Z_FILTER_SNAPPY`)** \* **Elements (`cd_nelmts`)**: 0 (No
-configuration parameters required).
+- **Restriction:** **Numeric data only.** Does not support strings or
+  variable length types. The chunk size (in elements) must be an exact
+  multiple of the block size.
+- **Elements (`cd_nelmts`)**: 2
+- **`cd_values[0]`**: Options mask (e.g., `H5_SZIP_NN_OPTION_MASK` or
+  `H5_SZIP_EC_OPTION_MASK`).
+- **`cd_values[1]`**: Pixels per block. Must be even and is typically
+  `8`, `16`, or `32`.
 
-**LZ4 (`H5Z_FILTER_LZ4`)** \* **Elements (`cd_nelmts`)**: 2 \*
-**`cd_values[0]`**: Reserved/padding (Pass `0`). \* **`cd_values[1]`**:
-Compression level. Passing `0` uses standard fast LZ4. Passing a value
-`>0` (e.g., `9`) enables LZ4-HC (High Compression).
+**BZIP2 (`H5Z_FILTER_BZIP2`)**
 
-**Bitshuffle (`H5Z_FILTER_BSHUF`)** \* **Elements (`cd_nelmts`)**: 2 \*
-**`cd_values[0]`**: Block size. Pass `0` to let the library choose the
-optimal default (1024). \* **`cd_values[1]`**: Compression algorithm.
-Pass `0` for raw bitshuffling (no compression) or `2` to apply LZ4
-compression after shuffling.
+- **Elements (`cd_nelmts`)**: 1
+- **`cd_values[0]`**: Block size / Compression Level from `1` (fastest)
+  to `9` (best). Default is `9`.
 
-**ZFP (`H5Z_FILTER_ZFP`)** \* **Restriction:** **Numeric arrays only.**
-Does not support strings, compound data types, or 1D arrays of bytes. \*
-**Elements (`cd_nelmts`)**: 6. \* **`cd_values[0]`**: The compression
-mode. `1`=Rate, `2`=Precision, `3`=Accuracy, `4`=Expert, `5`=Reversible
-(Lossless). \* **`cd_values[1-5]`**: Mode-specific parameters. For
-instance, in Precision mode (`cd_values[0]=2`), `cd_values[2]` specifies
-the bits of precision to keep, padding the rest with zeros (e.g.,
-`{2, 0, 16, 0, 0, 0}`).
+**LZF (`H5Z_FILTER_LZF`)**
 
-**Zstandard / Zstd (`H5Z_FILTER_ZSTD`)** \* **Elements (`cd_nelmts`)**:
-1 \* **`cd_values[0]`**: Compression level, generally from `1` to `22`.
-A good default is `3`.
+- **Elements (`cd_nelmts`)**: 0 (No configuration parameters required).
+
+**Blosc (`H5Z_FILTER_BLOSC`) & Blosc2 (`H5Z_FILTER_BLOSC2`)**
+
+- **Elements (`cd_nelmts`)**: 7
+- **`cd_values[0-3]`**: Reserved (Pass `0`).
+- **`cd_values[4]`**: Compression level (`0` to `9`).
+- **`cd_values[5]`**: Shuffle mode (`0` = no shuffle, `1` = byte
+  shuffle, `2` = bit shuffle).
+- **`cd_values[6]`**: Compressor ID (`0`=blosclz, `1`=lz4, `2`=lz4hc,
+  `3`=snappy, `4`=zlib, `5`=zstd, `6`=zfp (Blosc2 only), `11`=ndlz
+  (Blosc2 only)).
+
+**Snappy (`H5Z_FILTER_SNAPPY`)**
+
+- **Elements (`cd_nelmts`)**: 0 (No configuration parameters required).
+
+**LZ4 (`H5Z_FILTER_LZ4`)**
+
+- **Elements (`cd_nelmts`)**: 2
+- **`cd_values[0]`**: Reserved/padding (Pass `0`).
+- **`cd_values[1]`**: Compression level. Passing `0` uses standard fast
+  LZ4. Passing a value `>0` (e.g., `9`) enables LZ4-HC (High
+  Compression).
+
+**Bitshuffle (`H5Z_FILTER_BSHUF`)**
+
+- **Elements (`cd_nelmts`)**: 2
+- **`cd_values[0]`**: Block size. Pass `0` to let the library choose the
+  optimal default (1024).
+- **`cd_values[1]`**: Compression algorithm. Pass `0` for raw
+  bitshuffling (no compression) or `2` to apply LZ4 compression after
+  shuffling.
+
+**ZFP (`H5Z_FILTER_ZFP`)**
+
+- **Restriction:** **Numeric arrays only.** Does not support strings,
+  compound data types, or 1D arrays of bytes.
+- **Elements (`cd_nelmts`)**: 6.
+- **`cd_values[0]`**: The compression mode. `1`=Rate, `2`=Precision,
+  `3`=Accuracy, `4`=Expert, `5`=Reversible (Lossless).
+- **`cd_values[1-5]`**: Mode-specific parameters. For instance, in
+  Precision mode (`cd_values[0]=2`), `cd_values[2]` specifies the bits
+  of precision to keep, padding the rest with zeros (e.g.,
+  `{2, 0, 16, 0, 0, 0}`).
+
+**Zstandard / Zstd (`H5Z_FILTER_ZSTD`)**
+
+- **Elements (`cd_nelmts`)**: 1
+- **`cd_values[0]`**: Compression level, generally from `1` to `22`. A
+  good default is `3`.
 
 ## Dynamically Loading Additional External Filters
 
