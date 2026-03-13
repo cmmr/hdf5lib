@@ -76,22 +76,46 @@ static size_t blosc_filter(
 
   /* ----- Decompression Path ----- */
   if (flags & H5Z_FLAG_REVERSE) {
-    size_t nchunks, screensize, typesize;
+    size_t uncomp_size, screensize, typesize;
     
-    blosc_cbuffer_sizes(*buf, &nchunks, &screensize, &typesize);
+    blosc_cbuffer_sizes(*buf, &uncomp_size, &screensize, &typesize);
     
-    void *outbuf = H5allocate_memory(nchunks, 0);
+    void *outbuf = H5allocate_memory(uncomp_size, 0);
     if (!outbuf) PUSH_ERR("blosc_filter: Memory allocation failed");
     
-    if (blosc_decompress(*buf, outbuf, nchunks) <= 0) {
-      H5free_memory(outbuf);
-      PUSH_ERR("blosc_filter: Blosc decompression failed");
+    /* Use context engine for decompression to tap into rich error states */
+    blosc2_dparams dparams = BLOSC2_DPARAMS_DEFAULTS;
+    blosc2_context *dctx = blosc2_create_dctx(dparams);
+    if (!dctx) {
+        H5free_memory(outbuf);
+        PUSH_ERR("blosc_filter: Failed to create Blosc2 decompression context");
+    }
+
+    int status = blosc2_decompress_ctx(dctx, *buf, (int32_t)nbytes, outbuf, (int32_t)uncomp_size);
+    blosc2_free_ctx(dctx);
+    
+    if (status <= 0) {
+        H5free_memory(outbuf);
+        
+        /* Extract codec info from Blosc header to print highly specific error */
+        uint8_t *p = (uint8_t *)*buf;
+        int compcode = (p[2] >> 5) & 7;
+        const char *compname = "unknown";
+        if (compcode == 0) compname = "blosclz";
+        else if (compcode == 1) compname = "lz4";
+        else if (compcode == 2) compname = "lz4hc";
+        else if (compcode == 3) compname = "snappy";
+        else if (compcode == 4) compname = "zlib";
+        else if (compcode == 5) compname = "zstd";
+        else if (compcode == 6) compname = "zfp";
+
+        PUSH_ERR("blosc_filter: Decompression failed (status %d). Chunk requires codec: %s (compcode %d). Is this codec compiled and registered in c-blosc2?", status, compname, compcode);
     }
     
     H5free_memory(*buf); 
     *buf = outbuf;
-    *buf_size = nchunks;
-    return nchunks;
+    *buf_size = uncomp_size;
+    return uncomp_size;
   }
   
   /* ----- Compression Path ----- */
@@ -115,14 +139,12 @@ static size_t blosc_filter(
     
     int comp_size = 0;
 
-    /* Use Blosc2 context engine to bypass legacy string validation and natively support dynamic codecs */
     blosc2_cparams cparams = BLOSC2_CPARAMS_DEFAULTS;
     cparams.compcode = compcode;
     cparams.clevel = clevel;
     cparams.typesize = (int32_t)typesize;
     cparams.blocksize = 0;
     
-    /* Blosc2 pipeline index 5 is reserved for shuffle filters */
     if (doshuffle == 1) cparams.filters[5] = BLOSC_SHUFFLE;
     else if (doshuffle == 2) cparams.filters[5] = BLOSC_BITSHUFFLE;
     else cparams.filters[5] = BLOSC_NOSHUFFLE;
@@ -133,18 +155,14 @@ static size_t blosc_filter(
         blosc2_free_ctx(cctx);
     }
     
-    /* BULLETPROOF FALLBACK:
-       If the dynamic codec fails, or random incompressible data forces it to abort,
-       we intercept the failure and manually forge an uncompressed Blosc1 chunk. */
     if (comp_size <= 0) {
         uint8_t *p = (uint8_t *)outbuf;
         
-        p[0] = FILTER_BLOSC_VERSION; /* Version (2) */
-        p[1] = 1;                    /* blosclz version (ignored) */
-        p[2] = (uint8_t)(0x10 | ((compcode & 7) << 5)); /* Bit 4 (0x10) signifies memcpy/uncompressed */
-        p[3] = (uint8_t)typesize;    /* Type size */
+        p[0] = FILTER_BLOSC_VERSION;
+        p[1] = 1;                   
+        p[2] = (uint8_t)(0x10 | ((compcode & 7) << 5)); 
+        p[3] = (uint8_t)typesize;   
         
-        /* Blosc1 expects 32-bit Little Endian sizes */
         uint32_t uncomp_bytes = (uint32_t)nbytes;
         uint32_t header_len = 16;
         uint32_t final_bytes = uncomp_bytes + header_len;
@@ -156,11 +174,10 @@ static size_t blosc_filter(
             (dest)[3] = (uint8_t)(((val) >> 24) & 0xFF); \
         } while(0)
         
-        W_LE32(p + 4, uncomp_bytes);  /* Uncompressed size */
-        W_LE32(p + 8, uncomp_bytes);  /* Block size (we use 1 giant block) */
-        W_LE32(p + 12, final_bytes);  /* Compressed size (total bytes) */
+        W_LE32(p + 4, uncomp_bytes);  
+        W_LE32(p + 8, uncomp_bytes);  
+        W_LE32(p + 12, final_bytes);  
         
-        /* Append the raw data directly after the 16-byte header */
         memcpy(p + 16, *buf, nbytes);
         comp_size = (int)final_bytes;
     }
