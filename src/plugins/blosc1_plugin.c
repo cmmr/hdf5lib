@@ -14,8 +14,9 @@
 #define BLOSC_VERSION_FORMAT 2
 #define BLOSC_MAX_TYPESIZE 255
 
+/* Use the global HDF5 error class (H5E_ERR_CLS_g) so custom messages show in the trace */
 #define PUSH_ERR(...) do { \
-    H5Epush(H5E_DEFAULT, __FILE__, __func__, __LINE__, H5E_ERR_CLS, H5E_PLINE, H5E_CANTFILTER, __VA_ARGS__); \
+    H5Epush(H5E_DEFAULT, __FILE__, __func__, __LINE__, H5E_ERR_CLS_g, H5E_PLINE, H5E_CANTFILTER, __VA_ARGS__); \
     return 0; \
 } while(0)
 
@@ -103,37 +104,44 @@ static size_t blosc_filter(
     size_t typesize = cd_values[2];
     int clevel = (cd_nelmts >= 5) ? (int)cd_values[4] : 5;
     int doshuffle = (cd_nelmts >= 6) ? (int)cd_values[5] : 1;
-    int compcode = BLOSC_BLOSCLZ;
     
+    int compcode = 0; // Default to BLOSC_BLOSCLZ
     if (cd_nelmts >= 7) {
       compcode = cd_values[6];
     }
     
+    /* Manually map the compcode to avoid string validation failures 
+       for dynamically registered codecs like snappy */
+    const char *compname = "blosclz";
+    switch (compcode) {
+        case 0: compname = "blosclz"; break;
+        case 1: compname = "lz4"; break;
+        case 2: compname = "lz4hc"; break;
+        case 3: compname = "snappy"; break;
+        case 4: compname = "zlib"; break;
+        case 5: compname = "zstd"; break;
+        case 6: compname = "zfp_prec"; break;
+        case 11: compname = "ndlz"; break;
+        default: compname = "blosclz"; break;
+    }
+    
+    /* Pad heavily. If Blosc fails to compress, it falls back to raw memcpy, 
+       requiring exactly nbytes + 16 (or 32 in Blosc2) overhead for the header. */
     size_t out_alloc = nbytes + 64; 
     void *outbuf = H5allocate_memory(out_alloc, 0);
     if (!outbuf) PUSH_ERR("blosc_filter: Memory allocation failed");
     
-    /* Bypass the legacy blosc_set_compressor string matcher and use modern 
-       context engine to fully support dynamic codecs like Snappy/NDLZ */
-    blosc2_cparams cparams = BLOSC2_CPARAMS_DEFAULTS;
-    cparams.compcode = compcode;
-    cparams.clevel = clevel;
-    cparams.typesize = (int32_t)typesize;
-    cparams.filters[BLOSC_LAST_FILTER] = doshuffle;
-    cparams.blocksize = 0;
-
-    blosc2_context *cctx = blosc2_create_cctx(cparams);
-    if (!cctx) {
+    if (blosc_set_compressor(compname) < 0) {
         H5free_memory(outbuf);
-        PUSH_ERR("blosc_filter: Failed to create Blosc2 context");
+        PUSH_ERR("blosc_filter: Failed to set Blosc compressor: %s", compname);
     }
 
-    int comp_size = blosc2_compress_ctx(cctx, *buf, (int32_t)nbytes, outbuf, (int32_t)out_alloc);
-    blosc2_free_ctx(cctx);
+    /* Use the highly stable legacy macro to handle the pipeline seamlessly */
+    int comp_size = blosc_compress(clevel, doshuffle, typesize, nbytes, *buf, outbuf, out_alloc);
     
     if (comp_size <= 0) {
       H5free_memory(outbuf); 
-      PUSH_ERR("blosc_filter: Blosc compression failed");
+      PUSH_ERR("blosc_filter: Blosc compression failed (returned %d)", comp_size);
     }
     
     H5free_memory(*buf); 
