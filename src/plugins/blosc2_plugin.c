@@ -290,7 +290,6 @@ static size_t blosc2_filter_function(
   
   /* ----- Decompression Path ----- */
   else {
-    /* CRITICAL FIX: Force `copy = true` to isolate Blosc2's memory from HDF5's pool */
     blosc2_schunk *schunk = blosc2_schunk_from_buffer(*buf, (int64_t)nbytes, true);
     if (!schunk) PUSH_ERR("blosc2_filter: Cannot get super-chunk from buffer");
 
@@ -303,14 +302,18 @@ static size_t blosc2_filter_function(
         PUSH_ERR("blosc2_filter: Cannot create B2ND array");
       }
       
-      int64_t start[BLOSC2_MAX_DIM], stop[BLOSC2_MAX_DIM], size = typesize;
+      /* CRITICAL FIX: Zero-initialize dimension arrays to prevent out-of-bounds garbage reads */
+      int64_t start[BLOSC2_MAX_DIM] = {0};
+      int64_t stop[BLOSC2_MAX_DIM] = {0};
+      int64_t size = typesize;
+      
       for (int i = 0; i < array->ndim; i++) {
         start[i] = 0;
         stop[i] = array->shape[i];
         size *= array->shape[i];
         if (ndim >= 0 && array->shape[i] != chunkshape[i]) {
           b2nd_free(array);
-          blosc2_schunk_free(schunk);
+          /* array takes ownership of schunk, so b2nd_free destroyed it. Do not double free! */
           PUSH_ERR("blosc2_filter: B2ND array shape does not match filter chunkshape (padding violation)");
         }
       }
@@ -321,19 +324,23 @@ static size_t blosc2_filter_function(
       outbuf = H5allocate_memory((size_t)size, 0);
       if (!outbuf) { 
         b2nd_free(array); 
-        blosc2_schunk_free(schunk);
         PUSH_ERR("blosc2_filter: Cannot allocate decompression buffer"); 
       }
 
       if (b2nd_get_slice_cbuffer(array, start, stop, outbuf, stop, (int32_t)size) < 0) {
         H5free_memory(outbuf); 
         b2nd_free(array);
-        blosc2_schunk_free(schunk);
         PUSH_ERR("blosc2_filter: Cannot decompress B2ND array");
       }
       
+      printf("      -> [BLOSC2 DEBUG] B2ND decomp successful, cleaning up...\n");
+      fflush(stdout);
+      
       status = size;
+      
+      /* CRITICAL FIX: b2nd_free safely destroys the underlying schunk inside the array. */
       b2nd_free(array);
+      schunk = NULL; /* Sever the pointer to prevent the double-free at the end of the block! */
     } 
     /* 1D Linear Decompression */
     else {
@@ -374,7 +381,9 @@ static size_t blosc2_filter_function(
         PUSH_ERR("blosc2_filter: Cannot decompress chunk into buffer");
       }
     }
-    blosc2_schunk_free(schunk);
+    
+    /* 1D path relies on this to free schunk. B2ND path bypasses this by setting it to NULL. */
+    if (schunk) blosc2_schunk_free(schunk);
   }
 
   if (status > 0 && outbuf) {
