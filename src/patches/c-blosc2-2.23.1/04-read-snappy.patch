@@ -1,0 +1,22 @@
+diff -ru src/c-blosc2-orig/blosc/blosc2.c src/c-blosc2-2.23.1/blosc/blosc2.c
+--- src/c-blosc2-orig/blosc/blosc2.c	2026-03-03 09:50:48.000000000 +0000
++++ src/c-blosc2-2.23.1/blosc/blosc2.c	2026-03-14 19:19:01.225222700 +0000
+@@ -786,6 +786,9 @@
+   if (context->compcode == BLOSC_UDCODEC_FORMAT) {
+     context->compcode = header->udcompcode;
+   }
++  else if (context->compcode == 2) {
++    context->compcode = 3; /* Route legacy format 2 to the Snappy plugin compcode */
++  }
+   blosc2_calculate_blocks(context);
+ 
+   bool is_lazy = false;
+@@ -1896,7 +1899,7 @@
+                                       (char*)_dest, (size_t)neblock);
+       }
+   #endif /*  HAVE_ZSTD */
+-      else if (compformat == BLOSC_UDCODEC_FORMAT) {
++      else if (compformat == BLOSC_UDCODEC_FORMAT || compformat == 2) {
+         bool getcell = false;
+ 
+ #if defined(HAVE_PLUGINS)
