@@ -9,6 +9,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 
 #ifndef BSHUF_VERSION_MAJOR
   #define BSHUF_VERSION_MAJOR 0
@@ -110,7 +111,6 @@ static size_t bshuf_filter(
     block_size = bshuf_default_block_size(elem_size);
   }
 
-  /* Explicit check to fail gracefully on unsupported algorithms */
   if (comp_algo != BSHUF_H5_COMPRESS_NONE && 
       comp_algo != BSHUF_H5_COMPRESS_LZ4 && 
       comp_algo != BSHUF_H5_COMPRESS_ZSTD) {
@@ -138,8 +138,15 @@ static size_t bshuf_filter(
     }
     
     size_t num_elems = nbytes_uncomp / elem_size;
+    
+    printf("\n      -> [BSHUF DEBUG] Allocating %zu bytes for %zu elems... ", nbytes_uncomp, num_elems);
+    fflush(stdout);
+
     void *out_buf = H5allocate_memory(nbytes_uncomp, 0);
     if (!out_buf) PUSH_ERR("bshuf_filter: Memory allocation failed");
+
+    printf("DONE.\n      -> [BSHUF DEBUG] Decompressing algo %d... ", comp_algo);
+    fflush(stdout);
 
     int64_t err = -1;
     if (comp_algo == BSHUF_H5_COMPRESS_LZ4) {
@@ -150,14 +157,24 @@ static size_t bshuf_filter(
       err = bshuf_bitunshuffle(in_buf, out_buf, num_elems, elem_size, block_size);
     }
 
+    printf("DONE (err code: %lld).\n", (long long)err);
+    fflush(stdout);
+
     if (err < 0) {
       H5free_memory(out_buf);
       PUSH_ERR("bshuf_filter: Bitshuffle decompression failed");
     }
 
+    printf("      -> [BSHUF DEBUG] Freeing input buffer and returning... ");
+    fflush(stdout);
+
     H5free_memory(*buf);
     *buf = out_buf;
     *buf_size = nbytes_uncomp;
+    
+    printf("DONE.\n");
+    fflush(stdout);
+    
     return nbytes_uncomp;
   }
   
@@ -185,7 +202,6 @@ static size_t bshuf_filter(
     size_t final_out_size = 0;
 
     if (comp_algo == BSHUF_H5_COMPRESS_LZ4 || comp_algo == BSHUF_H5_COMPRESS_ZSTD) {
-      /* Write the 12-byte Bitshuffle Metadata Header */
       write_be64((uint8_t *)out_buf, (uint64_t)nbytes);
       write_be32((uint8_t *)out_buf + 8, (uint32_t)(block_size * elem_size));
       
@@ -194,7 +210,6 @@ static size_t bshuf_filter(
       if (comp_algo == BSHUF_H5_COMPRESS_LZ4) {
         err = bshuf_compress_lz4(*buf, comp_dest, num_elems, elem_size, block_size);
       } else {
-        /* Extract Zstd compression level from cd_values[5] if provided */
         int comp_lvl = (cd_nelmts > 5) ? (int)cd_values[5] : 0;
         err = bshuf_compress_zstd(*buf, comp_dest, num_elems, elem_size, block_size, comp_lvl);
       }
@@ -216,7 +231,6 @@ static size_t bshuf_filter(
   }
 }
 
-/* Register the filter class */
 const H5Z_class2_t bshuf_class = { 
   H5Z_CLASS_T_VERS, 
   BSHUF_H5FILTER, 

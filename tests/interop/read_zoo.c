@@ -3,6 +3,7 @@
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h> /* Standard printf for immediate output */
 
 #include <hdf5.h>
 #include <hdf5_hl.h>
@@ -19,7 +20,8 @@ static herr_t visit_cb(hid_t loc_id, const char *name, const H5L_info_t *info, v
 
     /* Skip unsupported filters */
     if (strstr(name, "sz_") || strstr(name, "sz3_") || strstr(name, "fcidecomp")) {
-        Rprintf("  [-] Skipping %-25s (Unsupported Filter)\n", name);
+        printf("  [-] Skipping %-25s (Unsupported Filter)\n", name);
+        fflush(stdout);
         return 0;
     }
 
@@ -38,12 +40,14 @@ static herr_t visit_cb(hid_t loc_id, const char *name, const H5L_info_t *info, v
                     strstr(name, "accuracy") || strstr(name, "expert") ||
                     strstr(name, "truncprec"));
 
-    Rprintf("  [+] Verifying %-24s ... ", name);
+    printf("  [+] Verifying %-24s ... ", name);
+    fflush(stdout);
 
     if (tclass == H5T_FLOAT) {
         buf_f = (double*)malloc(N_ELEMS * sizeof(double));
         if (!buf_f || H5Dread(dset, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT, buf_f) < 0) {
-            Rprintf("FAILED (Read Error)\n");
+            printf("FAILED (Read Error)\n");
+            fflush(stdout);
             (*errors)++;
             goto cleanup;
         }
@@ -61,18 +65,23 @@ static herr_t visit_cb(hid_t loc_id, const char *name, const H5L_info_t *info, v
             double tol = is_lossy ? 0.5 : 1e-5; 
 
             if (diff > tol) {
-                Rprintf("FAILED (Mismatch at idx %d: read %f, expected %f)\n", i, buf_f[i], expected);
+                printf("FAILED (Mismatch at idx %d: read %f, expected %f)\n", i, buf_f[i], expected);
+                fflush(stdout);
                 match = 0;
                 (*errors)++;
                 break;
             }
         }
-        if (match) Rprintf("OK%s\n", is_lossy ? " (Lossy Bounds Passed)" : " (Bit-Exact)");
+        if (match) {
+            printf("OK%s\n", is_lossy ? " (Lossy Bounds Passed)" : " (Bit-Exact)");
+            fflush(stdout);
+        }
 
     } else if (tclass == H5T_INTEGER) {
         buf_i = (long long*)malloc(N_ELEMS * sizeof(long long));
         if (!buf_i || H5Dread(dset, H5T_NATIVE_LLONG, H5S_ALL, H5S_ALL, H5P_DEFAULT, buf_i) < 0) {
-            Rprintf("FAILED (Read Error)\n");
+            printf("FAILED (Read Error)\n");
+            fflush(stdout);
             (*errors)++;
             goto cleanup;
         }
@@ -81,20 +90,38 @@ static herr_t visit_cb(hid_t loc_id, const char *name, const H5L_info_t *info, v
         for (int i = 0; i < N_ELEMS; i++) {
             long long expected = i + 1;
             if (buf_i[i] != expected) {
-                Rprintf("FAILED (Mismatch at idx %d: read %lld, expected %lld)\n", i, buf_i[i], expected);
+                printf("FAILED (Mismatch at idx %d: read %lld, expected %lld)\n", i, buf_i[i], expected);
+                fflush(stdout);
                 match = 0;
                 (*errors)++;
                 break;
             }
         }
-        if (match) Rprintf("OK (Bit-Exact)\n");
+        if (match) {
+            printf("OK (Bit-Exact)\n");
+            fflush(stdout);
+        }
     }
 
 cleanup:
+    printf("      -> [DEBUG] cleanup: freeing buf_f/buf_i... "); 
+    fflush(stdout);
     if (buf_f) free(buf_f);
     if (buf_i) free(buf_i);
+    printf("DONE.\n"); 
+    fflush(stdout);
+
+    printf("      -> [DEBUG] cleanup: closing type... "); 
+    fflush(stdout);
     if (type >= 0) H5Tclose(type);
+    printf("DONE.\n"); 
+    fflush(stdout);
+
+    printf("      -> [DEBUG] cleanup: closing dset... "); 
+    fflush(stdout);
     if (dset >= 0) H5Dclose(dset);
+    printf("DONE.\n"); 
+    fflush(stdout);
 
     return 0; /* Continue to next dataset */
 }
@@ -117,7 +144,9 @@ SEXP C_read_zoo(SEXP sexp_filename) {
         Rf_error("C_read_zoo: Failed to open %s", filename);
     }
 
-    Rprintf("\n--- Reading %s ---\n", filename);
+    printf("\n--- Reading %s ---\n", filename);
+    fflush(stdout);
+    
     H5Lvisit(file_id, H5_INDEX_NAME, H5_ITER_NATIVE, visit_cb, &total_errors);
 
     H5Fclose(file_id);

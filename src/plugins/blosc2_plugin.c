@@ -11,6 +11,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+#include <stdio.h>
 
 #define FILTER_BLOSC2 32026
 #define FILTER_BLOSC2_VERSION 1
@@ -151,6 +152,9 @@ static int32_t compute_b2nd_block_shape(size_t block_size, size_t type_size, con
 static size_t blosc2_filter_function(
     unsigned int flags, size_t cd_nelmts, const unsigned int cd_values[], 
     size_t nbytes, size_t *buf_size, void **buf) {
+
+  printf("\n      -> [BLOSC2 DEBUG] Filter invoked! flags=%u, nbytes=%zu\n", flags, nbytes);
+  fflush(stdout);
 
   if (nbytes == 0) return 0;
 
@@ -318,6 +322,9 @@ static size_t blosc2_filter_function(
         }
       }
       
+      printf("      -> [BLOSC2 DEBUG] Allocating %lld bytes for B2ND decomp\n", (long long)size);
+      fflush(stdout);
+
       outbuf = H5allocate_memory((size_t)size, 0);
       if (!outbuf) { 
         b2nd_free(array); 
@@ -348,6 +355,9 @@ static size_t blosc2_filter_function(
       int32_t exact_bytes;
       blosc2_cbuffer_sizes(chunk, &exact_bytes, NULL, NULL);
       outbuf_size = (size_t)exact_bytes;
+
+      printf("      -> [BLOSC2 DEBUG] Allocating %zu bytes for linear decomp\n", outbuf_size);
+      fflush(stdout);
 
       outbuf = H5allocate_memory(outbuf_size, 0);
       if (!outbuf) { 
