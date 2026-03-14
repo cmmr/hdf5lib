@@ -69,9 +69,9 @@ static int snappy_blosc2_decoder(const uint8_t *input, int32_t input_len,
 
 /* Define the codec structure */
 blosc2_codec snappy_codec = {
-    .compcode = 3, /* 3 is the historical BLOSC_SNAPPY ID */
+    .compcode = 2,
     .compname = "snappy",
-    .complib = 1,
+    .complib = 2,
     .version = 1,
     .encoder = snappy_blosc2_encoder,
     .decoder = snappy_blosc2_decoder
