@@ -242,14 +242,18 @@ cd ..
 # 11. Build BLOSC2 -------------------------------------------------------------
 echo "--- [hdf5lib] Building BLOSC2..."
 cd blosc2
-cp -r ../../src/config/blosc2/* .
 
-# Tell Blosc that LZ4 and Zstd are available and where their headers are.
-# Suppress benign warnings from forcing the generic fallback
+# Core include paths; Suppress compiler warnings
+# Enable required internal codecs
+# Explicitly disable external/dynamic features for CRAN safety
+# Neutralize Windows DLL linkage for static builds
 BLOSC2_FLAGS="-I../lz4 -I../zstd -I../gzip -I../zfp/include"
-BLOSC2_FLAGS="$BLOSC2_FLAGS -I. -Iinclude -Iblosc"
+BLOSC2_FLAGS="$BLOSC2_FLAGS -Iinclude -Iblosc"
 BLOSC2_FLAGS="$BLOSC2_FLAGS -Wno-unused-variable -Wno-pedantic"
 BLOSC2_FLAGS="$BLOSC2_FLAGS -Wno-deprecated-declarations -DBLOSC_STRICT_ALIGN=1"
+BLOSC2_FLAGS="$BLOSC2_FLAGS -DHAVE_LZ4=1 -DHAVE_ZSTD=1 -DHAVE_ZLIB=1"
+BLOSC2_FLAGS="$BLOSC2_FLAGS -DHAVE_ZLIB_NG=0 -DHAVE_IPP=0 -DHAVE_PLUGINS=0"
+BLOSC2_FLAGS="$BLOSC2_FLAGS -DBLOSC_DLL_EXPORT="
 echo "  BLOSC2_FLAGS: $BLOSC2_FLAGS"
 
 for src in blosc/*.c plugins/codecs/*/*.c; do
@@ -263,6 +267,7 @@ if [ "$WIN" -eq 1 ]; then
   c_build $BLOSC2_FLAGS -c blosc/win32/threading.c -o blosc2_threading.o
 fi
 
+cp -r ../../src/config/blosc2/blosc2_snappy_codec.c .
 echo "  c_build -I../snappy -I. -Iinclude -c blosc2_snappy_codec.c -o blosc2_snappy_codec.o"
 c_build -I../snappy -I. -Iinclude -c blosc2_snappy_codec.c -o blosc2_snappy_codec.o
 
