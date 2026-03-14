@@ -1,8 +1,7 @@
 /**
  * @file bshuf_plugin.c
  * @brief Standalone HDF5 Filter Plugin for Bitshuffle (ID 32008)
- * 
- * Includes support for pure bitshuffling and internal LZ4 compression.
+ * * Includes support for pure bitshuffling, internal LZ4, and Zstd compression.
  */
 
 #include <hdf5.h>
@@ -18,7 +17,11 @@
 #endif
 
 #define BSHUF_H5FILTER 32008
-#define BSHUF_H5_COMPRESS_LZ4 2
+
+/* Bitshuffle internal compression algorithm IDs */
+#define BSHUF_H5_COMPRESS_NONE 0
+#define BSHUF_H5_COMPRESS_LZ4  2
+#define BSHUF_H5_COMPRESS_ZSTD 3
 
 #define PUSH_ERR(...) do { \
     H5Epush(H5E_DEFAULT, __FILE__, __func__, __LINE__, H5E_ERR_CLS, H5E_PLINE, H5E_CANTFILTER, __VA_ARGS__); \
@@ -47,8 +50,7 @@ static uint32_t read_be32(const uint8_t *p) {
   return ((uint32_t)p[0] << 24) | ((uint32_t)p[1] << 16) | ((uint32_t)p[2] << 8) | ((uint32_t)p[3]);
 }
 
-/* 
- * Callback to intercept dataset types and populate cd_values.
+/* * Callback to intercept dataset types and populate cd_values.
  */
 static herr_t bshuf_set_local(hid_t dcpl, hid_t type, hid_t space) {
   unsigned int flags;
@@ -102,10 +104,17 @@ static size_t bshuf_filter(
 
   size_t elem_size = cd_values[2];
   size_t block_size = (cd_nelmts > 3) ? cd_values[3] : 0;
-  int comp_algo = (cd_nelmts > 4) ? cd_values[4] : 0;
+  int comp_algo = (cd_nelmts > 4) ? cd_values[4] : BSHUF_H5_COMPRESS_NONE;
 
   if (block_size == 0) {
     block_size = bshuf_default_block_size(elem_size);
+  }
+
+  /* Explicit check to fail gracefully on unsupported algorithms */
+  if (comp_algo != BSHUF_H5_COMPRESS_NONE && 
+      comp_algo != BSHUF_H5_COMPRESS_LZ4 && 
+      comp_algo != BSHUF_H5_COMPRESS_ZSTD) {
+    PUSH_ERR("bshuf_filter: Unsupported compression algorithm ID %d", comp_algo);
   }
 
   /* ----- Decompression Path ----- */
@@ -113,7 +122,7 @@ static size_t bshuf_filter(
     size_t nbytes_uncomp;
     const uint8_t *in_buf = (const uint8_t *)*buf;
     
-    if (comp_algo == BSHUF_H5_COMPRESS_LZ4) {
+    if (comp_algo == BSHUF_H5_COMPRESS_LZ4 || comp_algo == BSHUF_H5_COMPRESS_ZSTD) {
       if (nbytes < 12) PUSH_ERR("bshuf_filter: Corrupt data, missing header");
       
       nbytes_uncomp = read_be64(in_buf);
@@ -135,6 +144,8 @@ static size_t bshuf_filter(
     int64_t err = -1;
     if (comp_algo == BSHUF_H5_COMPRESS_LZ4) {
       err = bshuf_decompress_lz4(in_buf, out_buf, num_elems, elem_size, block_size);
+    } else if (comp_algo == BSHUF_H5_COMPRESS_ZSTD) {
+      err = bshuf_decompress_zstd(in_buf, out_buf, num_elems, elem_size, block_size);
     } else {
       err = bshuf_bitunshuffle(in_buf, out_buf, num_elems, elem_size, block_size);
     }
@@ -161,6 +172,8 @@ static size_t bshuf_filter(
     
     if (comp_algo == BSHUF_H5_COMPRESS_LZ4) {
       out_alloc = bshuf_compress_lz4_bound(num_elems, elem_size, block_size) + 12;
+    } else if (comp_algo == BSHUF_H5_COMPRESS_ZSTD) {
+      out_alloc = bshuf_compress_zstd_bound(num_elems, elem_size, block_size) + 12;
     } else {
       out_alloc = nbytes; /* Pure bitshuffle bound */
     }
@@ -171,13 +184,20 @@ static size_t bshuf_filter(
     int64_t err = -1;
     size_t final_out_size = 0;
 
-    if (comp_algo == BSHUF_H5_COMPRESS_LZ4) {
+    if (comp_algo == BSHUF_H5_COMPRESS_LZ4 || comp_algo == BSHUF_H5_COMPRESS_ZSTD) {
       /* Write the 12-byte Bitshuffle Metadata Header */
       write_be64((uint8_t *)out_buf, (uint64_t)nbytes);
       write_be32((uint8_t *)out_buf + 8, (uint32_t)(block_size * elem_size));
       
       void *comp_dest = (uint8_t *)out_buf + 12;
-      err = bshuf_compress_lz4(*buf, comp_dest, num_elems, elem_size, block_size);
+      
+      if (comp_algo == BSHUF_H5_COMPRESS_LZ4) {
+        err = bshuf_compress_lz4(*buf, comp_dest, num_elems, elem_size, block_size);
+      } else {
+        /* Extract Zstd compression level from cd_values[5] if provided */
+        int comp_lvl = (cd_nelmts > 5) ? (int)cd_values[5] : 0;
+        err = bshuf_compress_zstd(*buf, comp_dest, num_elems, elem_size, block_size, comp_lvl);
+      }
       final_out_size = (size_t)err + 12;
     } else {
       err = bshuf_bitshuffle(*buf, out_buf, num_elems, elem_size, block_size);
