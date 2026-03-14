@@ -20,7 +20,6 @@
 #define DEFAULT_COMPCODE BLOSC_BLOSCLZ
 #define MAX_FILTER_VALUES (8 + BLOSC2_MAX_DIM)
 
-/* An opaque NumPy data type format for B2ND that respects the type size. */
 #define B2ND_OPAQUE_NPDTYPE_FORMAT "|V%zd"
 #define B2ND_OPAQUE_NPDTYPE_MAXLEN (2 + 20 + 1)
 
@@ -59,7 +58,6 @@ static herr_t blosc2_set_local(hid_t dcpl, hid_t type, hid_t space) {
   typesize = (unsigned int)H5Tget_size(type);
   if (typesize == 0) return -1;
 
-  /* Unwrap arrays to get base element size for efficient shuffling */
   H5T_class_t classt = H5Tget_class(type);
   if (classt == H5T_ARRAY) {
     hid_t super_type = H5Tget_super(type);
@@ -71,14 +69,12 @@ static herr_t blosc2_set_local(hid_t dcpl, hid_t type, hid_t space) {
 
   values[2] = basetypesize;
 
-  /* Calculate uncompressed buffer size */
   bufsize = typesize;
   for (i = 0; i < ndim; i++) {
     bufsize *= (unsigned int)chunkshape[i];
   }
   values[3] = bufsize;
 
-  /* Inject multi-dimensional info for B2ND if applicable */
   if (1 < ndim && ndim <= BLOSC2_MAX_DIM) {
     if (nelements < 5) values[4] = DEFAULT_CLEVEL;
     if (nelements < 6) values[5] = DEFAULT_SHUFFLE;
@@ -235,7 +231,6 @@ static size_t blosc2_filter_function(
         PUSH_ERR("blosc2_filter: Cannot convert B2ND array to buffer");
       }
 
-      /* IF ERROR: Free internal allocations and trigger upstream failure */
       if (status <= 0) {
           if (needs_free) free(tmp_out);
           b2nd_free(array); 
@@ -243,7 +238,6 @@ static size_t blosc2_filter_function(
           PUSH_ERR("blosc2_filter: B2ND compression failed");
       }
 
-      /* Safely copy into HDF5-managed memory */
       outbuf = H5allocate_memory((size_t)status, 0);
       if (!outbuf) {
         if (needs_free) free(tmp_out);
@@ -273,7 +267,6 @@ static size_t blosc2_filter_function(
       uint8_t *tmp_out = NULL;
       status = blosc2_schunk_to_buffer(schunk, &tmp_out, &needs_free);
       
-      /* IF ERROR: Free internal allocations and trigger upstream failure */
       if (status <= 0) {
           if (needs_free) free(tmp_out);
           blosc2_schunk_free(schunk); 
@@ -281,7 +274,6 @@ static size_t blosc2_filter_function(
           PUSH_ERR("blosc2_filter: Super-chunk compression failed");
       }
 
-      /* Safely copy into HDF5-managed memory */
       outbuf = H5allocate_memory((size_t)status, 0);
       if (!outbuf) {
         if (needs_free) free(tmp_out);
@@ -298,7 +290,8 @@ static size_t blosc2_filter_function(
   
   /* ----- Decompression Path ----- */
   else {
-    blosc2_schunk *schunk = blosc2_schunk_from_buffer(*buf, (int64_t)nbytes, false);
+    /* CRITICAL FIX: Force `copy = true` to isolate Blosc2's memory from HDF5's pool */
+    blosc2_schunk *schunk = blosc2_schunk_from_buffer(*buf, (int64_t)nbytes, true);
     if (!schunk) PUSH_ERR("blosc2_filter: Cannot get super-chunk from buffer");
 
     /* B2ND Array Decompression */

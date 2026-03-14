@@ -3,7 +3,7 @@
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdio.h> /* Standard printf for immediate output */
+#include <stdio.h> 
 
 #include <hdf5.h>
 #include <hdf5_hl.h>
@@ -15,10 +15,8 @@
 static herr_t visit_cb(hid_t loc_id, const char *name, const H5L_info_t *info, void *op_data) {
     int *errors = (int *)op_data;
 
-    /* Skip root or hidden objects */
     if (name[0] == '.') return 0;
 
-    /* Skip unsupported filters */
     if (strstr(name, "sz_") || strstr(name, "sz3_") || strstr(name, "fcidecomp")) {
         printf("  [-] Skipping %-25s (Unsupported Filter)\n", name);
         fflush(stdout);
@@ -35,7 +33,6 @@ static herr_t visit_cb(hid_t loc_id, const char *name, const H5L_info_t *info, v
     type = H5Dget_type(dset);
     H5T_class_t tclass = H5Tget_class(type);
 
-    /* Determine if the dataset was compressed using a lossy filter */
     int is_lossy = (strstr(name, "rate") || strstr(name, "precision") ||
                     strstr(name, "accuracy") || strstr(name, "expert") ||
                     strstr(name, "truncprec"));
@@ -54,14 +51,11 @@ static herr_t visit_cb(hid_t loc_id, const char *name, const H5L_info_t *info, v
 
         int match = 1;
         for (int i = 0; i < N_ELEMS; i++) {
-            /* Reconstruct Python's expected logic exactly */
             double base = (double)i / (N_ELEMS - 1);
             double wave = sin((double)i * 50.0 / (N_ELEMS - 1)) * 0.1;
             double expected = base + wave;
-
             double diff = fabs(buf_f[i] - expected);
             
-            /* Strict tolerance for float32 precision limits; generous for lossy */
             double tol = is_lossy ? 0.5 : 1e-5; 
 
             if (diff > tol) {
@@ -106,8 +100,11 @@ static herr_t visit_cb(hid_t loc_id, const char *name, const H5L_info_t *info, v
 cleanup:
     printf("      -> [DEBUG] cleanup: freeing buf_f/buf_i... "); 
     fflush(stdout);
-    if (buf_f) free(buf_f);
-    if (buf_i) free(buf_i);
+    
+    /* Hard nullification to prevent double free risks */
+    if (buf_f) { free(buf_f); buf_f = NULL; }
+    if (buf_i) { free(buf_i); buf_i = NULL; }
+    
     printf("DONE.\n"); 
     fflush(stdout);
 
@@ -123,10 +120,9 @@ cleanup:
     printf("DONE.\n"); 
     fflush(stdout);
 
-    return 0; /* Continue to next dataset */
+    return 0;
 }
 
-/* R Entry Point */
 SEXP C_read_zoo(SEXP sexp_filename) {
     const char *filename = CHAR(STRING_ELT(sexp_filename, 0));
     hid_t file_id = -1;
@@ -151,7 +147,6 @@ SEXP C_read_zoo(SEXP sexp_filename) {
 
     H5Fclose(file_id);
     
-    /* Clean up global filter state */
     hdf5lib_destroy_all_filters();
 
     if (total_errors > 0) {
