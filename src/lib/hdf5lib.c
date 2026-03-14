@@ -21,6 +21,11 @@ extern int ndlz_decompress(const uint8_t* input, int32_t input_len, uint8_t* out
 extern int zfp_prec_compress(const uint8_t* input, int32_t input_len, uint8_t* output, int32_t output_len, uint8_t meta, blosc2_cparams* cparams, const void* chunk);
 extern int zfp_prec_decompress(const uint8_t* input, int32_t input_len, uint8_t* output, int32_t output_len, uint8_t meta, blosc2_dparams* dparams, const void* chunk);
 
+extern int zfp_acc_compress(const uint8_t* input, int32_t input_len, uint8_t* output, int32_t output_len, uint8_t meta, blosc2_cparams* cparams, const void* chunk);
+extern int zfp_acc_decompress(const uint8_t* input, int32_t input_len, uint8_t* output, int32_t output_len, uint8_t meta, blosc2_dparams* dparams, const void* chunk);
+
+extern int zfp_rate_compress(const uint8_t* input, int32_t input_len, uint8_t* output, int32_t output_len, uint8_t meta, blosc2_cparams* cparams, const void* chunk);
+extern int zfp_rate_decompress(const uint8_t* input, int32_t input_len, uint8_t* output, int32_t output_len, uint8_t meta, blosc2_dparams* dparams, const void* chunk);
 
 /* --- Define Blosc2 Codecs natively --- */
 
@@ -44,6 +49,27 @@ blosc2_codec zfp_prec_codec = {
   .decoder  = zfp_prec_decompress
 };
 
+blosc2_codec zfp_acc_codec = {
+  .compcode = BLOSC_CODEC_ZFP_FIXED_ACCURACY,
+  .compname = "zfp_acc",
+  .version  = 1,
+  .complib  = BLOSC_CODEC_ZFP_FIXED_ACCURACY,
+  .encoder  = zfp_acc_compress,
+  .decoder  = zfp_acc_decompress
+};
+
+blosc2_codec zfp_rate_codec = {
+  .compcode = BLOSC_CODEC_ZFP_FIXED_RATE,
+  .compname = "zfp_rate",
+  .version  = 1,
+  .complib  = BLOSC_CODEC_ZFP_FIXED_RATE,
+  .encoder  = zfp_rate_compress,
+  .decoder  = zfp_rate_decompress
+};
+
+/* --- Internal Blosc2 Registration (Bypasses User ID Boundary) --- */
+extern int register_codec_private(blosc2_codec *codec);
+
 /* --- Registration Function --- */
 herr_t hdf5lib_register_all_filters(void) {
   herr_t err = 0;
@@ -51,10 +77,12 @@ herr_t hdf5lib_register_all_filters(void) {
   /* 1. Initialize Blosc2 engine globally */
   blosc2_init();
   
-  /* 2. Shoehorn custom static codecs into Blosc2 natively */
-  blosc2_register_codec(&snappy_codec);
-  blosc2_register_codec(&ndlz_codec);
-  blosc2_register_codec(&zfp_prec_codec);
+  /* 2. Shoehorn custom static codecs into Blosc2 natively using internal API */
+  register_codec_private(&snappy_codec);
+  register_codec_private(&ndlz_codec);
+  register_codec_private(&zfp_prec_codec);
+  register_codec_private(&zfp_acc_codec);
+  register_codec_private(&zfp_rate_codec);
   
   /* 3. Register the standalone HDF5 plugins */
   if (H5Zregister(&blosc_class)  < 0) err = -1;
@@ -73,8 +101,8 @@ herr_t hdf5lib_register_all_filters(void) {
 
 /* --- Cleanup Function --- */
 herr_t hdf5lib_destroy_all_filters(void) {
-  /* 1. Unregister standalone HDF5 plugins to prevent dangling pointers 
-        if the R package's shared object is dynamically unloaded. */
+  /* Unregister standalone HDF5 plugins to prevent dangling pointers 
+     if the R package's shared object is dynamically unloaded. */
   H5Zunregister(blosc_class.id);
   H5Zunregister(blosc2_class.id);
   H5Zunregister(bshuf_class.id);
@@ -85,7 +113,7 @@ herr_t hdf5lib_destroy_all_filters(void) {
   H5Zunregister(zfp_class.id);
   H5Zunregister(zstd_class.id);
 
-  /* 2. Safely tear down the Blosc thread pool and TLS memory */
+  /* Safely tear down the Blosc thread pool and TLS memory */
   blosc2_destroy();
   
   return 0;
