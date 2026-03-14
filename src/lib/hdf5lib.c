@@ -73,7 +73,20 @@ herr_t hdf5lib_register_all_filters(void) {
 
 /* --- Cleanup Function --- */
 herr_t hdf5lib_destroy_all_filters(void) {
-  /* Safely tear down the Blosc thread pool and TLS memory */
+  /* 1. Unregister standalone HDF5 plugins to prevent dangling pointers 
+        if the R package's shared object is dynamically unloaded. */
+  H5Zunregister(blosc_class.id);
+  H5Zunregister(blosc2_class.id);
+  H5Zunregister(bshuf_class.id);
+  H5Zunregister(bzip2_class.id);
+  H5Zunregister(lz4_class.id);
+  H5Zunregister(lzf_class.id);
+  H5Zunregister(snappy_class.id);
+  H5Zunregister(zfp_class.id);
+  H5Zunregister(zstd_class.id);
+
+  /* 2. Safely tear down the Blosc thread pool and TLS memory */
   blosc2_destroy();
+  
   return 0;
 }

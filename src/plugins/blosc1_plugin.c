@@ -103,19 +103,19 @@ static size_t blosc_filter(
     if (status <= 0) {
         H5free_memory(outbuf);
         
-        /* Extract codec info from Blosc header to print highly specific error */
+        /* Extract Format ID (not compcode) */
         uint8_t *p = (uint8_t *)*buf;
-        int compcode = (p[2] >> 5) & 7;
+        int compformat = (p[2] >> 5) & 7;
         const char *compname = "unknown";
-        if (compcode == 0) compname = "blosclz";
-        else if (compcode == 1) compname = "lz4";
-        else if (compcode == 2) compname = "lz4hc";
-        else if (compcode == 3) compname = "snappy";
-        else if (compcode == 4) compname = "zlib";
-        else if (compcode == 5) compname = "zstd";
-        else if (compcode == 6) compname = "zfp";
+        
+        if (compformat == 0) compname = "blosclz";
+        else if (compformat == 1) compname = "lz4 / lz4hc";
+        else if (compformat == 2) compname = "snappy";
+        else if (compformat == 3) compname = "zlib";
+        else if (compformat == 4) compname = "zstd";
+        else if (compformat == 6) compname = "zfp";
 
-        PUSH_ERR("Decompression failed (status %d). Chunk requires codec: %s (compcode %d). Is this codec compiled and registered in c-blosc2?", status, compname, compcode);
+        PUSH_ERR("Decompression failed (status %d). Chunk requires codec format: %s (format id %d). Is this plugin enabled?", status, compname, compformat);
     }
     
     H5free_memory(*buf); 
