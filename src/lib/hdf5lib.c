@@ -2,6 +2,10 @@
 #include <blosc2.h>
 #include <blosc2/codecs-registry.h>
 
+/* --- Declare C-Blosc2 Globals --- */
+extern blosc2_codec g_codecs[256];
+extern uint8_t g_ncodecs;
+
 /* --- Declare HDF5 Filters --- */
 extern const H5Z_class2_t blosc_class;
 extern const H5Z_class2_t blosc2_class;
@@ -77,8 +81,12 @@ herr_t hdf5lib_register_all_filters(void) {
   /* 1. Initialize Blosc2 engine globally */
   blosc2_init();
   
-  /* 2. Shoehorn custom static codecs into Blosc2 natively using internal API */
-  register_codec_private(&snappy_codec);
+  /* 2. Shoehorn custom static codecs into Blosc2 natively */
+  
+  /* BYPASS GUARD: Manually inject legacy Snappy (compcode 3) */
+  g_codecs[g_ncodecs++] = snappy_codec;
+  
+  /* Use the standard API for modern codecs (IDs >= 32) */
   register_codec_private(&ndlz_codec);
   register_codec_private(&zfp_prec_codec);
   register_codec_private(&zfp_acc_codec);
