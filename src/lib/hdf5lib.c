@@ -82,9 +82,14 @@ herr_t hdf5lib_register_all_filters(void) {
   register_codec_private(&ndlz_codec);
   register_codec_private(&zfp_prec_codec);
   register_codec_private(&zfp_acc_codec);
-  register_codec_private(&zfp_rate_codec);
   
-  /* 3. Register the standalone HDF5 plugins */
+  /* 3. Hijack the unused LZ4HC decoder slot for Snappy */
+  blosc2_codec *lz4hc = blosc2_get_codec(BLOSC_LZ4HC); /* compcode 2 */
+  if (lz4hc) {
+      lz4hc->decoder = snappy_codec.decoder;
+  }
+  
+  /* 4. Register the standalone HDF5 plugins */
   if (H5Zregister(&blosc_class)  < 0) err = -1;
   if (H5Zregister(&blosc2_class) < 0) err = -1;
   if (H5Zregister(&bshuf_class)  < 0) err = -1;
