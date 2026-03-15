@@ -97,6 +97,16 @@ static size_t blosc_filter(
         PUSH_ERR("Failed to create Blosc2 decompression context");
     }
 
+    /* --- SNAPPY ROUTING PATCH --- */
+    /* Blosc header byte 2 contains the compformat in the top 3 bits. 
+       If the chunk is Snappy (format 2), rewrite the header to format 3 
+       so the engine routes it to our registered compcode 3 slot. */
+    uint8_t *hdr = (uint8_t *)*buf;
+    if (((hdr[2] >> 5) & 0x07) == 2) {
+        hdr[2] = (hdr[2] & 0x1F) | (3 << 5);
+    }
+    /* ---------------------------- */
+
     int status = blosc2_decompress_ctx(dctx, *buf, (int32_t)nbytes, outbuf, (int32_t)uncomp_size);
     blosc2_free_ctx(dctx);
     
@@ -110,9 +120,9 @@ static size_t blosc_filter(
         
         if (compformat == 0) compname = "blosclz";
         else if (compformat == 1) compname = "lz4 / lz4hc";
-        else if (compformat == 2) compname = "snappy";
-        else if (compformat == 3) compname = "zlib";
-        else if (compformat == 4) compname = "zstd";
+        else if (compformat == 2 || compformat == 3) compname = "snappy";
+        else if (compformat == 4) compname = "zlib";
+        else if (compformat == 5) compname = "zstd";
         else if (compformat == 6) compname = "zfp";
 
         PUSH_ERR("Decompression failed (status %d). Chunk requires codec format: %s (format id %d). Is this plugin enabled?", status, compname, compformat);

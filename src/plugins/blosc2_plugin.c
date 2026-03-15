@@ -370,6 +370,13 @@ static size_t blosc2_filter_function(
       dparams.schunk = schunk;
       blosc2_context *dctx = blosc2_create_dctx(dparams);
       
+      /* --- SNAPPY ROUTING PATCH --- */
+      uint8_t *hdr = (uint8_t *)chunk;
+      if (((hdr[2] >> 5) & 0x07) == 2) {
+          hdr[2] = (hdr[2] & 0x1F) | (3 << 5);
+      }
+      /* ---------------------------- */
+      
       status = blosc2_decompress_ctx(dctx, chunk, cbytes, outbuf, (int32_t)outbuf_size);
       
       blosc2_free_ctx(dctx);
