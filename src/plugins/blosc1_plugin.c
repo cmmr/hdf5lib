@@ -126,66 +126,31 @@ static size_t blosc_filter(
   
   /* ----- Compression Path ----- */
   else {
-    if (cd_nelmts < 4) {
-      PUSH_ERR("Blosc requires at least 4 cd_values");
-    }
+    if (cd_nelmts < 4) PUSH_ERR("Blosc requires at least 4 cd_values");
     
     size_t typesize = cd_values[2];
     int clevel = (cd_nelmts >= 5) ? (int)cd_values[4] : 5;
     int doshuffle = (cd_nelmts >= 6) ? (int)cd_values[5] : 1;
-    int compcode = 0; // Default BLOSC_BLOSCLZ
+    int compcode = (cd_nelmts >= 7) ? cd_values[6] : 0;
     
-    if (cd_nelmts >= 7) {
-      compcode = cd_values[6];
-    }
+    const char *compname = "blosclz";
+    if (compcode == 1) compname = "lz4";
+    else if (compcode == 2) compname = "lz4hc";
+    else if (compcode == 3) compname = "snappy";
+    else if (compcode == 4) compname = "zlib";
+    else if (compcode == 5) compname = "zstd";
     
-    size_t out_alloc = nbytes + 64; 
+    size_t out_alloc = nbytes + BLOSC2_MAX_OVERHEAD;
     void *outbuf = H5allocate_memory(out_alloc, 0);
     if (!outbuf) PUSH_ERR("Memory allocation failed for compression");
     
-    int comp_size = 0;
-
-    blosc2_cparams cparams = BLOSC2_CPARAMS_DEFAULTS;
-    cparams.compcode = compcode;
-    cparams.clevel = clevel;
-    cparams.typesize = (int32_t)typesize;
-    cparams.blocksize = 0;
-    
-    if (doshuffle == 1) cparams.filters[5] = BLOSC_SHUFFLE;
-    else if (doshuffle == 2) cparams.filters[5] = BLOSC_BITSHUFFLE;
-    else cparams.filters[5] = BLOSC_NOSHUFFLE;
-
-    blosc2_context *cctx = blosc2_create_cctx(cparams);
-    if (cctx) {
-        comp_size = blosc2_compress_ctx(cctx, *buf, (int32_t)nbytes, outbuf, (int32_t)out_alloc);
-        blosc2_free_ctx(cctx);
-    }
+    /* Force strict Blosc1 chunk generation */
+    blosc1_set_compressor(compname);
+    int comp_size = blosc1_compress(clevel, doshuffle, typesize, nbytes, *buf, outbuf, out_alloc);
     
     if (comp_size <= 0) {
-        uint8_t *p = (uint8_t *)outbuf;
-        
-        p[0] = FILTER_BLOSC_VERSION;
-        p[1] = 1;                   
-        p[2] = (uint8_t)(0x10 | ((compcode & 7) << 5)); 
-        p[3] = (uint8_t)typesize;   
-        
-        uint32_t uncomp_bytes = (uint32_t)nbytes;
-        uint32_t header_len = 16;
-        uint32_t final_bytes = uncomp_bytes + header_len;
-        
-        #define W_LE32(dest, val) do { \
-            (dest)[0] = (uint8_t)((val) & 0xFF); \
-            (dest)[1] = (uint8_t)(((val) >> 8) & 0xFF); \
-            (dest)[2] = (uint8_t)(((val) >> 16) & 0xFF); \
-            (dest)[3] = (uint8_t)(((val) >> 24) & 0xFF); \
-        } while(0)
-        
-        W_LE32(p + 4, uncomp_bytes);  
-        W_LE32(p + 8, uncomp_bytes);  
-        W_LE32(p + 12, final_bytes);  
-        
-        memcpy(p + 16, *buf, nbytes);
-        comp_size = (int)final_bytes;
+        H5free_memory(outbuf);
+        PUSH_ERR("Blosc1 compression failed");
     }
     
     H5free_memory(*buf); 

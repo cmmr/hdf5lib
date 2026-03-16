@@ -1,8 +1,8 @@
 /**
  * @file blosc2_plugin.c
  * @brief Standalone HDF5 Filter Plugin for Blosc2 (Filter ID 32026)
- * * Supports both standard 1D linear chunking and advanced multi-dimensional 
- * B2ND array chunking. Fully backward-compatible with Blosc1 datasets.
+ * * Supports 1D linear chunking, advanced multi-dimensional B2ND array chunking,
+ * and explicitly maps filters_meta to support lossy codecs like ZFP and TruncPrec.
  */
 
 #include <hdf5.h>
@@ -18,7 +18,7 @@
 #define DEFAULT_CLEVEL 5
 #define DEFAULT_SHUFFLE 1
 #define DEFAULT_COMPCODE BLOSC_BLOSCLZ
-#define MAX_FILTER_VALUES (8 + BLOSC2_MAX_DIM)
+#define MAX_FILTER_VALUES (9 + BLOSC2_MAX_DIM)
 
 #define B2ND_OPAQUE_NPDTYPE_FORMAT "|V%zd"
 #define B2ND_OPAQUE_NPDTYPE_MAXLEN (2 + 20 + 1)
@@ -43,6 +43,12 @@ static herr_t blosc2_set_local(hid_t dcpl, hid_t type, hid_t space) {
   memset(values, 0, sizeof(values));
   r = H5Pget_filter_by_id(dcpl, FILTER_BLOSC2, &flags, &nelements, values, 0, NULL, NULL);
   if (r < 0) return -1;
+
+  /* Capture user-provided filters_meta if 8 parameters were passed */
+  unsigned int user_meta = 0;
+  if (nelements >= 8) {
+      user_meta = values[7];
+  }
 
   if (nelements < 4) nelements = 4;
 
@@ -84,8 +90,19 @@ static herr_t blosc2_set_local(hid_t dcpl, hid_t type, hid_t space) {
     for (int j = 0; j < ndim; j++) {
       values[8 + j] = (unsigned int)(chunkshape[j]);
     }
-    nelements = 8 + ndim;
-  } 
+    
+    /* Shift filters_meta to the end of the b2nd chunk block */
+    values[8 + ndim] = user_meta;
+    nelements = 9 + ndim;
+  } else {
+    if (nelements < 5) values[4] = DEFAULT_CLEVEL;
+    if (nelements < 6) values[5] = DEFAULT_SHUFFLE;
+    if (nelements < 7) values[6] = DEFAULT_COMPCODE;
+    
+    /* Safely assign filters_meta for 1D chunks */
+    values[7] = user_meta;
+    nelements = 8;
+  }
 
   if (H5Pmodify_filter(dcpl, FILTER_BLOSC2, flags, nelements, values) < 0) {
     return -1;
@@ -149,9 +166,6 @@ static size_t blosc2_filter_function(
     unsigned int flags, size_t cd_nelmts, const unsigned int cd_values[], 
     size_t nbytes, size_t *buf_size, void **buf) {
 
-  printf("\n      -> [BLOSC2 DEBUG] Filter invoked! flags=%u, nbytes=%zu\n", flags, nbytes);
-  fflush(stdout);
-
   if (nbytes == 0) return 0;
 
   void *outbuf = NULL;
@@ -160,6 +174,7 @@ static size_t blosc2_filter_function(
   int clevel = DEFAULT_CLEVEL;
   int doshuffle = DEFAULT_SHUFFLE;
   int compcode = DEFAULT_COMPCODE;
+  int meta = 0; 
 
   if (cd_nelmts < 4) PUSH_ERR("blosc2_filter: Too few filter parameters");
 
@@ -171,26 +186,38 @@ static size_t blosc2_filter_function(
   int32_t chunkshape[BLOSC2_MAX_DIM];
   
   if (cd_nelmts >= 8) {
-    ndim = cd_values[7];
-    if (ndim < 2 || ndim > BLOSC2_MAX_DIM) PUSH_ERR("blosc2_filter: Invalid chunk rank for B2ND");
-    if (cd_nelmts < (size_t)(8 + ndim)) PUSH_ERR("blosc2_filter: Missing B2ND dimension values");
-    for (int i = 0; i < ndim; i++) chunkshape[i] = (int32_t)cd_values[8 + i];
+      ndim = cd_values[7];
+      if (ndim >= 1 && ndim <= BLOSC2_MAX_DIM) {
+          if (cd_nelmts >= (size_t)(9 + ndim)) {
+              meta = cd_values[8 + ndim];
+          }
+          for (int i = 0; i < ndim; i++) chunkshape[i] = (int32_t)cd_values[8 + i];
+      } else {
+          meta = cd_values[7];
+          ndim = -1;
+      }
   }
 
   /* ----- Compression Path ----- */
   if (!(flags & H5Z_FLAG_REVERSE)) {
-    if (cd_nelmts < 6) PUSH_ERR("blosc2_filter: Too few parameters for compression");
-
-    clevel = cd_values[4];
-    doshuffle = cd_values[5];
+    if (cd_nelmts >= 5) clevel = cd_values[4];
+    if (cd_nelmts >= 6) doshuffle = cd_values[5];
     if (cd_nelmts >= 7) {
-      compcode = cd_values[6];
+        compcode = cd_values[6];
+        /* Safety: Verify codec is supported by the linked library */
+        const char *compname;
+        if (blosc2_compcode_to_compname(compcode, &compname) == -1) {
+            char errmsg[128];
+            snprintf(errmsg, sizeof(errmsg), "blosc2_filter: Compressor code %d not supported by this build.", compcode);
+            PUSH_ERR(errmsg);
+        }
     }
 
     blosc2_cparams cparams = BLOSC2_CPARAMS_DEFAULTS;
     cparams.compcode = compcode;
     cparams.typesize = (int32_t)typesize;
     cparams.filters[BLOSC_LAST_FILTER] = doshuffle;
+    cparams.filters_meta[BLOSC_LAST_FILTER] = meta; // Explicit Meta Injection
     cparams.clevel = clevel;
 
     blosc2_storage storage = {.cparams = &cparams, .contiguous = false};
@@ -232,7 +259,7 @@ static size_t blosc2_filter_function(
       }
 
       if (status <= 0) {
-          if (needs_free) free(tmp_out);
+          if (needs_free && tmp_out) free(tmp_out);
           b2nd_free(array); 
           b2nd_free_ctx(ctx);
           PUSH_ERR("blosc2_filter: B2ND compression failed");
@@ -240,13 +267,13 @@ static size_t blosc2_filter_function(
 
       outbuf = H5allocate_memory((size_t)status, 0);
       if (!outbuf) {
-        if (needs_free) free(tmp_out);
+        if (needs_free && tmp_out) free(tmp_out);
         b2nd_free(array); b2nd_free_ctx(ctx);
         PUSH_ERR("blosc2_filter: Memory allocation failed");
       }
       memcpy(outbuf, tmp_out, (size_t)status);
       
-      if (needs_free) free(tmp_out);
+      if (needs_free && tmp_out) free(tmp_out);
       b2nd_free(array);
       b2nd_free_ctx(ctx);
     } 
@@ -268,7 +295,7 @@ static size_t blosc2_filter_function(
       status = blosc2_schunk_to_buffer(schunk, &tmp_out, &needs_free);
       
       if (status <= 0) {
-          if (needs_free) free(tmp_out);
+          if (needs_free && tmp_out) free(tmp_out);
           blosc2_schunk_free(schunk); 
           blosc2_free_ctx(cctx);
           PUSH_ERR("blosc2_filter: Super-chunk compression failed");
@@ -276,13 +303,13 @@ static size_t blosc2_filter_function(
 
       outbuf = H5allocate_memory((size_t)status, 0);
       if (!outbuf) {
-        if (needs_free) free(tmp_out);
+        if (needs_free && tmp_out) free(tmp_out);
         blosc2_schunk_free(schunk); blosc2_free_ctx(cctx);
         PUSH_ERR("blosc2_filter: Memory allocation failed");
       }
       memcpy(outbuf, tmp_out, (size_t)status);
       
-      if (needs_free) free(tmp_out);
+      if (needs_free && tmp_out) free(tmp_out);
       blosc2_schunk_free(schunk);
       blosc2_free_ctx(cctx);
     }
@@ -302,7 +329,6 @@ static size_t blosc2_filter_function(
         PUSH_ERR("blosc2_filter: Cannot create B2ND array");
       }
       
-      /* CRITICAL FIX: Zero-initialize dimension arrays to prevent out-of-bounds garbage reads */
       int64_t start[BLOSC2_MAX_DIM] = {0};
       int64_t stop[BLOSC2_MAX_DIM] = {0};
       int64_t size = typesize;
@@ -311,15 +337,13 @@ static size_t blosc2_filter_function(
         start[i] = 0;
         stop[i] = array->shape[i];
         size *= array->shape[i];
+        
+        /* Safety: Ensure margin chunks correctly parse padding */
         if (ndim >= 0 && array->shape[i] != chunkshape[i]) {
           b2nd_free(array);
-          /* array takes ownership of schunk, so b2nd_free destroyed it. Do not double free! */
           PUSH_ERR("blosc2_filter: B2ND array shape does not match filter chunkshape (padding violation)");
         }
       }
-      
-      printf("      -> [BLOSC2 DEBUG] Allocating %lld bytes for B2ND decomp\n", (long long)size);
-      fflush(stdout);
 
       outbuf = H5allocate_memory((size_t)size, 0);
       if (!outbuf) { 
@@ -333,20 +357,16 @@ static size_t blosc2_filter_function(
         PUSH_ERR("blosc2_filter: Cannot decompress B2ND array");
       }
       
-      printf("      -> [BLOSC2 DEBUG] B2ND decomp successful, cleaning up...\n");
-      fflush(stdout);
-      
       status = size;
-      
-      /* CRITICAL FIX: b2nd_free safely destroys the underlying schunk inside the array. */
       b2nd_free(array);
-      schunk = NULL; /* Sever the pointer to prevent the double-free at the end of the block! */
+      schunk = NULL; /* Sever pointer to prevent double-free */
     } 
     /* 1D Linear Decompression */
     else {
-      uint8_t *chunk;
+      uint8_t *chunk = NULL;
       bool needs_free = false;
       int32_t cbytes = blosc2_schunk_get_lazychunk(schunk, 0, &chunk, &needs_free);
+      
       if (cbytes < 0) { 
         blosc2_schunk_free(schunk); 
         PUSH_ERR("blosc2_filter: Cannot get chunk from super-chunk"); 
@@ -356,12 +376,9 @@ static size_t blosc2_filter_function(
       blosc2_cbuffer_sizes(chunk, &exact_bytes, NULL, NULL);
       outbuf_size = (size_t)exact_bytes;
 
-      printf("      -> [BLOSC2 DEBUG] Allocating %zu bytes for linear decomp\n", outbuf_size);
-      fflush(stdout);
-
       outbuf = H5allocate_memory(outbuf_size, 0);
       if (!outbuf) { 
-        if (needs_free) free(chunk);
+        if (needs_free && chunk) free(chunk);
         blosc2_schunk_free(schunk);
         PUSH_ERR("blosc2_filter: Cannot allocate decompression buffer"); 
       }
@@ -373,7 +390,7 @@ static size_t blosc2_filter_function(
       status = blosc2_decompress_ctx(dctx, chunk, cbytes, outbuf, (int32_t)outbuf_size);
       
       blosc2_free_ctx(dctx);
-      if (needs_free) free(chunk);
+      if (needs_free && chunk) free(chunk);
 
       if (status <= 0) {
         H5free_memory(outbuf);
@@ -382,7 +399,6 @@ static size_t blosc2_filter_function(
       }
     }
     
-    /* 1D path relies on this to free schunk. B2ND path bypasses this by setting it to NULL. */
     if (schunk) blosc2_schunk_free(schunk);
   }
 

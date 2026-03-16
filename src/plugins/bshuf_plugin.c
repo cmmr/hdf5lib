@@ -11,6 +11,14 @@
 #include <string.h>
 #include <stdio.h>
 
+
+int64_t bshuf_compress_zstd(const void* in, void* out, const size_t size, 
+                            const size_t elem_size, const size_t block_size, const int comp_lvl);
+int64_t bshuf_decompress_zstd(const void* in, void* out, const size_t size, 
+                              const size_t elem_size, const size_t block_size);
+size_t bshuf_compress_zstd_bound(const size_t size, const size_t elem_size, const size_t block_size);
+
+
 #ifndef BSHUF_VERSION_MAJOR
   #define BSHUF_VERSION_MAJOR 0
   #define BSHUF_VERSION_MINOR 5
