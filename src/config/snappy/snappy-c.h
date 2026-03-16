@@ -1,8 +1,8 @@
-#ifndef SNAPPY_C_COMPAT_H
-#define SNAPPY_C_COMPAT_H
+#ifndef SNAPPY_COMPAT_H
+#define SNAPPY_COMPAT_H
 
 #include "csnappy.h"
-#include <stdlib.h>
+#include <hdf5.h> /* Using HDF5 memory allocators instead of stdlib */
 #include <stdint.h>
 
 /* Map the basic types and macros */
@@ -12,22 +12,31 @@ typedef int snappy_status;
 /* This maps cleanly with a simple define */
 #define snappy_max_compressed_length csnappy_max_compressed_length
 
+/* FIX: csnappy.h explicitly states: 9 <= workmem_bytes_power_of_two <= 15.
+ * The macro in csnappy.h is dangerously set to 16, causing a massive heap
+ * buffer overflow because the internal hash table expects 16-bit entries.
+ * We clamp the power to 15 and oversize the allocation to 256KB to be safe.
+ */
+#define SAFE_WORKMEM_POWER 15
+#define SAFE_WORKMEM_BYTES (1 << 18) /* 256 KB */
+
 /* Wrapper for compression */
 static inline snappy_status snappy_compress(const char* input,
                                             size_t input_length,
                                             char* compressed,
                                             size_t* compressed_length) {
-    /* csnappy requires a working buffer. 
-       CSNAPPY_WORKMEM_BYTES is 64KB (1 << 16). */
-    void* working_memory = malloc(CSNAPPY_WORKMEM_BYTES);
+    /* Allocate using HDF5's allocator, 0 for clear flag (false) */
+    void* working_memory = H5allocate_memory(SAFE_WORKMEM_BYTES, 0);
     if (!working_memory) return -1; /* Allocation failed */
 
     uint32_t out_len = 0;
     csnappy_compress(input, (uint32_t)input_length, compressed, &out_len,
-                     working_memory, CSNAPPY_WORKMEM_BYTES_POWER_OF_TWO);
+                     working_memory, SAFE_WORKMEM_POWER);
 
     *compressed_length = (size_t)out_len;
-    free(working_memory);
+    
+    /* Free using HDF5's deallocator */
+    H5free_memory(working_memory);
     return SNAPPY_OK;
 }
 
@@ -50,4 +59,4 @@ static inline snappy_status snappy_uncompress(const char* compressed,
     return status;
 }
 
-#endif /* SNAPPY_C_COMPAT_H */
+#endif /* SNAPPY_COMPAT_H */
