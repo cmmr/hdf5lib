@@ -1,0 +1,12 @@
+diff -ru src/c-blosc-orig/blosc/blosc.c src/c-blosc-1.21.6/blosc/blosc.c
+--- src/c-blosc-orig/blosc/blosc.c	2024-06-24 15:56:17.000000000 +0000
++++ src/c-blosc-1.21.6/blosc/blosc.c	2026-03-16 22:39:28.730649200 +0000
+@@ -28,7 +28,7 @@
+   #include "lz4hc.h"
+ #endif /*  HAVE_LZ4 */
+ #if defined(HAVE_SNAPPY)
+-  #include "snappy-c.h"
++  #include "csnappy.h"
+ #endif /*  HAVE_SNAPPY */
+ #if defined(HAVE_ZLIB)
+   #include "zlib.h"
