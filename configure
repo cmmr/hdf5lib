@@ -2,6 +2,7 @@
 set -e
 
 HDF5_VER="2.0.0"
+BLOSC1_VER="1.21.6"
 BLOSC2_VER="2.23.1"
 BSHUF_VER="0.5.2"
 BZIP2_VER="1.0.8"
@@ -103,27 +104,29 @@ echo "--- [hdf5lib] Extracting source tarballs..."
 
 tar -xf "../src/hdf5-$HDF5_VER.tar.gz"
 tar -xf "../src/filters/bitshuffle-$BSHUF_VER.tar.gz"
-tar -xf "../src/filters/c-blosc2-$BLOSC2_VER.tar.gz"
 tar -xf "../src/filters/bzip2-$BZIP2_VER.tar.gz"
+tar -xf "../src/filters/csnappy-$CSNAPPY_VER.tar.gz"
+tar -xf "../src/filters/c-blosc-$BLOSC1_VER.tar.gz"
+tar -xf "../src/filters/c-blosc2-$BLOSC2_VER.tar.gz"
 tar -xf "../src/filters/libaec-$LIBAEC_VER.tar.gz"
 tar -xf "../src/filters/liblzf-$LZF_VER.tar.gz"
 tar -xf "../src/filters/lz4-$LZ4_VER.tar.gz"
-tar -xf "../src/filters/csnappy-$CSNAPPY_VER.tar.gz"
 tar -xf "../src/filters/zfp-$ZFP_VER.tar.gz"
 tar -xf "../src/filters/zlib-ng-$ZLIBNG_VER.tar.gz"
 tar -xf "../src/filters/zstd-$ZSTD_VER.tar.gz"
 
 # Standardize directory names for the build loops
 mv "hdf5-$HDF5_VER"            hdf5
-mv "bitshuffle-$BSHUF_VER/src" bshuf
+mv "c-blosc-$BLOSC1_VER"       blosc1
 mv "c-blosc2-$BLOSC2_VER"      blosc2
+mv "bitshuffle-$BSHUF_VER/src" bshuf
 mv "bzip2-$BZIP2_VER"          bzip2
-mv "libaec-$LIBAEC_VER"        szip
+mv "zlib-ng-$ZLIBNG_VER"       gzip
 mv "liblzf-$LZF_VER"           lzf
 mv "lz4-$LZ4_VER/lib"          lz4
 mv "csnappy-$CSNAPPY_VER"      snappy
+mv "libaec-$LIBAEC_VER"        szip
 mv "zfp-$ZFP_VER"              zfp
-mv "zlib-ng-$ZLIBNG_VER"       gzip
 mv "zstd-$ZSTD_VER/lib"        zstd
 
 
@@ -239,6 +242,33 @@ done
 cd ..
 
 
+# 11. Build BLOSC1 -------------------------------------------------------------
+echo "--- [hdf5lib] Building BLOSC1..."
+cd blosc1
+
+# Enable required internal codecs; Suppress compiler warnings
+BLOSC1_FLAGS="-I../lz4 -I../zstd -I../gzip -I../snappy -I../zfp/include -Iblosc"
+BLOSC1_FLAGS="$BLOSC1_FLAGS -DHAVE_LZ4 -DHAVE_SNAPPY -DHAVE_ZLIB -DHAVE_ZSTD -DBLOSC_STRICT_ALIGN"
+BLOSC1_FLAGS="$BLOSC1_FLAGS -Wno-unused-variable -Wno-pedantic -Wno-deprecated-declarations"
+echo "  BLOSC1_FLAGS: $BLOSC1_FLAGS"
+
+for src in blosc/*.c; do
+  dest=blosc1_$(basename "$src" .c).o
+  echo "  c_build \$BLOSC1_FLAGS -c $src -o $dest"
+  c_build $BLOSC1_FLAGS -c $src -o $dest
+done
+
+if [ "$WIN" -eq 1 ]; then
+  for src in blosc/win32/*.c; do
+    dest=blosc1_$(basename "$src" .c).o
+    echo "  c_build \$BLOSC1_FLAGS -c $src -o $dest"
+    c_build $BLOSC1_FLAGS -c $src -o $dest
+  done
+fi
+
+cd ..
+
+
 # 11. Build BLOSC2 -------------------------------------------------------------
 echo "--- [hdf5lib] Building BLOSC2..."
 cd blosc2
@@ -339,21 +369,15 @@ echo "--- [hdf5lib] Building Plugins..."
 cp -r ../src/plugins .
 cd plugins
 
-PLUGIN_FLAGS=" -I../hdf5/src -D__USE_MINGW_ANSI_STDIO=1"
-echo "  PLUGIN_FLAGS: $PLUGIN_FLAGS"
+for plugin in blosc1 blosc2 bshuf bzip2 lz4 lzf snappy zfp zstd; do
+  PLUGIN_FLAGS="-I../hdf5/src -D__USE_MINGW_ANSI_STDIO=1"
+  PLUGIN_FLAGS="$PLUGIN_FLAGS -I../$plugin -I../$plugin/blosc -I../$plugin/include -I../$plugin/src"
+  echo "  PLUGIN_FLAGS: $PLUGIN_FLAGS"
 
-for plugin in blosc1 blosc2; do
   src="${plugin}_plugin.c"
   dest="${plugin}_plugin.o"
-  echo "  c_build \$PLUGIN_FLAGS -DBLOSC1_COMPAT -I../blosc2/include -c $src -o $dest"
-  c_build $PLUGIN_FLAGS -DBLOSC1_COMPAT -I../blosc2/include -c $src -o $dest
-done
-
-for plugin in bshuf bzip2 lz4 lzf snappy zfp zstd; do
-  src="${plugin}_plugin.c"
-  dest="${plugin}_plugin.o"
-  echo "  c_build \$PLUGIN_FLAGS -I../$plugin -I../$plugin/include -I../$plugin/src -c $src -o $dest"
-  c_build $PLUGIN_FLAGS -I../$plugin -I../$plugin/include -I../$plugin/src -c $src -o $dest
+  echo "  c_build \$PLUGIN_FLAGS -c $src -o $dest"
+  c_build $PLUGIN_FLAGS -c $src -o $dest
 done
 
 cd ..

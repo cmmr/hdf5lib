@@ -39,7 +39,7 @@ def main():
         print(f"[{name: <25}] -> Reading... ", end="")
         sys.stdout.flush()
         
-        is_lossy = any(kw in name for kw in ["rate", "precision", "accuracy", "expert", "truncprec", "sz_"])
+        is_lossy = any(kw in name for kw in ["rate", "precision", "accuracy", "expert", "truncprec", "sz_", "zfp"])
         
         try:
             # Trigger decompression via hdf5plugin

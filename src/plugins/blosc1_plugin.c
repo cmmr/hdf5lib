@@ -5,7 +5,7 @@
  */
 
 #include <hdf5.h>
-#include <blosc2.h>
+#include <blosc.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h> /* Required for stderr/fprintf */
@@ -82,23 +82,16 @@ static size_t blosc_filter(
 
   /* ----- Decompression Path ----- */
   if (flags & H5Z_FLAG_REVERSE) {
-    size_t uncomp_size, screensize, typesize;
+    size_t uncomp_size, cbytes, blocksize;
     
-    blosc_cbuffer_sizes(*buf, &uncomp_size, &screensize, &typesize);
+    /* Safely extract the buffer sizes  */
+    blosc_cbuffer_sizes(*buf, &uncomp_size, &cbytes, &blocksize);
     
     void *outbuf = H5allocate_memory(uncomp_size, 0);
     if (!outbuf) PUSH_ERR("Memory allocation failed for %zu bytes", uncomp_size);
     
-    /* Use context engine for decompression to tap into rich error states */
-    blosc2_dparams dparams = BLOSC2_DPARAMS_DEFAULTS;
-    blosc2_context *dctx = blosc2_create_dctx(dparams);
-    if (!dctx) {
-        H5free_memory(outbuf);
-        PUSH_ERR("Failed to create Blosc2 decompression context");
-    }
-
-    int status = blosc2_decompress_ctx(dctx, *buf, (int32_t)nbytes, outbuf, (int32_t)uncomp_size);
-    blosc2_free_ctx(dctx);
+    /* Use context engine for thread-safe decompression  */
+    int status = blosc_decompress_ctx(*buf, outbuf, uncomp_size, 1);
     
     if (status <= 0) {
         H5free_memory(outbuf);
@@ -140,13 +133,14 @@ static size_t blosc_filter(
     else if (compcode == 4) compname = "zlib";
     else if (compcode == 5) compname = "zstd";
     
-    size_t out_alloc = nbytes + BLOSC2_MAX_OVERHEAD;
+    /* Allocate output buffer with the maximum guaranteed overhead  */
+    size_t out_alloc = nbytes + BLOSC_MAX_OVERHEAD;
     void *outbuf = H5allocate_memory(out_alloc, 0);
     if (!outbuf) PUSH_ERR("Memory allocation failed for compression");
     
-    /* Force strict Blosc1 chunk generation */
-    blosc1_set_compressor(compname);
-    int comp_size = blosc1_compress(clevel, doshuffle, typesize, nbytes, *buf, outbuf, out_alloc);
+    /* Use context engine for thread-safe compression without altering global state  */
+    /* blocksize=0 triggers automatic block sizes. numinternalthreads=1 is standard for HDF5. */
+    int comp_size = blosc_compress_ctx(clevel, doshuffle, typesize, nbytes, *buf, outbuf, out_alloc, compname, 0, 1);
     
     if (comp_size <= 0) {
         H5free_memory(outbuf);

@@ -1,7 +1,7 @@
 diff -ru src/c-blosc-orig/blosc/shuffle.c src/c-blosc-1.21.6/blosc/shuffle.c
 --- src/c-blosc-orig/blosc/shuffle.c	2024-06-24 15:56:17.000000000 +0000
-+++ src/c-blosc-1.21.6/blosc/shuffle.c	2026-03-08 22:50:28.358063000 +0000
-@@ -296,11 +296,7 @@
++++ src/c-blosc-1.21.6/blosc/shuffle.c	2026-03-16 21:52:16.848955500 +0000
+@@ -296,12 +296,6 @@
  #endif
  
  #else   /* No hardware acceleration supported for the target architecture. */
@@ -10,7 +10,7 @@ diff -ru src/c-blosc-orig/blosc/shuffle.c src/c-blosc-1.21.6/blosc/shuffle.c
 -  #else
 -  #warning Hardware-acceleration detection not implemented for the target architecture. Only the generic shuffle/unshuffle routines will be available.
 -  #endif
-+  printf("Hardware-acceleration detection not implemented for the target architecture. Only the generic shuffle/unshuffle routines will be available.")
- 
+-
  static blosc_cpu_features blosc_get_cpu_features(void) {
    return BLOSC_HAVE_NOTHING;
+ }
