@@ -25,15 +25,22 @@ jobs:
       - name: Install Python Dependencies
         run: pip install h5py hdf5plugin numpy
 
-      - name: Generate Interop Test File (Python)
+      - name: Generate Interop Test File (Python -> C)
         working-directory: tests/interop
-        run: python write_zoo.py
+        run: python generate_python_zoo.py
 
       - name: Build and Install hdf5lib
         run: |
           R CMD build .
           R CMD INSTALL hdf5lib_*.tar.gz
 
-      - name: Run Read Verification (R -> C)
+      - name: Run R/C Interop Scripts
         working-directory: tests/interop
-        run: Rscript test_interop.r
+        # This R script should now compile and run both:
+        # 1. verify_python_zoo.c
+        # 2. generate_c_zoo.c
+        run: Rscript run_interop_tests.r
+
+      - name: Run Read Verification (C -> Python)
+        working-directory: tests/interop
+        run: python verify_c_zoo.py

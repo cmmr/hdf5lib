@@ -1,10 +1,8 @@
+#include <R.h>
+#include <Rinternals.h>
 #include <hdf5.h>
 #include <blosc2.h>
 #include <blosc2/codecs-registry.h>
-
-/* --- Declare C-Blosc2 Globals --- */
-extern blosc2_codec g_codecs[256];
-extern uint8_t g_ncodecs;
 
 /* --- Declare HDF5 Filters --- */
 extern const H5Z_class2_t blosc_class;
@@ -17,93 +15,69 @@ extern const H5Z_class2_t snappy_class;
 extern const H5Z_class2_t zfp_class;
 extern const H5Z_class2_t zstd_class;
 
-/* --- Declare External Encoders/Decoders for Blosc2 Codecs --- */
-/* (These functions exist inside ndlz.o and blosc2-zfp.o) */
-extern int ndlz_compress(const uint8_t* input, int32_t input_len, uint8_t* output, int32_t output_len, uint8_t meta, blosc2_cparams* cparams, const void* chunk);
-extern int ndlz_decompress(const uint8_t* input, int32_t input_len, uint8_t* output, int32_t output_len, uint8_t meta, blosc2_dparams* dparams, const void* chunk);
-
-extern int zfp_prec_compress(const uint8_t* input, int32_t input_len, uint8_t* output, int32_t output_len, uint8_t meta, blosc2_cparams* cparams, const void* chunk);
-extern int zfp_prec_decompress(const uint8_t* input, int32_t input_len, uint8_t* output, int32_t output_len, uint8_t meta, blosc2_dparams* dparams, const void* chunk);
-
-extern int zfp_acc_compress(const uint8_t* input, int32_t input_len, uint8_t* output, int32_t output_len, uint8_t meta, blosc2_cparams* cparams, const void* chunk);
-extern int zfp_acc_decompress(const uint8_t* input, int32_t input_len, uint8_t* output, int32_t output_len, uint8_t meta, blosc2_dparams* dparams, const void* chunk);
-
-extern int zfp_rate_compress(const uint8_t* input, int32_t input_len, uint8_t* output, int32_t output_len, uint8_t meta, blosc2_cparams* cparams, const void* chunk);
-extern int zfp_rate_decompress(const uint8_t* input, int32_t input_len, uint8_t* output, int32_t output_len, uint8_t meta, blosc2_dparams* dparams, const void* chunk);
-
-/* --- Define Blosc2 Codecs natively --- */
-
-extern blosc2_codec snappy_codec; /* Located in blosc2_snappy_codec.c */
-
-blosc2_codec ndlz_codec = {
-  .compcode = BLOSC_CODEC_NDLZ,
-  .compname = "ndlz",
-  .version  = 1,
-  .complib  = BLOSC_CODEC_NDLZ,
-  .encoder  = ndlz_compress,
-  .decoder  = ndlz_decompress
-};
-
-blosc2_codec zfp_prec_codec = {
-  .compcode = BLOSC_CODEC_ZFP_FIXED_PRECISION,
-  .compname = "zfp_prec",
-  .version  = 1,
-  .complib  = BLOSC_CODEC_ZFP_FIXED_PRECISION,
-  .encoder  = zfp_prec_compress,
-  .decoder  = zfp_prec_decompress
-};
-
-blosc2_codec zfp_acc_codec = {
-  .compcode = BLOSC_CODEC_ZFP_FIXED_ACCURACY,
-  .compname = "zfp_acc",
-  .version  = 1,
-  .complib  = BLOSC_CODEC_ZFP_FIXED_ACCURACY,
-  .encoder  = zfp_acc_compress,
-  .decoder  = zfp_acc_decompress
-};
-
-blosc2_codec zfp_rate_codec = {
-  .compcode = BLOSC_CODEC_ZFP_FIXED_RATE,
-  .compname = "zfp_rate",
-  .version  = 1,
-  .complib  = BLOSC_CODEC_ZFP_FIXED_RATE,
-  .encoder  = zfp_rate_compress,
-  .decoder  = zfp_rate_decompress
-};
+/* --- Declare C-Blosc2 Globals & Codecs --- */
+extern uint8_t      g_ncodecs;
+extern blosc2_codec g_codecs[256];
+extern blosc2_codec snappy_codec;
+extern blosc2_codec ndlz_codec;
+extern blosc2_codec zfp_prec_codec;
+extern blosc2_codec zfp_acc_codec;
+extern blosc2_codec zfp_rate_codec;
 
 /* --- Internal Blosc2 Registration (Bypasses User ID Boundary) --- */
 extern int register_codec_private(blosc2_codec *codec);
 
+/* --- Registration Macros --- */
+#define REG_BLOSC2_CODEC(codec_ptr, name_str) do { \
+    if (register_codec_private(codec_ptr) < 0) { \
+        Rf_warning("[HDF5LIB ERROR]: Failed to register Blosc2 codec: %s", name_str); \
+        err = -1; \
+    } \
+} while(0)
+
+#define REG_HDF5_FILTER(filter_ptr, name_str) do { \
+    if (H5Zregister(filter_ptr) < 0) { \
+        Rf_warning("[HDF5LIB ERROR]: Failed to register HDF5 filter: %s", name_str); \
+        err = -1; \
+    } \
+} while(0)
+
+
 /* --- Registration Function --- */
 herr_t hdf5lib_register_all_filters(void) {
-  herr_t err = 0;
+    herr_t err = 0;
 
-  /* 1. Initialize Blosc2 engine globally */
-  blosc2_init();
-  
-  /* 2. Shoehorn custom static codecs into Blosc2 natively */
-  
-  /* BYPASS GUARD: Manually inject legacy Snappy (compcode 3) */
-  g_codecs[g_ncodecs++] = snappy_codec;
-  
-  /* Use the standard API for modern codecs (IDs >= 32) */
-  register_codec_private(&ndlz_codec);
-  register_codec_private(&zfp_prec_codec);
-  register_codec_private(&zfp_acc_codec);
-  register_codec_private(&zfp_rate_codec);
-  
-  /* 3. Register the standalone HDF5 plugins */
-  if (H5Zregister(&blosc_class)  < 0) err = -1;
-  if (H5Zregister(&blosc2_class) < 0) err = -1;
-  if (H5Zregister(&bshuf_class)  < 0) err = -1;
-  if (H5Zregister(&bzip2_class)  < 0) err = -1;
-  if (H5Zregister(&lz4_class)    < 0) err = -1;
-  if (H5Zregister(&lzf_class)    < 0) err = -1;
-  if (H5Zregister(&snappy_class) < 0) err = -1;
-  if (H5Zregister(&zfp_class)    < 0) err = -1;
-  if (H5Zregister(&zstd_class)   < 0) err = -1;
-  
-  return err;
+    /* 1. Initialize Blosc2 engine globally */
+    blosc2_init();
+
+    /* 2. Shoehorn custom static codecs into Blosc2 natively */
+    
+    /* BYPASS GUARD: Manually inject legacy Snappy (compcode 3) safely */
+    if (g_ncodecs < 256) {
+        g_codecs[g_ncodecs++] = snappy_codec;
+    } else {
+        Rf_warning("[HDF5LIB ERROR]: Blosc2 codec registry is full (>= 256). Cannot register Snappy.");
+        err = -1;
+    }
+
+    /* Use the standard API for modern codecs (IDs >= 32) and verify success */
+    REG_BLOSC2_CODEC(&ndlz_codec, "ndlz");
+    REG_BLOSC2_CODEC(&zfp_prec_codec, "zfp_prec");
+    REG_BLOSC2_CODEC(&zfp_acc_codec, "zfp_acc");
+    REG_BLOSC2_CODEC(&zfp_rate_codec, "zfp_rate");
+
+    /* 3. Register the standalone HDF5 plugins and verify success */
+    REG_HDF5_FILTER(&blosc_class, "blosc");
+    REG_HDF5_FILTER(&blosc2_class, "blosc2");
+    REG_HDF5_FILTER(&bshuf_class, "bshuf");
+    REG_HDF5_FILTER(&bzip2_class, "bzip2");
+    REG_HDF5_FILTER(&lz4_class, "lz4");
+    REG_HDF5_FILTER(&lzf_class, "lzf");
+    REG_HDF5_FILTER(&snappy_class, "snappy");
+    REG_HDF5_FILTER(&zfp_class, "zfp");
+    REG_HDF5_FILTER(&zstd_class, "zstd");
+
+    return err;
 }
 
 
