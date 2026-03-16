@@ -166,6 +166,8 @@ for src in *.c; do
   c_build -I. -c $src -o $dest
 done
 
+cp ../../src/config/snappy/snappy-c.h .
+
 cd ..
 
 
