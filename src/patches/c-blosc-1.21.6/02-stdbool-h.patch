@@ -1,0 +1,26 @@
+diff -ru src/c-blosc-orig/blosc/shuffle.c src/c-blosc-1.21.6/blosc/shuffle.c
+--- src/c-blosc-orig/blosc/shuffle.c	2024-06-24 15:56:17.000000000 +0000
++++ src/c-blosc-1.21.6/blosc/shuffle.c	2026-03-16 23:20:15.771821000 +0000
+@@ -13,6 +13,7 @@
+ #include "bitshuffle-generic.h"
+ #include "blosc-comp-features.h"
+ #include <stdio.h>
++#include <stdbool.h>
+ 
+ #if defined(_WIN32)
+ #include "win32/pthread.h"
+@@ -20,14 +21,6 @@
+ #include <pthread.h>
+ #endif
+ 
+-/* Visual Studio < 2013 does not have stdbool.h so here it is a replacement: */
+-#if defined __STDC__ && defined __STDC_VERSION__ && __STDC_VERSION__ >= 199901L
+-/* have a C99 compiler */
+-typedef _Bool bool;
+-#else
+-/* do not have a C99 compiler */
+-typedef unsigned char bool;
+-#endif
+ 
+ 
+ #if !defined(__clang__) && defined(__GNUC__) && defined(__GNUC_MINOR__) && \
