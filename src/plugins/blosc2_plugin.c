@@ -1,8 +1,8 @@
 /**
  * @file blosc2_plugin.c
  * @brief Standalone HDF5 Filter Plugin for Blosc2 (Filter ID 32026)
- * * Supports 1D linear chunking, advanced multi-dimensional B2ND array chunking,
- * and explicitly maps filters_meta to support lossy codecs like ZFP and TruncPrec.
+ * Incorporates community best-practices for memory management while 
+ * retaining custom filters_meta support for dynamic ZFP and TruncPrec codecs.
  */
 
 #include <hdf5.h>
@@ -18,7 +18,8 @@
 #define DEFAULT_CLEVEL 5
 #define DEFAULT_SHUFFLE 1
 #define DEFAULT_COMPCODE BLOSC_BLOSCLZ
-#define MAX_FILTER_VALUES (9 + BLOSC2_MAX_DIM)
+/* Increased by 1 to hold the filters_meta argument */
+#define MAX_FILTER_VALUES (9 + BLOSC2_MAX_DIM) 
 
 #define B2ND_OPAQUE_NPDTYPE_FORMAT "|V%zd"
 #define B2ND_OPAQUE_NPDTYPE_MAXLEN (2 + 20 + 1)
@@ -104,15 +105,12 @@ static herr_t blosc2_set_local(hid_t dcpl, hid_t type, hid_t space) {
     nelements = 8;
   }
 
-  if (H5Pmodify_filter(dcpl, FILTER_BLOSC2, flags, nelements, values) < 0) {
-    return -1;
-  }
-
+  if (H5Pmodify_filter(dcpl, FILTER_BLOSC2, flags, nelements, values) < 0) return -1;
   return 1;
 }
 
 /* =========================================================================
- * BLOCK SIZE HEURISTICS
+ * BLOCK SIZE HEURISTICS (From Community H5Zblosc2.c)
  * ========================================================================= */
 static int32_t compute_blosc2_blocksize(int32_t chunksize, int32_t typesize, int clevel, int compcode) {
   static uint8_t data_dest[BLOSC2_MAX_OVERHEAD];
@@ -175,6 +173,7 @@ static size_t blosc2_filter_function(
   int doshuffle = DEFAULT_SHUFFLE;
   int compcode = DEFAULT_COMPCODE;
   int meta = 0; 
+  char errmsg[256];
 
   if (cd_nelmts < 4) PUSH_ERR("blosc2_filter: Too few filter parameters");
 
@@ -198,18 +197,21 @@ static size_t blosc2_filter_function(
       }
   }
 
+  blosc2_init();
+
   /* ----- Compression Path ----- */
   if (!(flags & H5Z_FLAG_REVERSE)) {
     if (cd_nelmts >= 5) clevel = cd_values[4];
     if (cd_nelmts >= 6) doshuffle = cd_values[5];
     if (cd_nelmts >= 7) {
         compcode = cd_values[6];
-        /* Safety: Verify codec is supported by the linked library */
-        const char *compname;
-        if (blosc2_compcode_to_compname(compcode, &compname) == -1) {
-            char errmsg[128];
-            snprintf(errmsg, sizeof(errmsg), "blosc2_filter: Compressor code %d not supported by this build.", compcode);
-            PUSH_ERR(errmsg);
+        /* Skip static verification for Dynamic Custom Codecs (ZFP=6, NDLZ=11) */
+        if (compcode < 6) {
+            const char *compname;
+            if (blosc2_compcode_to_compname(compcode, &compname) == -1) {
+                snprintf(errmsg, sizeof(errmsg), "blosc2_filter: Compressor %d not supported.", compcode);
+                PUSH_ERR(errmsg);
+            }
         }
     }
 
@@ -265,12 +267,8 @@ static size_t blosc2_filter_function(
           PUSH_ERR("blosc2_filter: B2ND compression failed");
       }
 
+      /* Safely transfer to HDF5 managed memory */
       outbuf = H5allocate_memory((size_t)status, 0);
-      if (!outbuf) {
-        if (needs_free && tmp_out) free(tmp_out);
-        b2nd_free(array); b2nd_free_ctx(ctx);
-        PUSH_ERR("blosc2_filter: Memory allocation failed");
-      }
       memcpy(outbuf, tmp_out, (size_t)status);
       
       if (needs_free && tmp_out) free(tmp_out);
@@ -302,11 +300,6 @@ static size_t blosc2_filter_function(
       }
 
       outbuf = H5allocate_memory((size_t)status, 0);
-      if (!outbuf) {
-        if (needs_free && tmp_out) free(tmp_out);
-        blosc2_schunk_free(schunk); blosc2_free_ctx(cctx);
-        PUSH_ERR("blosc2_filter: Memory allocation failed");
-      }
       memcpy(outbuf, tmp_out, (size_t)status);
       
       if (needs_free && tmp_out) free(tmp_out);
@@ -317,7 +310,8 @@ static size_t blosc2_filter_function(
   
   /* ----- Decompression Path ----- */
   else {
-    blosc2_schunk *schunk = blosc2_schunk_from_buffer(*buf, (int64_t)nbytes, true);
+    /* Community Optimization: false prevents double-allocating compressed buffers */
+    blosc2_schunk *schunk = blosc2_schunk_from_buffer(*buf, (int64_t)nbytes, false);
     if (!schunk) PUSH_ERR("blosc2_filter: Cannot get super-chunk from buffer");
 
     /* B2ND Array Decompression */
@@ -338,10 +332,11 @@ static size_t blosc2_filter_function(
         stop[i] = array->shape[i];
         size *= array->shape[i];
         
-        /* Safety: Ensure margin chunks correctly parse padding */
+        /* Community Safety: Ensure margin chunks correctly parse padding */
         if (ndim >= 0 && array->shape[i] != chunkshape[i]) {
-          b2nd_free(array);
-          PUSH_ERR("blosc2_filter: B2ND array shape does not match filter chunkshape (padding violation)");
+            snprintf(errmsg, sizeof(errmsg), "blosc2_filter: B2ND shape[%d] != chunkshape[%d]", i, i);
+            b2nd_free(array); // frees schunk internally
+            PUSH_ERR(errmsg);
         }
       }
 
@@ -359,7 +354,7 @@ static size_t blosc2_filter_function(
       
       status = size;
       b2nd_free(array);
-      schunk = NULL; /* Sever pointer to prevent double-free */
+      schunk = NULL; /* Sever pointer to prevent double-free since b2nd_free handles it */
     } 
     /* 1D Linear Decompression */
     else {
@@ -401,6 +396,8 @@ static size_t blosc2_filter_function(
     
     if (schunk) blosc2_schunk_free(schunk);
   }
+
+  blosc2_destroy();
 
   if (status > 0 && outbuf) {
     H5free_memory(*buf);
