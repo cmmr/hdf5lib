@@ -110,7 +110,7 @@ static herr_t blosc2_set_local(hid_t dcpl, hid_t type, hid_t space) {
 }
 
 /* =========================================================================
- * BLOCK SIZE HEURISTICS (From Community H5Zblosc2.c)
+ * BLOCK SIZE HEURISTICS
  * ========================================================================= */
 static int32_t compute_blosc2_blocksize(int32_t chunksize, int32_t typesize, int clevel, int compcode) {
   static uint8_t data_dest[BLOSC2_MAX_OVERHEAD];
@@ -196,8 +196,6 @@ static size_t blosc2_filter_function(
           ndim = -1;
       }
   }
-
-  blosc2_init();
 
   /* ----- Compression Path ----- */
   if (!(flags & H5Z_FLAG_REVERSE)) {
@@ -310,7 +308,7 @@ static size_t blosc2_filter_function(
   
   /* ----- Decompression Path ----- */
   else {
-    /* Community Optimization: false prevents double-allocating compressed buffers */
+    /* false prevents double-allocating compressed buffers */
     blosc2_schunk *schunk = blosc2_schunk_from_buffer(*buf, (int64_t)nbytes, false);
     if (!schunk) PUSH_ERR("blosc2_filter: Cannot get super-chunk from buffer");
 
@@ -332,10 +330,10 @@ static size_t blosc2_filter_function(
         stop[i] = array->shape[i];
         size *= array->shape[i];
         
-        /* Community Safety: Ensure margin chunks correctly parse padding */
+        /* Ensure margin chunks correctly parse padding */
         if (ndim >= 0 && array->shape[i] != chunkshape[i]) {
             snprintf(errmsg, sizeof(errmsg), "blosc2_filter: B2ND shape[%d] != chunkshape[%d]", i, i);
-            b2nd_free(array); // frees schunk internally
+            b2nd_free(array); 
             PUSH_ERR(errmsg);
         }
       }
@@ -396,8 +394,6 @@ static size_t blosc2_filter_function(
     
     if (schunk) blosc2_schunk_free(schunk);
   }
-
-  blosc2_destroy();
 
   if (status > 0 && outbuf) {
     H5free_memory(*buf);
