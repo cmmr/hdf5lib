@@ -252,6 +252,12 @@ cd blosc1
 BLOSC1_FLAGS="-I../lz4 -I../zstd -I../gzip -I../snappy -I../zfp/include -Iblosc"
 BLOSC1_FLAGS="$BLOSC1_FLAGS -DHAVE_LZ4 -DHAVE_SNAPPY -DHAVE_ZLIB -DHAVE_ZSTD -DBLOSC_STRICT_ALIGN"
 BLOSC1_FLAGS="$BLOSC1_FLAGS -Wno-unused-variable -Wno-pedantic -Wno-deprecated-declarations"
+
+# Isolate Blosc1 symbols from Blosc2 to prevent link-time collisions
+for obj in get_run_16 get_match blosclz_compress blosclz_decompress fastcopy copy_match; do
+  BLOSC1_FLAGS="$BLOSC1_FLAGS -D${obj}=blosc1_${obj}"
+done
+
 echo "  BLOSC1_FLAGS: $BLOSC1_FLAGS"
 
 for src in blosc/*.c; do
