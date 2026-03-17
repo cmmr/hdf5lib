@@ -7,9 +7,11 @@ A key feature of `hdf5lib` is that it is compiled with HDF5's thread-safety mode
 <div style="padding: 15px; border: 2px solid #e31818; border-radius: 5px;">
 <h4 style="color: #c51010; margin-top:0;">Important Limitations of Thread-Safety</h4>
 <ul>
-  <li><b>Only Low-Level APIs are Thread-Safe:</b> The HDF5 library's thread-safety guarantee <strong>only applies to the low-level (LL) functions</strong> (e.g., <code>H5F...</code>, <code>H5D...</code>, <code>H5P...</code>). The High-Level (HL) APIs, such as <code>H5LT</code>, <code>H5IM</code>, and <code>H5TB</code>, are <strong>not</strong> thread-safe and must not be called from multiple threads.</li>
-  <br>
-  <li><b>Threads vs. Processes:</b> This feature provides safety for multiple <i>threads</i> within a single R process. It does <strong>not</strong> protect against multiple independent <i>processes</i> writing to the same HDF5 file at the same time. To manage multi-process access, you must use an external mechanism like file locking (e.g., via the R package <code>flock</code>).</li>
+    <li><b>Only Low-Level APIs are Thread-Safe:</b> The HDF5 library's thread-safety guarantee <strong>only applies to the low-level (LL) functions</strong> (e.g., <code>H5F...</code>, <code>H5D...</code>, <code>H5P...</code>). The High-Level (HL) APIs, such as <code>H5LT</code>, <code>H5IM</code>, and <code>H5TB</code>, are <strong>not</strong> thread-safe and must not be called from multiple threads.</li>
+    <br>
+    <li><b>Threads vs. Processes:</b> This feature provides safety for multiple <i>threads</i> within a single R process. It does <strong>not</strong> protect against multiple independent <i>processes</i> writing to the same HDF5 file at the same time. To manage multi-process access, you must use an external mechanism like file locking (e.g., via the R package <code>flock</code>).</li>
+    <br>
+    <li><b>Filters and Compression:</b> If your parallel threads will be reading or writing compressed datasets using bundled plugins (like Blosc or Zstd), ensure you have registered the filters globally during package load (via `.onLoad`) as detailed in the Getting Started guide. Do not register filters inside the parallel workers.</li>
 </ul>
 </div>
 
@@ -50,7 +52,7 @@ struct H5Writer : public RcppParallel::Worker {
 
             hid_t space_id = H5Screate_simple(1, dims, NULL);
             hid_t dset_id = H5Dcreate2(file_id, dset_name.c_str(), H5T_NATIVE_INT,
-                                     space_id, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+                                        space_id, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
 
             if (dset_id >= 0) {
                 H5Dwrite(dset_id, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT, &data);

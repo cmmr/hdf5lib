@@ -1,7 +1,7 @@
 Package: hdf5lib
 Type: Package
 Title: Headers and Static Libraries for 'HDF5'
-Version: 2.0.0.7
+Version: 2.1.0.0
 Authors@R: c(
     person(
       "Daniel P.", "Smith",
@@ -15,8 +15,8 @@ Authors@R: c(
     person("Mark", "Adler", role = c("ctb", "cph"), comment = "zlib-ng library"),
     person("Kiyoshi", "Masui", role = c("ctb", "cph"), comment = "bitshuffle library"),
     person("Julian R", "Seward", role = c("ctb", "cph"), comment = "bzip2 library"),
-    person("Francesc", "Alted", role = c("ctb", "cph"), comment = "blosc2 library"),
-    person("Blosc Development Team", role = "cph", comment = "blosc2 library"),
+    person("Francesc", "Alted", role = c("ctb", "cph"), comment = "blosc and blosc2 libraries"),
+    person("Blosc Development Team", role = "cph", comment = "blosc and blosc2 libraries"),
     person("Zeev", "Tarento", role = c("ctb", "cph"), comment = "csnappy library"),
     person("Google Inc.", role = "cph", comment = "csnappy library"),
     person("Mathis", "Rosenhauer", role = c("ctb", "cph"), comment = "libaec library"),
@@ -24,14 +24,14 @@ Authors@R: c(
     person("Joerg", "Behrens", role = "ctb", comment = "libaec library"),
     person("Luis", "Kornblueh", role = "ctb", comment = "libaec library"),
     person("Marc Alexander", "Lehmann", role = c("ctb", "cph"), comment = "liblzf library"),
-    person("Yann", "Collet", role = c("ctb", "cph"), comment = "lz4 and zstd filters"),
+    person("Yann", "Collet", role = c("ctb", "cph"), comment = "lz4 and zstd libraries"),
     person("Lawrence Livermore National Security, LLC", role = "cph", comment = "zfp library"),
     person("Meta Platforms, Inc. and affiliates", role = "cph", comment = "zstd library"),
     person("Yuta", "Mori", role = "ctb", comment = "zstd library") )
 Description: 'HDF5' (Hierarchical Data Format 5) is a high-performance
     library and file format for storing and managing large, complex
     data. This package provides the static libraries and headers for
-    the 'HDF5' 'C' library (release 2.0.0). It is intended for R
+    the 'HDF5' 'C' library (release 2.1.0). It is intended for R
     package developers to use in the 'LinkingTo' field, which
     eliminates the need for users to install system-level 'HDF5'
     dependencies. This build is compiled with thread-safety enabled

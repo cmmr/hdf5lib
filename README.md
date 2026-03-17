@@ -7,18 +7,19 @@
 
 This package provides **no R functions** and is intended for R package developers to use in the `LinkingTo` field of their `DESCRIPTION` file.
 
+
 ## Features
 
--   **Portable & Self-Contained:** Builds the HDF5 library from source using only standard R build tools. This ensures your package works "out of the box" on any system without requiring pre-installed libraries or administrative privileges.
+-   **Zero-Dependency & CRAN-Ready:** Builds the HDF5 library from source using only standard R build tools. This guarantees your package works "out of the box" on any operating system without requiring users to install system-level libraries or hold administrative privileges.
 
--   **Comprehensive API Coverage:** Provides access to the complete core HDF5 v2.0.0 library, including both the **Low-Level** and **High-Level** C APIs.
+-   **Comprehensive Core API (v2.1.0):** Provides complete access to the HDF5 C API, including both the **Low-Level** and simplified **High-Level** interfaces, giving you full control over file structure, metadata, and raw I/O.
 
-    -   <p><b>Compression & Filters:</b> Bundles an extensive suite of compression filters directly within the package. This includes native <code>gzip/deflate</code> and <code>szip</code>, as well as high-performance plugins for <b>Bzip2</b>, <b>LZF</b>, <b>LZ4</b>, <b>Zstandard (Zstd)</b>, <b>Snappy</b>, <b>Bitshuffle</b>, <b>ZFP</b>, <b>Blosc</b>, and <b>Blosc2</b>. These provide state-of-the-art compression out-of-the-box without requiring any external system-level libraries.</p>
-    -   <p><b>Modern Features:</b> Includes native complex number support and improved UTF-8 handling on Windows.</p>
+-   **State-of-the-Art Compression Built-In:** Bundles an extensive suite of compression filters directly within the package. Alongside native `gzip/deflate` and `szip`, your package gains immediate access to high-performance plugins like **Zstandard (Zstd)**, **LZ4**, **Blosc/Blosc2**, **Snappy**, **ZFP**, **Bzip2**, **LZF**, and **Bitshuffle** - all without relying on external system libraries.
 
--   **Flexible API Versioning:** Downstream packages can compile against specific HDF5 API versions (e.g., 2.0, 1.14, 1.12). This allows you to lock your package to a specific API, ensuring future `hdf5lib` updates won't break your build.
+-   **API Version Locking:** Protect your package from future breaking changes. Downstream packages can selectively compile against specific HDF5 API versions (e.g., `2.0`, `1.14`, `1.12`), ensuring long-term stability and a predictable build cycle.
 
--   **Safe for Parallel Code:** Compiled with thread-safety enabled to prevent data corruption when using multi-threaded frameworks like `RcppParallel`. *You must still use a file locking mechanism if (1) you use the High-Level (HL) APIs, which are not thread-safe, or (2) you are accessing the file from multiple processes rather than multiple threads.*
+-   **Safe for Parallel Processing:** Compiled with thread-safety enabled by default. This prevents data corruption when integrating with multi-threaded R frameworks like `RcppParallel`. *(Note: External file locking is still required if you use the High-Level APIs, which are not thread-safe, or if you access files across multiple independent processes).*
+
 
 ## **Installation**
 
@@ -128,7 +129,7 @@ SEXP read_my_hdf5_data(SEXP filename) {
 
 ## **Included HDF5 APIs**
 
-This package provides access to the **complete core HDF5 C API** (v2.0.0). Developers have full access to all standard functions, macros, and types for local file I/O, metadata management, and data manipulation.
+This package provides access to the **complete core HDF5 C API** (v2.1.0). Developers have full access to all standard functions, macros, and types for local file I/O, metadata management, and data manipulation.
 
 > **Note:** To maintain a zero-dependency footprint, optional features requiring external system libraries - such as Parallel HDF5 (MPI), HDFS, and S3 support - are not included.
 
@@ -166,11 +167,11 @@ The [`Rhdf5lib`](https://doi.org/doi:10.18129/B9.bioc.Rhdf5lib) package also pro
 
 -   **Zero Configuration Installation:** `hdf5lib` is designed for simplicity. Installation via `install.packages()` requires no user configuration and reliably provides a modern HDF5 build with important features enabled by default. `Rhdf5lib`, while flexible, requires users to manage compile-time configuration options for a customized build.
 
--   **Modern HDF5 Version:** `hdf5lib` bundles HDF5 v2.0.0, providing access to the latest features and fixes, including native complex number support and improved UTF-8 handling on Windows. This is more recent than the version typically bundled in `Rhdf5lib` (v1.12.2 as of Bioconductor 3.19).
+-   **Modern HDF5 Version:** `hdf5lib` bundles HDF5 v2.1.0, providing access to the latest features and fixes, including native complex number support and improved UTF-8 handling on Windows. This is more recent than the version typically bundled in `Rhdf5lib` (v1.12.2 as of Bioconductor 3.19).
 
 -   **Thread-Safety Enabled:** `hdf5lib` builds HDF5 with thread-safety enabled, ensuring safe use with parallel R packages (like `RcppParallel`). `Rhdf5lib` does not support building with this feature.
 
--   **Predictable Versioning and Features:** The version of `hdf5lib` directly corresponds to the bundled HDF5 version (e.g., `hdf5lib` v2.0.0.x bundles HDF5 v2.0.0). This allows developers to require a minimum `hdf5lib` version to guarantee a specific HDF5 version and a consistent set of features. In contrast, `Rhdf5lib` may link against a pre-existing system library or be configured at install-time, so its package version does not guarantee which version of HDF5 is actually in use or which features are enabled.
+-   **Predictable Versioning and Features:** The version of `hdf5lib` directly corresponds to the bundled HDF5 version (e.g., `hdf5lib` v2.1.0.x bundles HDF5 v2.1.0). This allows developers to require a minimum `hdf5lib` version to guarantee a specific HDF5 version and a consistent set of features. In contrast, `Rhdf5lib` may link against a pre-existing system library or be configured at install-time, so its package version does not guarantee which version of HDF5 is actually in use or which features are enabled.
 
 `hdf5lib` is intended to be a simple and reliable provider of the HDF5 C library for any R package.
 

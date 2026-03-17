@@ -2,7 +2,7 @@
 # The output of this script should be saved to src/hdf5-VER.tar.gz and bundled
 # with the hdf5lib source package.
 
-VER <- "2.0.0"
+VER <- "2.1.0"
 
 # Download and extract the HDF5 codebase
 baseurl <- "https://github.com/HDFGroup/hdf5/releases/download/"
@@ -34,18 +34,19 @@ utils::untar(
 # by H5FDprivate.h (even if guarded by #ifdefs), so they must exist.
 cat('Removing unsupported driver source files...\n')
 invisible(file.remove(c(
-  list.files("src/hdf5-2.0.0/src/H5FDsubfiling/", "*.c", full.names = TRUE),
-  "src/hdf5-2.0.0/src/H5pubconf.h.in", "src/hdf5-2.0.0/src/libhdf5.settings.in",
-  "src/hdf5-2.0.0/src/CMakeLists.txt", "src/hdf5-2.0.0/hl/src/CMakeLists.txt",
-  "src/hdf5-2.0.0/src/H5ACmpio.c",     "src/hdf5-2.0.0/src/H5build_settings.cmake.c.in",
-  "src/hdf5-2.0.0/src/H5FDdirect.c",   "src/hdf5-2.0.0/src/H5build_settings.off.c.in",
-  "src/hdf5-2.0.0/src/H5FDhdfs.c",     "src/hdf5-2.0.0/src/H5FDsubfiling/CMakeLists.txt",
-  "src/hdf5-2.0.0/src/H5FDmirror.c",   "src/hdf5-2.0.0/src/H5FDmpi.c",
-  "src/hdf5-2.0.0/src/H5Cmpio.c",      "src/hdf5-2.0.0/src/H5Dmpio.c",
-  "src/hdf5-2.0.0/src/H5FDmpio.c",     "src/hdf5-2.0.0/src/H5Fmpi.c",
-  "src/hdf5-2.0.0/src/H5Smpio.c",      "src/hdf5-2.0.0/src/H5mpi.c",
-  "src/hdf5-2.0.0/src/H5Obogus.c",     "src/hdf5-2.0.0/src/H5TSc11.c",
-  "src/hdf5-2.0.0/src/H5FDros3.c",     "src/hdf5-2.0.0/src/H5FDros3_s3comms.c" )))
+  list.files(paste0('src/hdf5-', VER, '/src/H5FDsubfiling/'), "*.c", full.names = TRUE),
+  paste0('src/hdf5-', VER, c(
+    "/src/H5pubconf.h.in", "/src/libhdf5.settings.in",
+    "/src/CMakeLists.txt", "/hl/src/CMakeLists.txt",
+    "/src/H5ACmpio.c",     "/src/H5build_settings.cmake.c.in",
+    "/src/H5FDdirect.c",   "/src/H5build_settings.off.c.in",
+    "/src/H5FDhdfs.c",     "/src/H5FDsubfiling/CMakeLists.txt",
+    "/src/H5FDmirror.c",   "/src/H5FDmpi.c",
+    "/src/H5Cmpio.c",      "/src/H5Dmpio.c",
+    "/src/H5FDmpio.c",     "/src/H5Fmpi.c",
+    "/src/H5Smpio.c",      "/src/H5mpi.c",
+    "/src/H5Obogus.c",     "/src/H5TSc11.c",
+    "/src/H5FDros3.c",     "/src/H5FDros3_s3comms.c" )))))
 
 
 # --- 3. Apply Patches ---
@@ -58,7 +59,7 @@ for (patch_file in patch_files) {
 }
 # Two modifications to the same file generates a *.orig file
 invisible(file.remove(list.files(
-  path       = 'src/hdf5-2.0.0/src',
+  path       = paste0('src/hdf5-', VER, '/src'),
   pattern    = '*.orig',
   full.names = TRUE,
   recursive  = TRUE )))

@@ -1,7 +1,7 @@
 #!/bin/sh
 set -e
 
-HDF5_VER="2.0.0"
+HDF5_VER="2.1.0"
 BLOSC1_VER="1.21.6"
 BLOSC2_VER="2.23.1"
 BSHUF_VER="0.5.2"

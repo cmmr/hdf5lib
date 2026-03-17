@@ -87,7 +87,7 @@ License:
    Julian Seward, jseward@acm.org
    bzip2/libbzip2 version 1.0.8 of 13 July 2019
 
-Files: src/filters/c-blosc2-*.tar.gz
+Files: src/filters/c-blosc-*.tar.gz src/filters/c-blosc2-*.tar.gz
 Copyright: 2009 - present  Francesc Alted and Blosc Development Team
 License:
    BSD License
