@@ -210,9 +210,8 @@ cd ..
 # 9. Build ZFP ---------------------------------------------------------------
 echo "--- [hdf5lib] Building ZFP..."
 cd zfp
-cp */*.h .
 
-ZFP_FLAGS="-DBIT_STREAM_WORD_TYPE=uint8 -Iinclude"
+ZFP_FLAGS="-Iinclude -DBIT_STREAM_WORD_TYPE=uint8"
 echo "  ZFP_FLAGS: $ZFP_FLAGS"
 
 for src in src/*.c; do
@@ -221,15 +220,15 @@ for src in src/*.c; do
   c_build $ZFP_FLAGS -c $src -o $dest
 done
 
+cp -r include/*.h .
 cd ..
 
 
 # 10. Build ZSTD (Zstandard) ----------------------------------------------------
 echo "--- [hdf5lib] Building ZSTD..."
 cd zstd
-cp */*.h .
 
-ZSTD_FLAGS="-DZSTD_LIB_MINIFY=1 -DZSTD_LIB_DICTBUILDER=1 -DZSTD_LIB_DEPRECATED=0"
+ZSTD_FLAGS="-I. -DZSTD_LIB_MINIFY=1 -DZSTD_LIB_DICTBUILDER=1 -DZSTD_LIB_DEPRECATED=0"
 ZSTD_FLAGS="$ZSTD_FLAGS -DZSTD_LEGACY_SUPPORT=0 -DZSTD_DISABLE_ASM -DZSTD_MULTITHREAD"
 
 if [ "$WIN" -eq 0 ]; then # On  macOS/Linux
@@ -241,8 +240,8 @@ echo "  ZSTD_FLAGS: $ZSTD_FLAGS"
 
 for src in common/*.c compress/*.c decompress/*.c dictBuilder/*.c; do
   dest=zstd_$(basename "$src" .c).o
-  echo "  c_build \$ZSTD_FLAGS -I. -c $src -o $dest"
-  c_build $ZSTD_FLAGS -I. -c $src -o $dest
+  echo "  c_build \$ZSTD_FLAGS -c $src -o $dest"
+  c_build $ZSTD_FLAGS -c $src -o $dest
 done
 
 cd ..
@@ -251,10 +250,9 @@ cd ..
 # 11. Build BLOSC1 -------------------------------------------------------------
 echo "--- [hdf5lib] Building BLOSC1..."
 cd blosc1
-cp */*.h .
 
 # Enable required internal codecs; Suppress compiler warnings
-BLOSC1_FLAGS="-I../hdf5/src -I../lz4 -I../zstd -I../gzip -I../snappy -I../zfp -Iblosc"
+BLOSC1_FLAGS="-Iblosc -I../hdf5/src -I../lz4 -I../zstd -I../gzip -I../snappy -I../zfp"
 BLOSC1_FLAGS="$BLOSC1_FLAGS -DHAVE_LZ4 -DHAVE_SNAPPY -DHAVE_ZLIB -DHAVE_ZSTD -DBLOSC_STRICT_ALIGN"
 BLOSC1_FLAGS="$BLOSC1_FLAGS -Wno-unused-variable -Wno-pedantic -Wno-deprecated-declarations"
 BLOSC1_FLAGS="$BLOSC1_FLAGS -Wno-unused-but-set-variable -Wno-unused-function -Wno-attributes"
@@ -268,31 +266,32 @@ echo "  BLOSC1_FLAGS: $BLOSC1_FLAGS"
 
 for src in blosc/*.c; do
   dest=blosc1_$(basename "$src" .c).o
-  echo "  c_build \$BLOSC1_FLAGS -I. -c $src -o $dest"
-  c_build $BLOSC1_FLAGS -I. -c $src -o $dest
+  echo "  c_build \$BLOSC1_FLAGS -c $src -o $dest"
+  c_build $BLOSC1_FLAGS -c $src -o $dest
 done
 
+cp blosc/blosc.h blosc/blosc-export.h .
 cd ..
 
 
 # 11. Build BLOSC2 -------------------------------------------------------------
 echo "--- [hdf5lib] Building BLOSC2..."
 cd blosc2
-cp */*.h .
 
 # Enable required internal codecs; Suppress compiler warnings
-BLOSC2_FLAGS="-I../lz4 -I../zstd -I../gzip -I../snappy -I../zfp"
-BLOSC2_FLAGS="$BLOSC2_FLAGS -Iinclude -Iblosc -DHAVE_ZSTD -DHAVE_ZLIB -DBLOSC_STRICT_ALIGN"
+BLOSC2_FLAGS="-Iinclude -Iblosc -I../lz4 -I../zstd -I../gzip -I../snappy -I../zfp"
+BLOSC2_FLAGS="$BLOSC2_FLAGS -DHAVE_ZSTD -DHAVE_ZLIB -DBLOSC_STRICT_ALIGN"
 BLOSC2_FLAGS="$BLOSC2_FLAGS -Wno-unused-variable -Wno-pedantic -Wno-deprecated-declarations"
 BLOSC2_FLAGS="$BLOSC2_FLAGS -Wno-unused-but-set-variable -Wno-unused-function -Wno-attributes"
 echo "  BLOSC2_FLAGS: $BLOSC2_FLAGS"
 
 for src in blosc/*.c plugins/codecs/*/*.c ../../src/config/blosc2/*.c; do
   dest=blosc2_$(basename "$src" .c).o
-  echo "  c_build \$BLOSC2_FLAGS -I. -c $src -o $dest"
-  c_build $BLOSC2_FLAGS -I. -c $src -o $dest
+  echo "  c_build \$BLOSC2_FLAGS -c $src -o $dest"
+  c_build $BLOSC2_FLAGS -c $src -o $dest
 done
 
+cp -r include/* .
 cd ..
 
 
