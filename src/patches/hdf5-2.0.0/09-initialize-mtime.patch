@@ -1,0 +1,12 @@
+diff -ru src/hdf5-orig/src/H5Dint.c src/hdf5-2.0.0/src/H5Dint.c
+--- src/hdf5-orig/src/H5Dint.c	2025-11-11 00:00:49.000000000 +0000
++++ src/hdf5-2.0.0/src/H5Dint.c	2026-03-17 18:22:42.256793400 +0000
+@@ -829,7 +829,7 @@
+ 
+         if (H5O_OH_GET_VERSION(ohdr) == 1) {
+             /* v1 object headers store modification time as a message */
+-            time_t mtime;
++            time_t mtime = 0;
+             get_value = H5O_msg_size_oh(file, ohdr, H5O_MTIME_NEW_ID, &mtime, 0);
+             if (get_value == 0)
+                 HGOTO_ERROR(H5E_DATASET, H5E_CANTGET, 0, "can't get size of modification time message");
