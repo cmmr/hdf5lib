@@ -119,10 +119,6 @@ static size_t blosc_filter(
   
   /* ----- Compression Path ----- */
   else {
-    fprintf(stderr, "\n[BLOSC_DEBUG] --- Start Compression ---\n");
-    fprintf(stderr, "[BLOSC_DEBUG] Input nbytes=%zu, *buf_size=%zu\n", nbytes, *buf_size); 
-    fflush(stderr);
-    
     if (cd_nelmts < 4) PUSH_ERR("Blosc requires at least 4 cd_values");
     
     size_t typesize = cd_values[2];
@@ -135,49 +131,25 @@ static size_t blosc_filter(
         PUSH_ERR("This Blosc library build does not support compressor code: %d", compcode);
     }
     
-    fprintf(stderr, "[BLOSC_DEBUG] Config: codec=%s, clevel=%d, shuffle=%d, typesize=%zu\n", 
-            compname, clevel, doshuffle, typesize); 
-    fflush(stderr);
-    
-    /* Let's watch the exact allocation size */
-    size_t out_alloc = *buf_size; 
-    fprintf(stderr, "[BLOSC_DEBUG] Allocating outbuf: %zu bytes\n", out_alloc); 
-    fflush(stderr);
-    
+    /* 1. Keep the safety bucket so algorithms like Snappy have room to expand 
+          highly entropic data without destroying the heap. */
+    size_t out_alloc = nbytes + BLOSC_MAX_OVERHEAD; 
     void *outbuf = H5allocate_memory(out_alloc, 0);
     if (!outbuf) PUSH_ERR("Memory allocation failed for compression");
     
-    fprintf(stderr, "[BLOSC_DEBUG] Calling blosc_compress_ctx...\n"); 
-    fflush(stderr);
-    
     int comp_size = blosc_compress_ctx(clevel, doshuffle, typesize, nbytes, *buf, outbuf, out_alloc, compname, 0, 1);
     
-    fprintf(stderr, "[BLOSC_DEBUG] blosc_compress_ctx returned: %d\n", comp_size); 
-    fflush(stderr);
-    
+    /* 2. Catch actual errors. 
+          If comp_size <= 0, compression failed. Return 0 so HDF5 writes uncompressed.
+          We explicitly allow comp_size >= nbytes to pass through. */
     if (comp_size <= 0) {
-        fprintf(stderr, "[BLOSC_DEBUG] Data incompressible or error. Freeing outbuf...\n"); 
-        fflush(stderr);
         H5free_memory(outbuf);
-        fprintf(stderr, "[BLOSC_DEBUG] outbuf freed safely. Returning 0 to HDF5.\n"); 
-        fflush(stderr);
         return 0; 
     }
     
-    fprintf(stderr, "[BLOSC_DEBUG] Compression successful. Freeing original *buf...\n"); 
-    fflush(stderr);
-    
-    /* CRASH LIKELY HAPPENS HERE: If Blosc overflowed outbuf, H5free_memory will panic */
     H5free_memory(*buf); 
-    
-    fprintf(stderr, "[BLOSC_DEBUG] Original *buf freed safely. Updating pointers...\n"); 
-    fflush(stderr);
-    
     *buf = outbuf;
     *buf_size = out_alloc;
-    
-    fprintf(stderr, "[BLOSC_DEBUG] Finished successfully. Returning comp_size=%d\n", comp_size); 
-    fflush(stderr);
     return (size_t)comp_size;
   }
 }
