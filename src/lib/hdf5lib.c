@@ -52,7 +52,7 @@ herr_t hdf5lib_register_all_filters(void) {
     /* 2. Shoehorn custom static codecs into Blosc2 natively */
     
     /* BYPASS GUARD: Manually inject legacy Snappy (compcode 3) safely */
-    if (g_ncodecs < 256) {
+    if (g_ncodecs < 255) {
         g_codecs[g_ncodecs++] = snappy_codec;
     } else {
         Rf_warning("[HDF5LIB ERROR]: Blosc2 codec registry is full (>= 256). Cannot register Snappy.");
