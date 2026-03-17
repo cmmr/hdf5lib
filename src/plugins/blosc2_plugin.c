@@ -217,7 +217,8 @@ static size_t blosc2_filter_function(
     cparams.compcode = compcode;
     cparams.typesize = (int32_t)typesize;
     cparams.filters[BLOSC_LAST_FILTER] = doshuffle;
-    cparams.filters_meta[BLOSC_LAST_FILTER] = meta; // Explicit Meta Injection
+    cparams.filters_meta[BLOSC_LAST_FILTER] = meta; 
+    cparams.compcode_meta = meta; // Explicit Meta Injection for ZFP
     cparams.clevel = clevel;
 
     blosc2_storage storage = {.cparams = &cparams, .contiguous = false};

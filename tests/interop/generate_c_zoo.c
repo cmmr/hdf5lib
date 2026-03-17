@@ -171,6 +171,9 @@ SEXP C_write_zoo(SEXP sexp_filename) {
 
     for (int c = 0; c < 7; c++) {
         for (int f = 0; f < 5; f++) {
+            // Bypass invalid permutation: Do not pre-shuffle data destined for lossy float compression (ZFP)
+            if (b2_compcodes[c] == 6 && b2_filter_ids[f] != 0) continue;
+
             char name[128];
             snprintf(name, sizeof(name), "blosc2_%s_%s", b2_codecs[c], b2_filters[f]);
             
