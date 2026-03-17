@@ -1,0 +1,32 @@
+diff -ru src/c-blosc-orig/blosc/shuffle.c src/c-blosc-1.21.6/blosc/shuffle.c
+--- src/c-blosc-orig/blosc/shuffle.c	2024-06-24 15:56:17.000000000 +0000
++++ src/c-blosc-1.21.6/blosc/shuffle.c	2026-03-17 19:06:31.082474200 +0000
+@@ -51,8 +51,8 @@
+ 
+ 
+ /*  Define function pointer types for shuffle/unshuffle routines. */
+-typedef void(*shuffle_func)(const size_t, const size_t, const uint8_t*, const uint8_t*);
+-typedef void(*unshuffle_func)(const size_t, const size_t, const uint8_t*, const uint8_t*);
++typedef void(*shuffle_func)(const size_t, const size_t, const uint8_t*, uint8_t*);
++typedef void(*unshuffle_func)(const size_t, const size_t, const uint8_t*, uint8_t*);
+ typedef int64_t(*bitshuffle_func)(void*, void*, const size_t, const size_t, void*);
+ typedef int64_t(*bitunshuffle_func)(void*, void*, const size_t, const size_t, void*);
+ 
+@@ -382,7 +382,7 @@
+ 
+   /*  The implementation is initialized.
+       Dispatch to it's shuffle routine. */
+-  (host_implementation.shuffle)(bytesoftype, blocksize, _src, _dest);
++  (host_implementation.shuffle)(bytesoftype, blocksize, _src, (uint8_t*)_dest);
+ }
+ 
+ /*  Unshuffle a block by dynamically dispatching to the appropriate
+@@ -395,7 +395,7 @@
+ 
+   /*  The implementation is initialized.
+       Dispatch to it's unshuffle routine. */
+-  (host_implementation.unshuffle)(bytesoftype, blocksize, _src, _dest);
++  (host_implementation.unshuffle)(bytesoftype, blocksize, _src, (uint8_t*)_dest);
+ }
+ 
+ /*  Bit-shuffle a block by dynamically dispatching to the appropriate
