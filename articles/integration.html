@@ -77,8 +77,10 @@
     
     
 <p>This article contains a collection of practical examples for
-integrating <code>hdf5lib</code> using <code>Rcpp</code>,
-<code>cpp11</code>, and R’s native C API.</p>
+integrating <code>hdf5lib</code> into your R package using R’s native C
+API, <code>Rcpp</code>, or <code>cpp11</code>. It also includes a guide
+for direct dynamic loading if you want to use HDF5 in a standalone R
+script.</p>
 <blockquote>
 <p><strong>Note:</strong> Whenever you use the bundled advanced
 compression filters (anything outside of GZIP or SZIP), ensure you have
@@ -87,105 +89,151 @@ registered them at the package level using <code>.onLoad</code> and
 guide.</p>
 </blockquote>
 <div class="section level2">
-<h2 id="using-rcpp">1. Using <code>Rcpp</code><a class="anchor" aria-label="anchor" href="#using-rcpp"></a>
+<h2 id="using-rs-native-c-api">1. Using R’s Native C API<a class="anchor" aria-label="anchor" href="#using-rs-native-c-api"></a>
 </h2>
-<p>Using <code>Rcpp</code> is the most common way to link against
-<code>hdf5lib</code>. Make sure <code>LinkingTo: hdf5lib, Rcpp</code> is
-in your <code>DESCRIPTION</code> file, and <code>src/Makevars</code> is
-set up with the compiler and linker flags.</p>
-<p>The following example creates an HDF5 file and uses
-<code>hdf5lib</code>’s bundled Zstandard plugin to compress the
-data.</p>
-<div class="sourceCode" id="cb1"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;Rcpp.h&gt;</span></span>
-<span id="cb1-2"><a href="#cb1-2" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;hdf5.h&gt;</span></span>
-<span id="cb1-3"><a href="#cb1-3" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;vector&gt;</span></span>
+<p>For many R package developers, writing native C code using R’s
+<code>.Call</code> interface is the preferred way to interact with C
+libraries, as it avoids the compilation overhead and abstraction layers
+of C++.</p>
+<p>To use <code>hdf5lib</code> natively, ensure
+<code>LinkingTo: hdf5lib</code> is in your <code>DESCRIPTION</code>
+file, and your <code>src/Makevars</code> is set up with the compiler and
+linker flags.</p>
+<p>The following example demonstrates a native C function designed to be
+called from R. It creates an HDF5 file, sets up a dataset with the
+Zstandard (Zstd) compression filter, and writes data to it.</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;R.h&gt;</span></span>
+<span id="cb1-2"><a href="#cb1-2" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;Rinternals.h&gt;</span></span>
+<span id="cb1-3"><a href="#cb1-3" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;hdf5.h&gt;</span></span>
 <span id="cb1-4"><a href="#cb1-4" tabindex="-1"></a></span>
-<span id="cb1-5"><a href="#cb1-5" tabindex="-1"></a><span class="co">// [[Rcpp::export]]</span></span>
-<span id="cb1-6"><a href="#cb1-6" tabindex="-1"></a><span class="dt">void</span> write_zstd_data<span class="op">(</span><span class="bu">std::</span>string filename<span class="op">,</span> <span class="bu">std::</span>string dsetname<span class="op">)</span> <span class="op">{</span></span>
-<span id="cb1-7"><a href="#cb1-7" tabindex="-1"></a>    <span class="bu">std::</span>vector<span class="op">&lt;</span><span class="dt">int</span><span class="op">&gt;</span> data<span class="op">(</span><span class="dv">1000</span><span class="op">,</span> <span class="dv">42</span><span class="op">);</span></span>
-<span id="cb1-8"><a href="#cb1-8" tabindex="-1"></a>    <span class="dt">hsize_t</span> dims <span class="op">=</span> <span class="op">{</span> data<span class="op">.</span>size<span class="op">()</span> <span class="op">};</span></span>
-<span id="cb1-9"><a href="#cb1-9" tabindex="-1"></a></span>
-<span id="cb1-10"><a href="#cb1-10" tabindex="-1"></a>    <span class="dt">hid_t</span> file_id <span class="op">=</span> H5Fcreate<span class="op">(</span>filename<span class="op">.</span>c_str<span class="op">(),</span> H5F_ACC_TRUNC<span class="op">,</span> H5P_DEFAULT<span class="op">,</span> H5P_DEFAULT<span class="op">);</span></span>
-<span id="cb1-11"><a href="#cb1-11" tabindex="-1"></a>    <span class="dt">hid_t</span> space_id <span class="op">=</span> H5Screate_simple<span class="op">(</span><span class="dv">1</span><span class="op">,</span> dims<span class="op">,</span> NULL<span class="op">);</span></span>
-<span id="cb1-12"><a href="#cb1-12" tabindex="-1"></a>    <span class="dt">hid_t</span> dcpl_id <span class="op">=</span> H5Pcreate<span class="op">(</span>H5P_DATASET_CREATE<span class="op">);</span></span>
-<span id="cb1-13"><a href="#cb1-13" tabindex="-1"></a></span>
-<span id="cb1-14"><a href="#cb1-14" tabindex="-1"></a>    <span class="co">// Enable chunking (Required for filters)</span></span>
-<span id="cb1-15"><a href="#cb1-15" tabindex="-1"></a>    <span class="dt">hsize_t</span> chunk_dims <span class="op">=</span> <span class="op">{</span> <span class="dv">100</span> <span class="op">};</span></span>
-<span id="cb1-16"><a href="#cb1-16" tabindex="-1"></a>    H5Pset_chunk<span class="op">(</span>dcpl_id<span class="op">,</span> <span class="dv">1</span><span class="op">,</span> chunk_dims<span class="op">);</span></span>
-<span id="cb1-17"><a href="#cb1-17" tabindex="-1"></a></span>
-<span id="cb1-18"><a href="#cb1-18" tabindex="-1"></a>    <span class="co">// Apply Zstandard Filter (Filter ID: 32015)</span></span>
-<span id="cb1-19"><a href="#cb1-19" tabindex="-1"></a>    <span class="co">// Note: Assumes hdf5lib_register_all_filters() was called via .onLoad</span></span>
-<span id="cb1-20"><a href="#cb1-20" tabindex="-1"></a>    <span class="dt">unsigned</span> <span class="dt">int</span> cd_values<span class="op">[</span><span class="dv">1</span><span class="op">]</span> <span class="op">=</span> <span class="op">{</span> <span class="dv">3</span> <span class="op">};</span> <span class="co">// Compression Level 3</span></span>
-<span id="cb1-21"><a href="#cb1-21" tabindex="-1"></a>    H5Pset_filter<span class="op">(</span>dcpl_id<span class="op">,</span> <span class="dv">32015</span><span class="op">,</span> H5Z_FLAG_OPTIONAL<span class="op">,</span> <span class="dv">1</span><span class="op">,</span> cd_values<span class="op">);</span></span>
+<span id="cb1-5"><a href="#cb1-5" tabindex="-1"></a><span class="co">// Remember to call hdf5lib_register_all_filters() in your R package's .onLoad!</span></span>
+<span id="cb1-6"><a href="#cb1-6" tabindex="-1"></a></span>
+<span id="cb1-7"><a href="#cb1-7" tabindex="-1"></a>SEXP write_zstd_native<span class="op">(</span>SEXP r_filename<span class="op">,</span> SEXP r_dsetname<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-8"><a href="#cb1-8" tabindex="-1"></a>    <span class="dt">const</span> <span class="dt">char</span> <span class="op">*</span>filename <span class="op">=</span> CHAR<span class="op">(</span>STRING_ELT<span class="op">(</span>r_filename<span class="op">,</span> <span class="dv">0</span><span class="op">));</span></span>
+<span id="cb1-9"><a href="#cb1-9" tabindex="-1"></a>    <span class="dt">const</span> <span class="dt">char</span> <span class="op">*</span>dsetname <span class="op">=</span> CHAR<span class="op">(</span>STRING_ELT<span class="op">(</span>r_dsetname<span class="op">,</span> <span class="dv">0</span><span class="op">));</span></span>
+<span id="cb1-10"><a href="#cb1-10" tabindex="-1"></a>    </span>
+<span id="cb1-11"><a href="#cb1-11" tabindex="-1"></a>    <span class="dt">int</span> data<span class="op">[</span><span class="dv">1000</span><span class="op">];</span></span>
+<span id="cb1-12"><a href="#cb1-12" tabindex="-1"></a>    <span class="cf">for</span><span class="op">(</span><span class="dt">int</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> <span class="dv">1000</span><span class="op">;</span> i<span class="op">++)</span> data<span class="op">[</span>i<span class="op">]</span> <span class="op">=</span> i<span class="op">;</span></span>
+<span id="cb1-13"><a href="#cb1-13" tabindex="-1"></a>    hsize_t dims<span class="op">[</span><span class="dv">1</span><span class="op">]</span> <span class="op">=</span> <span class="op">{</span> <span class="dv">1000</span> <span class="op">};</span></span>
+<span id="cb1-14"><a href="#cb1-14" tabindex="-1"></a></span>
+<span id="cb1-15"><a href="#cb1-15" tabindex="-1"></a>    hid_t file_id <span class="op">=</span> H5Fcreate<span class="op">(</span>filename<span class="op">,</span> H5F_ACC_TRUNC<span class="op">,</span> H5P_DEFAULT<span class="op">,</span> H5P_DEFAULT<span class="op">);</span></span>
+<span id="cb1-16"><a href="#cb1-16" tabindex="-1"></a>    hid_t space_id <span class="op">=</span> H5Screate_simple<span class="op">(</span><span class="dv">1</span><span class="op">,</span> dims<span class="op">,</span> NULL<span class="op">);</span></span>
+<span id="cb1-17"><a href="#cb1-17" tabindex="-1"></a>    hid_t dcpl_id <span class="op">=</span> H5Pcreate<span class="op">(</span>H5P_DATASET_CREATE<span class="op">);</span></span>
+<span id="cb1-18"><a href="#cb1-18" tabindex="-1"></a></span>
+<span id="cb1-19"><a href="#cb1-19" tabindex="-1"></a>    <span class="co">// 1. Enable chunking (Required for all filters)</span></span>
+<span id="cb1-20"><a href="#cb1-20" tabindex="-1"></a>    hsize_t chunk_dims<span class="op">[</span><span class="dv">1</span><span class="op">]</span> <span class="op">=</span> <span class="op">{</span> <span class="dv">100</span> <span class="op">};</span></span>
+<span id="cb1-21"><a href="#cb1-21" tabindex="-1"></a>    H5Pset_chunk<span class="op">(</span>dcpl_id<span class="op">,</span> <span class="dv">1</span><span class="op">,</span> chunk_dims<span class="op">);</span></span>
 <span id="cb1-22"><a href="#cb1-22" tabindex="-1"></a></span>
-<span id="cb1-23"><a href="#cb1-23" tabindex="-1"></a>    <span class="dt">hid_t</span> dset_id <span class="op">=</span> H5Dcreate2<span class="op">(</span>file_id<span class="op">,</span> dsetname<span class="op">.</span>c_str<span class="op">(),</span> H5T_NATIVE_INT<span class="op">,</span></span>
-<span id="cb1-24"><a href="#cb1-24" tabindex="-1"></a>                                space_id<span class="op">,</span> H5P_DEFAULT<span class="op">,</span> dcpl_id<span class="op">,</span> H5P_DEFAULT<span class="op">);</span></span>
-<span id="cb1-25"><a href="#cb1-25" tabindex="-1"></a></span>
-<span id="cb1-26"><a href="#cb1-26" tabindex="-1"></a>    H5Dwrite<span class="op">(</span>dset_id<span class="op">,</span> H5T_NATIVE_INT<span class="op">,</span> H5S_ALL<span class="op">,</span> H5S_ALL<span class="op">,</span> H5P_DEFAULT<span class="op">,</span> data<span class="op">.</span>data<span class="op">());</span></span>
+<span id="cb1-23"><a href="#cb1-23" tabindex="-1"></a>    <span class="co">// 2. Apply Zstandard Filter (Filter ID: 32015)</span></span>
+<span id="cb1-24"><a href="#cb1-24" tabindex="-1"></a>    <span class="co">// cd_values[0] = Compression Level (e.g., 5)</span></span>
+<span id="cb1-25"><a href="#cb1-25" tabindex="-1"></a>    <span class="dt">unsigned</span> <span class="dt">int</span> cd_values<span class="op">[</span><span class="dv">1</span><span class="op">]</span> <span class="op">=</span> <span class="op">{</span> <span class="dv">5</span> <span class="op">};</span> </span>
+<span id="cb1-26"><a href="#cb1-26" tabindex="-1"></a>    H5Pset_filter<span class="op">(</span>dcpl_id<span class="op">,</span> <span class="dv">32015</span><span class="op">,</span> H5Z_FLAG_MANDATORY<span class="op">,</span> <span class="dv">1</span><span class="op">,</span> cd_values<span class="op">);</span></span>
 <span id="cb1-27"><a href="#cb1-27" tabindex="-1"></a></span>
-<span id="cb1-28"><a href="#cb1-28" tabindex="-1"></a>    H5Pclose<span class="op">(</span>dcpl_id<span class="op">);</span></span>
-<span id="cb1-29"><a href="#cb1-29" tabindex="-1"></a>    H5Dclose<span class="op">(</span>dset_id<span class="op">);</span></span>
-<span id="cb1-30"><a href="#cb1-30" tabindex="-1"></a>    H5Sclose<span class="op">(</span>space_id<span class="op">);</span></span>
-<span id="cb1-31"><a href="#cb1-31" tabindex="-1"></a>    H5Fclose<span class="op">(</span>file_id<span class="op">);</span></span>
-<span id="cb1-32"><a href="#cb1-32" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<span id="cb1-28"><a href="#cb1-28" tabindex="-1"></a>    hid_t dset_id <span class="op">=</span> H5Dcreate2<span class="op">(</span>file_id<span class="op">,</span> dsetname<span class="op">,</span> H5T_NATIVE_INT<span class="op">,</span></span>
+<span id="cb1-29"><a href="#cb1-29" tabindex="-1"></a>                                space_id<span class="op">,</span> H5P_DEFAULT<span class="op">,</span> dcpl_id<span class="op">,</span> H5P_DEFAULT<span class="op">);</span></span>
+<span id="cb1-30"><a href="#cb1-30" tabindex="-1"></a></span>
+<span id="cb1-31"><a href="#cb1-31" tabindex="-1"></a>    H5Dwrite<span class="op">(</span>dset_id<span class="op">,</span> H5T_NATIVE_INT<span class="op">,</span> H5S_ALL<span class="op">,</span> H5S_ALL<span class="op">,</span> H5P_DEFAULT<span class="op">,</span> data<span class="op">);</span></span>
+<span id="cb1-32"><a href="#cb1-32" tabindex="-1"></a></span>
+<span id="cb1-33"><a href="#cb1-33" tabindex="-1"></a>    H5Pclose<span class="op">(</span>dcpl_id<span class="op">);</span></span>
+<span id="cb1-34"><a href="#cb1-34" tabindex="-1"></a>    H5Dclose<span class="op">(</span>dset_id<span class="op">);</span></span>
+<span id="cb1-35"><a href="#cb1-35" tabindex="-1"></a>    H5Sclose<span class="op">(</span>space_id<span class="op">);</span></span>
+<span id="cb1-36"><a href="#cb1-36" tabindex="-1"></a>    H5Fclose<span class="op">(</span>file_id<span class="op">);</span></span>
+<span id="cb1-37"><a href="#cb1-37" tabindex="-1"></a>    </span>
+<span id="cb1-38"><a href="#cb1-38" tabindex="-1"></a>    <span class="cf">return</span> R_NilValue<span class="op">;</span></span>
+<span id="cb1-39"><a href="#cb1-39" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
 </div>
 <div class="section level2">
-<h2 id="using-cpp11">2. Using <code>cpp11</code><a class="anchor" aria-label="anchor" href="#using-cpp11"></a>
+<h2 id="using-rcpp">2. Using <code>Rcpp</code><a class="anchor" aria-label="anchor" href="#using-rcpp"></a>
+</h2>
+<p>If you prefer working with C++, integrating <code>hdf5lib</code> is
+equally straightforward. Make sure <code>LinkingTo: hdf5lib, Rcpp</code>
+is in your <code>DESCRIPTION</code> file.</p>
+<p>This example accomplishes the same Zstandard compression task as
+above, but uses <code>Rcpp</code> features and standard C++ vectors.</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;Rcpp.h&gt;</span></span>
+<span id="cb2-2"><a href="#cb2-2" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;hdf5.h&gt;</span></span>
+<span id="cb2-3"><a href="#cb2-3" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;vector&gt;</span></span>
+<span id="cb2-4"><a href="#cb2-4" tabindex="-1"></a></span>
+<span id="cb2-5"><a href="#cb2-5" tabindex="-1"></a><span class="co">// [[Rcpp::export]]</span></span>
+<span id="cb2-6"><a href="#cb2-6" tabindex="-1"></a><span class="dt">void</span> write_zstd_rcpp<span class="op">(</span><span class="bu">std::</span>string filename<span class="op">,</span> <span class="bu">std::</span>string dsetname<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-7"><a href="#cb2-7" tabindex="-1"></a>    <span class="bu">std::</span>vector<span class="op">&lt;</span><span class="dt">int</span><span class="op">&gt;</span> data<span class="op">(</span><span class="dv">1000</span><span class="op">,</span> <span class="dv">42</span><span class="op">);</span></span>
+<span id="cb2-8"><a href="#cb2-8" tabindex="-1"></a>    <span class="dt">hsize_t</span> dims<span class="op">[</span><span class="dv">1</span><span class="op">]</span> <span class="op">=</span> <span class="op">{</span> data<span class="op">.</span>size<span class="op">()</span> <span class="op">};</span></span>
+<span id="cb2-9"><a href="#cb2-9" tabindex="-1"></a></span>
+<span id="cb2-10"><a href="#cb2-10" tabindex="-1"></a>    <span class="dt">hid_t</span> file_id <span class="op">=</span> H5Fcreate<span class="op">(</span>filename<span class="op">.</span>c_str<span class="op">(),</span> H5F_ACC_TRUNC<span class="op">,</span> H5P_DEFAULT<span class="op">,</span> H5P_DEFAULT<span class="op">);</span></span>
+<span id="cb2-11"><a href="#cb2-11" tabindex="-1"></a>    <span class="dt">hid_t</span> space_id <span class="op">=</span> H5Screate_simple<span class="op">(</span><span class="dv">1</span><span class="op">,</span> dims<span class="op">,</span> NULL<span class="op">);</span></span>
+<span id="cb2-12"><a href="#cb2-12" tabindex="-1"></a>    <span class="dt">hid_t</span> dcpl_id <span class="op">=</span> H5Pcreate<span class="op">(</span>H5P_DATASET_CREATE<span class="op">);</span></span>
+<span id="cb2-13"><a href="#cb2-13" tabindex="-1"></a></span>
+<span id="cb2-14"><a href="#cb2-14" tabindex="-1"></a>    <span class="dt">hsize_t</span> chunk_dims<span class="op">[</span><span class="dv">1</span><span class="op">]</span> <span class="op">=</span> <span class="op">{</span> <span class="dv">100</span> <span class="op">};</span></span>
+<span id="cb2-15"><a href="#cb2-15" tabindex="-1"></a>    H5Pset_chunk<span class="op">(</span>dcpl_id<span class="op">,</span> <span class="dv">1</span><span class="op">,</span> chunk_dims<span class="op">);</span></span>
+<span id="cb2-16"><a href="#cb2-16" tabindex="-1"></a></span>
+<span id="cb2-17"><a href="#cb2-17" tabindex="-1"></a>    <span class="dt">unsigned</span> <span class="dt">int</span> cd_values<span class="op">[</span><span class="dv">1</span><span class="op">]</span> <span class="op">=</span> <span class="op">{</span> <span class="dv">3</span> <span class="op">};</span> <span class="co">// Zstd Level 3</span></span>
+<span id="cb2-18"><a href="#cb2-18" tabindex="-1"></a>    H5Pset_filter<span class="op">(</span>dcpl_id<span class="op">,</span> <span class="dv">32015</span><span class="op">,</span> H5Z_FLAG_MANDATORY<span class="op">,</span> <span class="dv">1</span><span class="op">,</span> cd_values<span class="op">);</span></span>
+<span id="cb2-19"><a href="#cb2-19" tabindex="-1"></a></span>
+<span id="cb2-20"><a href="#cb2-20" tabindex="-1"></a>    <span class="dt">hid_t</span> dset_id <span class="op">=</span> H5Dcreate2<span class="op">(</span>file_id<span class="op">,</span> dsetname<span class="op">.</span>c_str<span class="op">(),</span> H5T_NATIVE_INT<span class="op">,</span></span>
+<span id="cb2-21"><a href="#cb2-21" tabindex="-1"></a>                                space_id<span class="op">,</span> H5P_DEFAULT<span class="op">,</span> dcpl_id<span class="op">,</span> H5P_DEFAULT<span class="op">);</span></span>
+<span id="cb2-22"><a href="#cb2-22" tabindex="-1"></a></span>
+<span id="cb2-23"><a href="#cb2-23" tabindex="-1"></a>    H5Dwrite<span class="op">(</span>dset_id<span class="op">,</span> H5T_NATIVE_INT<span class="op">,</span> H5S_ALL<span class="op">,</span> H5S_ALL<span class="op">,</span> H5P_DEFAULT<span class="op">,</span> data<span class="op">.</span>data<span class="op">());</span></span>
+<span id="cb2-24"><a href="#cb2-24" tabindex="-1"></a></span>
+<span id="cb2-25"><a href="#cb2-25" tabindex="-1"></a>    H5Pclose<span class="op">(</span>dcpl_id<span class="op">);</span></span>
+<span id="cb2-26"><a href="#cb2-26" tabindex="-1"></a>    H5Dclose<span class="op">(</span>dset_id<span class="op">);</span></span>
+<span id="cb2-27"><a href="#cb2-27" tabindex="-1"></a>    H5Sclose<span class="op">(</span>space_id<span class="op">);</span></span>
+<span id="cb2-28"><a href="#cb2-28" tabindex="-1"></a>    H5Fclose<span class="op">(</span>file_id<span class="op">);</span></span>
+<span id="cb2-29"><a href="#cb2-29" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+</div>
+<div class="section level2">
+<h2 id="using-cpp11">3. Using <code>cpp11</code><a class="anchor" aria-label="anchor" href="#using-cpp11"></a>
 </h2>
 <p><code>cpp11</code> is a modern alternative to <code>Rcpp</code> for
-creating C++ bindings for R. The setup to use <code>hdf5lib</code> with
-<code>cpp11</code> is very similar. Add <code>cpp11</code> to the
-<code>LinkingTo</code> field and retain the same
-<code>src/Makevars</code>.</p>
+creating C++ bindings for R. The setup is identical: add
+<code>cpp11</code> to the <code>LinkingTo</code> field and retain the
+standard <code>src/Makevars</code>.</p>
 <p>Here is a version-checking function written for
 <code>cpp11</code>.</p>
-<div class="sourceCode" id="cb2"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a><span class="pp">#include </span><span class="im">"cpp11/strings.hpp"</span></span>
-<span id="cb2-2"><a href="#cb2-2" tabindex="-1"></a><span class="pp">#include </span><span class="im">"cpp11/function.hpp"</span></span>
-<span id="cb2-3"><a href="#cb2-3" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;hdf5.h&gt;</span></span>
-<span id="cb2-4"><a href="#cb2-4" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;vector&gt;</span></span>
-<span id="cb2-5"><a href="#cb2-5" tabindex="-1"></a></span>
-<span id="cb2-6"><a href="#cb2-6" tabindex="-1"></a><span class="op">[[</span><span class="at">cpp11</span><span class="op">::</span><span class="at">register</span><span class="op">]]</span></span>
-<span id="cb2-7"><a href="#cb2-7" tabindex="-1"></a>cpp11<span class="op">::</span>strings get_hdf5_version_cpp11<span class="op">()</span> <span class="op">{</span></span>
-<span id="cb2-8"><a href="#cb2-8" tabindex="-1"></a>    <span class="dt">unsigned</span> <span class="dt">int</span> majnum<span class="op">,</span> minnum<span class="op">,</span> relnum<span class="op">;</span></span>
-<span id="cb2-9"><a href="#cb2-9" tabindex="-1"></a>    H5get_libversion<span class="op">(&amp;</span>majnum<span class="op">,</span> <span class="op">&amp;</span>minnum<span class="op">,</span> <span class="op">&amp;</span>relnum<span class="op">);</span></span>
-<span id="cb2-10"><a href="#cb2-10" tabindex="-1"></a></span>
-<span id="cb2-11"><a href="#cb2-11" tabindex="-1"></a>    <span class="bu">std::</span>vector<span class="op">&lt;</span><span class="dt">char</span><span class="op">&gt;</span> version_str<span class="op">(</span><span class="dv">20</span><span class="op">);</span></span>
-<span id="cb2-12"><a href="#cb2-12" tabindex="-1"></a>    snprintf<span class="op">(</span>version_str<span class="op">.</span>data<span class="op">(),</span> version_str<span class="op">.</span>size<span class="op">(),</span> <span class="st">"</span><span class="sc">%u</span><span class="st">.</span><span class="sc">%u</span><span class="st">.</span><span class="sc">%u</span><span class="st">"</span><span class="op">,</span> majnum<span class="op">,</span> minnum<span class="op">,</span> relnum<span class="op">);</span></span>
-<span id="cb2-13"><a href="#cb2-13" tabindex="-1"></a></span>
-<span id="cb2-14"><a href="#cb2-14" tabindex="-1"></a>    <span class="cf">return</span> <span class="op">{</span> <span class="bu">std::</span>string<span class="op">(</span>version_str<span class="op">.</span>data<span class="op">())</span> <span class="op">};</span></span>
-<span id="cb2-15"><a href="#cb2-15" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<div class="sourceCode" id="cb3"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a><span class="pp">#include </span><span class="im">"cpp11/strings.hpp"</span></span>
+<span id="cb3-2"><a href="#cb3-2" tabindex="-1"></a><span class="pp">#include </span><span class="im">"cpp11/function.hpp"</span></span>
+<span id="cb3-3"><a href="#cb3-3" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;hdf5.h&gt;</span></span>
+<span id="cb3-4"><a href="#cb3-4" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;vector&gt;</span></span>
+<span id="cb3-5"><a href="#cb3-5" tabindex="-1"></a></span>
+<span id="cb3-6"><a href="#cb3-6" tabindex="-1"></a><span class="op">[[</span><span class="at">cpp11</span><span class="op">::</span><span class="at">register</span><span class="op">]]</span></span>
+<span id="cb3-7"><a href="#cb3-7" tabindex="-1"></a>cpp11<span class="op">::</span>strings get_hdf5_version_cpp11<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb3-8"><a href="#cb3-8" tabindex="-1"></a>    <span class="dt">unsigned</span> <span class="dt">int</span> majnum<span class="op">,</span> minnum<span class="op">,</span> relnum<span class="op">;</span></span>
+<span id="cb3-9"><a href="#cb3-9" tabindex="-1"></a>    H5get_libversion<span class="op">(&amp;</span>majnum<span class="op">,</span> <span class="op">&amp;</span>minnum<span class="op">,</span> <span class="op">&amp;</span>relnum<span class="op">);</span></span>
+<span id="cb3-10"><a href="#cb3-10" tabindex="-1"></a></span>
+<span id="cb3-11"><a href="#cb3-11" tabindex="-1"></a>    <span class="bu">std::</span>vector<span class="op">&lt;</span><span class="dt">char</span><span class="op">&gt;</span> version_str<span class="op">(</span><span class="dv">20</span><span class="op">);</span></span>
+<span id="cb3-12"><a href="#cb3-12" tabindex="-1"></a>    snprintf<span class="op">(</span>version_str<span class="op">.</span>data<span class="op">(),</span> version_str<span class="op">.</span>size<span class="op">(),</span> <span class="st">"</span><span class="sc">%u</span><span class="st">.</span><span class="sc">%u</span><span class="st">.</span><span class="sc">%u</span><span class="st">"</span><span class="op">,</span> majnum<span class="op">,</span> minnum<span class="op">,</span> relnum<span class="op">);</span></span>
+<span id="cb3-13"><a href="#cb3-13" tabindex="-1"></a></span>
+<span id="cb3-14"><a href="#cb3-14" tabindex="-1"></a>    <span class="cf">return</span> <span class="op">{</span> <span class="bu">std::</span>string<span class="op">(</span>version_str<span class="op">.</span>data<span class="op">())</span> <span class="op">};</span></span>
+<span id="cb3-15"><a href="#cb3-15" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
 </div>
 <div class="section level2">
-<h2 id="native-c-api--call-direct-dynamic-loading">3. Native C API (<code>.Call</code>) &amp; Direct Dynamic
-Loading<a class="anchor" aria-label="anchor" href="#native-c-api--call-direct-dynamic-loading"></a>
+<h2 id="direct-dynamic-loading-scripting">4. Direct Dynamic Loading (Scripting)<a class="anchor" aria-label="anchor" href="#direct-dynamic-loading-scripting"></a>
 </h2>
 <p>Sometimes you may want to run a small piece of C code that uses HDF5
-without the overhead of creating a full R package or pulling in C++
-abstractions. You can do this using R’s native <code>.Call</code>
-interface, compiling the C code into a shared library on the fly and
-loading it directly into your R session.</p>
+without the overhead of creating an R package. You can compile C code
+into a shared library on the fly and load it directly into your R
+session.</p>
 <div class="section level3">
 <h3 id="step-1-write-the-c-source-file">Step 1: Write the C Source File<a class="anchor" aria-label="anchor" href="#step-1-write-the-c-source-file"></a>
 </h3>
-<div class="sourceCode" id="cb3"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a><span class="co">// In file: get_version.c</span></span>
-<span id="cb3-2"><a href="#cb3-2" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;R.h&gt;</span></span>
-<span id="cb3-3"><a href="#cb3-3" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;Rinternals.h&gt;</span></span>
-<span id="cb3-4"><a href="#cb3-4" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;hdf5.h&gt;</span></span>
-<span id="cb3-5"><a href="#cb3-5" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;stdio.h&gt;</span><span class="pp"> </span></span>
-<span id="cb3-6"><a href="#cb3-6" tabindex="-1"></a></span>
-<span id="cb3-7"><a href="#cb3-7" tabindex="-1"></a>SEXP get_version_c<span class="op">()</span> <span class="op">{</span></span>
-<span id="cb3-8"><a href="#cb3-8" tabindex="-1"></a>    <span class="dt">unsigned</span> maj<span class="op">,</span> min<span class="op">,</span> rel<span class="op">;</span></span>
-<span id="cb3-9"><a href="#cb3-9" tabindex="-1"></a>    <span class="dt">char</span> version_str<span class="op">[</span><span class="dv">20</span><span class="op">];</span></span>
-<span id="cb3-10"><a href="#cb3-10" tabindex="-1"></a></span>
-<span id="cb3-11"><a href="#cb3-11" tabindex="-1"></a>    H5get_libversion<span class="op">(&amp;</span>maj<span class="op">,</span> <span class="op">&amp;</span>min<span class="op">,</span> <span class="op">&amp;</span>rel<span class="op">);</span></span>
-<span id="cb3-12"><a href="#cb3-12" tabindex="-1"></a>    snprintf<span class="op">(</span>version_str<span class="op">,</span> <span class="kw">sizeof</span><span class="op">(</span>version_str<span class="op">),</span> <span class="st">"</span><span class="sc">%u</span><span class="st">.</span><span class="sc">%u</span><span class="st">.</span><span class="sc">%u</span><span class="st">"</span><span class="op">,</span> maj<span class="op">,</span> min<span class="op">,</span> rel<span class="op">);</span></span>
-<span id="cb3-13"><a href="#cb3-13" tabindex="-1"></a></span>
-<span id="cb3-14"><a href="#cb3-14" tabindex="-1"></a>    SEXP result <span class="op">=</span> PROTECT<span class="op">(</span>Rf_allocVector<span class="op">(</span>STRSXP<span class="op">,</span> <span class="dv">1</span><span class="op">));</span></span>
-<span id="cb3-15"><a href="#cb3-15" tabindex="-1"></a>    SET_STRING_ELT<span class="op">(</span>result<span class="op">,</span> <span class="dv">0</span><span class="op">,</span> Rf_mkChar<span class="op">(</span>version_str<span class="op">));</span></span>
-<span id="cb3-16"><a href="#cb3-16" tabindex="-1"></a>    UNPROTECT<span class="op">(</span><span class="dv">1</span><span class="op">);</span></span>
-<span id="cb3-17"><a href="#cb3-17" tabindex="-1"></a></span>
-<span id="cb3-18"><a href="#cb3-18" tabindex="-1"></a>    <span class="cf">return</span> result<span class="op">;</span></span>
-<span id="cb3-19"><a href="#cb3-19" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<div class="sourceCode" id="cb4"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb4-1"><a href="#cb4-1" tabindex="-1"></a><span class="co">// In file: get_version.c</span></span>
+<span id="cb4-2"><a href="#cb4-2" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;R.h&gt;</span></span>
+<span id="cb4-3"><a href="#cb4-3" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;Rinternals.h&gt;</span></span>
+<span id="cb4-4"><a href="#cb4-4" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;hdf5.h&gt;</span></span>
+<span id="cb4-5"><a href="#cb4-5" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;stdio.h&gt;</span><span class="pp"> </span></span>
+<span id="cb4-6"><a href="#cb4-6" tabindex="-1"></a></span>
+<span id="cb4-7"><a href="#cb4-7" tabindex="-1"></a>SEXP get_version_c<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb4-8"><a href="#cb4-8" tabindex="-1"></a>    <span class="dt">unsigned</span> maj<span class="op">,</span> min<span class="op">,</span> rel<span class="op">;</span></span>
+<span id="cb4-9"><a href="#cb4-9" tabindex="-1"></a>    <span class="dt">char</span> version_str<span class="op">[</span><span class="dv">20</span><span class="op">];</span></span>
+<span id="cb4-10"><a href="#cb4-10" tabindex="-1"></a></span>
+<span id="cb4-11"><a href="#cb4-11" tabindex="-1"></a>    H5get_libversion<span class="op">(&amp;</span>maj<span class="op">,</span> <span class="op">&amp;</span>min<span class="op">,</span> <span class="op">&amp;</span>rel<span class="op">);</span></span>
+<span id="cb4-12"><a href="#cb4-12" tabindex="-1"></a>    snprintf<span class="op">(</span>version_str<span class="op">,</span> <span class="kw">sizeof</span><span class="op">(</span>version_str<span class="op">),</span> <span class="st">"</span><span class="sc">%u</span><span class="st">.</span><span class="sc">%u</span><span class="st">.</span><span class="sc">%u</span><span class="st">"</span><span class="op">,</span> maj<span class="op">,</span> min<span class="op">,</span> rel<span class="op">);</span></span>
+<span id="cb4-13"><a href="#cb4-13" tabindex="-1"></a></span>
+<span id="cb4-14"><a href="#cb4-14" tabindex="-1"></a>    SEXP result <span class="op">=</span> PROTECT<span class="op">(</span>Rf_allocVector<span class="op">(</span>STRSXP<span class="op">,</span> <span class="dv">1</span><span class="op">));</span></span>
+<span id="cb4-15"><a href="#cb4-15" tabindex="-1"></a>    SET_STRING_ELT<span class="op">(</span>result<span class="op">,</span> <span class="dv">0</span><span class="op">,</span> Rf_mkChar<span class="op">(</span>version_str<span class="op">));</span></span>
+<span id="cb4-16"><a href="#cb4-16" tabindex="-1"></a>    UNPROTECT<span class="op">(</span><span class="dv">1</span><span class="op">);</span></span>
+<span id="cb4-17"><a href="#cb4-17" tabindex="-1"></a></span>
+<span id="cb4-18"><a href="#cb4-18" tabindex="-1"></a>    <span class="cf">return</span> result<span class="op">;</span></span>
+<span id="cb4-19"><a href="#cb4-19" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
 </div>
 <div class="section level3">
 <h3 id="step-2-compile-and-load-in-r">Step 2: Compile and Load in R<a class="anchor" aria-label="anchor" href="#step-2-compile-and-load-in-r"></a>
@@ -193,9 +241,9 @@ loading it directly into your R session.</p>
 <p>In your R script, use <code><a href="https://rdrr.io/r/base/system.html" class="external-link">system()</a></code> to call
 <code>R CMD SHLIB</code>. The key is to set the
 <code>PKG_CPPFLAGS</code> and <code>PKG_LIBS</code> environment
-variables for the <code><a href="https://rdrr.io/r/base/system.html" class="external-link">system()</a></code> call, using the helper functions
-from <code>hdf5lib</code>.</p>
-<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
+variables for the <code><a href="https://rdrr.io/r/base/system.html" class="external-link">system()</a></code> call using
+<code>hdf5lib</code>’s helper functions.</p>
+<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw">if</span> <span class="op">(</span><span class="op">!</span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">require</a></span><span class="op">(</span><span class="st"><a href="https://github.com/cmmr/hdf5lib" class="external-link">"hdf5lib"</a></span><span class="op">)</span><span class="op">)</span> <span class="fu"><a href="https://rdrr.io/r/utils/install.packages.html" class="external-link">install.packages</a></span><span class="op">(</span><span class="st">"hdf5lib"</span><span class="op">)</span></span>
 <span></span>
 <span><span class="va">c_file</span> <span class="op">&lt;-</span> <span class="st">"get_version.c"</span></span>

@@ -84,7 +84,7 @@ multiple threads make calls to the HDF5 library simultaneously.</p>
 Important Limitations of Thread-Safety
 </h4>
 <ul>
-<li>
+<br><li>
 <b>Only Low-Level APIs are Thread-Safe:</b> The HDF5 library’s
 thread-safety guarantee <strong>only applies to the low-level (LL)
 functions</strong> (e.g., <code>H5F…</code>, <code>H5D…</code>,
@@ -109,9 +109,108 @@ guide. Do not register filters inside the parallel workers.
 </li>
 </ul>
 </div>
-<p>Here is an example of a function that uses <code>RcppParallel</code>
-to write to different datasets within the same HDF5 file in
-parallel.</p>
+<div class="section level2">
+<h2 id="using-rs-native-c-api-pthreads">1. Using R’s Native C API (<code>pthreads</code>)<a class="anchor" aria-label="anchor" href="#using-rs-native-c-api-pthreads"></a>
+</h2>
+<p>For developers working directly with R’s native C API, you can
+utilize POSIX threads (<code>pthreads</code>) alongside
+<code>hdf5lib</code>’s thread-safe low-level functions.</p>
+<div class="section level4">
+<h4 id="makevars-setup">
+<code>Makevars</code> Setup<a class="anchor" aria-label="anchor" href="#makevars-setup"></a>
+</h4>
+<p>Ensure your <code>src/Makevars</code> includes the
+<code>pthread</code> flag. <code>hdf5lib</code>’s compiler helpers will
+handle the HDF5 headers and linking.</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode makefile"><code class="sourceCode makefile"><span id="cb1-1"><a href="#cb1-1" tabindex="-1"></a><span class="dt">PKG_CPPFLAGS</span> <span class="ch">=</span><span class="st"> `</span><span class="ch">$(</span><span class="dt">R_HOME</span><span class="ch">)</span><span class="st">/bin/Rscript -e "cat(hdf5lib::c_flags())"` -pthread</span></span>
+<span id="cb1-2"><a href="#cb1-2" tabindex="-1"></a><span class="dt">PKG_LIBS</span>     <span class="ch">=</span><span class="st"> `</span><span class="ch">$(</span><span class="dt">R_HOME</span><span class="ch">)</span><span class="st">/bin/Rscript -e "cat(hdf5lib::ld_flags())"` -pthread</span></span></code></pre></div>
+</div>
+<div class="section level4">
+<h4 id="native-c-code">Native C Code<a class="anchor" aria-label="anchor" href="#native-c-code"></a>
+</h4>
+<p>The following C code defines a worker function that opens an existing
+HDF5 file and writes to a unique dataset. We then spawn multiple
+<code>pthreads</code> from a main <code>.Call</code> entry point to
+execute the workers concurrently.</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;R.h&gt;</span></span>
+<span id="cb2-2"><a href="#cb2-2" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;Rinternals.h&gt;</span></span>
+<span id="cb2-3"><a href="#cb2-3" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;pthread.h&gt;</span></span>
+<span id="cb2-4"><a href="#cb2-4" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;hdf5.h&gt;</span></span>
+<span id="cb2-5"><a href="#cb2-5" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;stdio.h&gt;</span></span>
+<span id="cb2-6"><a href="#cb2-6" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;stdlib.h&gt;</span></span>
+<span id="cb2-7"><a href="#cb2-7" tabindex="-1"></a></span>
+<span id="cb2-8"><a href="#cb2-8" tabindex="-1"></a><span class="co">// Structure to pass data to our threads</span></span>
+<span id="cb2-9"><a href="#cb2-9" tabindex="-1"></a><span class="kw">typedef</span> <span class="kw">struct</span> <span class="op">{</span></span>
+<span id="cb2-10"><a href="#cb2-10" tabindex="-1"></a>    <span class="dt">const</span> <span class="dt">char</span><span class="op">*</span> filename<span class="op">;</span></span>
+<span id="cb2-11"><a href="#cb2-11" tabindex="-1"></a>    <span class="dt">int</span> thread_id<span class="op">;</span></span>
+<span id="cb2-12"><a href="#cb2-12" tabindex="-1"></a><span class="op">}</span> ThreadData<span class="op">;</span></span>
+<span id="cb2-13"><a href="#cb2-13" tabindex="-1"></a></span>
+<span id="cb2-14"><a href="#cb2-14" tabindex="-1"></a><span class="co">// The thread worker function</span></span>
+<span id="cb2-15"><a href="#cb2-15" tabindex="-1"></a><span class="dt">void</span><span class="op">*</span> worker_func<span class="op">(</span><span class="dt">void</span><span class="op">*</span> arg<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-16"><a href="#cb2-16" tabindex="-1"></a>    ThreadData<span class="op">*</span> data <span class="op">=</span> <span class="op">(</span>ThreadData<span class="op">*)</span>arg<span class="op">;</span></span>
+<span id="cb2-17"><a href="#cb2-17" tabindex="-1"></a>    </span>
+<span id="cb2-18"><a href="#cb2-18" tabindex="-1"></a>    <span class="dt">char</span> dset_name<span class="op">[</span><span class="dv">64</span><span class="op">];</span></span>
+<span id="cb2-19"><a href="#cb2-19" tabindex="-1"></a>    snprintf<span class="op">(</span>dset_name<span class="op">,</span> <span class="kw">sizeof</span><span class="op">(</span>dset_name<span class="op">),</span> <span class="st">"thread_</span><span class="sc">%d</span><span class="st">"</span><span class="op">,</span> data<span class="op">-&gt;</span>thread_id<span class="op">);</span></span>
+<span id="cb2-20"><a href="#cb2-20" tabindex="-1"></a>    <span class="dt">int</span> value <span class="op">=</span> data<span class="op">-&gt;</span>thread_id<span class="op">;</span></span>
+<span id="cb2-21"><a href="#cb2-21" tabindex="-1"></a>    hsize_t dims<span class="op">[</span><span class="dv">1</span><span class="op">]</span> <span class="op">=</span> <span class="op">{</span><span class="dv">1</span><span class="op">};</span></span>
+<span id="cb2-22"><a href="#cb2-22" tabindex="-1"></a></span>
+<span id="cb2-23"><a href="#cb2-23" tabindex="-1"></a>    <span class="co">// HDF5's thread-safety guarantees these low-level calls are safe</span></span>
+<span id="cb2-24"><a href="#cb2-24" tabindex="-1"></a>    hid_t file_id <span class="op">=</span> H5Fopen<span class="op">(</span>data<span class="op">-&gt;</span>filename<span class="op">,</span> H5F_ACC_RDWR<span class="op">,</span> H5P_DEFAULT<span class="op">);</span></span>
+<span id="cb2-25"><a href="#cb2-25" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(</span>file_id <span class="op">&gt;=</span> <span class="dv">0</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-26"><a href="#cb2-26" tabindex="-1"></a>        hid_t space_id <span class="op">=</span> H5Screate_simple<span class="op">(</span><span class="dv">1</span><span class="op">,</span> dims<span class="op">,</span> NULL<span class="op">);</span></span>
+<span id="cb2-27"><a href="#cb2-27" tabindex="-1"></a>        hid_t dset_id <span class="op">=</span> H5Dcreate2<span class="op">(</span>file_id<span class="op">,</span> dset_name<span class="op">,</span> H5T_NATIVE_INT<span class="op">,</span></span>
+<span id="cb2-28"><a href="#cb2-28" tabindex="-1"></a>                                   space_id<span class="op">,</span> H5P_DEFAULT<span class="op">,</span> H5P_DEFAULT<span class="op">,</span> H5P_DEFAULT<span class="op">);</span></span>
+<span id="cb2-29"><a href="#cb2-29" tabindex="-1"></a>        </span>
+<span id="cb2-30"><a href="#cb2-30" tabindex="-1"></a>        <span class="cf">if</span> <span class="op">(</span>dset_id <span class="op">&gt;=</span> <span class="dv">0</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-31"><a href="#cb2-31" tabindex="-1"></a>            H5Dwrite<span class="op">(</span>dset_id<span class="op">,</span> H5T_NATIVE_INT<span class="op">,</span> H5S_ALL<span class="op">,</span> H5S_ALL<span class="op">,</span> H5P_DEFAULT<span class="op">,</span> <span class="op">&amp;</span>value<span class="op">);</span></span>
+<span id="cb2-32"><a href="#cb2-32" tabindex="-1"></a>            H5Dclose<span class="op">(</span>dset_id<span class="op">);</span></span>
+<span id="cb2-33"><a href="#cb2-33" tabindex="-1"></a>        <span class="op">}</span></span>
+<span id="cb2-34"><a href="#cb2-34" tabindex="-1"></a>        H5Sclose<span class="op">(</span>space_id<span class="op">);</span></span>
+<span id="cb2-35"><a href="#cb2-35" tabindex="-1"></a>        H5Fclose<span class="op">(</span>file_id<span class="op">);</span></span>
+<span id="cb2-36"><a href="#cb2-36" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb2-37"><a href="#cb2-37" tabindex="-1"></a>    <span class="cf">return</span> NULL<span class="op">;</span></span>
+<span id="cb2-38"><a href="#cb2-38" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb2-39"><a href="#cb2-39" tabindex="-1"></a></span>
+<span id="cb2-40"><a href="#cb2-40" tabindex="-1"></a><span class="co">// Main entry point for R's .Call interface</span></span>
+<span id="cb2-41"><a href="#cb2-41" tabindex="-1"></a>SEXP parallel_write_native<span class="op">(</span>SEXP r_filename<span class="op">,</span> SEXP r_nthreads<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-42"><a href="#cb2-42" tabindex="-1"></a>    <span class="dt">const</span> <span class="dt">char</span><span class="op">*</span> filename <span class="op">=</span> CHAR<span class="op">(</span>STRING_ELT<span class="op">(</span>r_filename<span class="op">,</span> <span class="dv">0</span><span class="op">));</span></span>
+<span id="cb2-43"><a href="#cb2-43" tabindex="-1"></a>    <span class="dt">int</span> n_threads <span class="op">=</span> asInteger<span class="op">(</span>r_nthreads<span class="op">);</span></span>
+<span id="cb2-44"><a href="#cb2-44" tabindex="-1"></a>    </span>
+<span id="cb2-45"><a href="#cb2-45" tabindex="-1"></a>    <span class="co">// Create the file sequentially before spawning threads</span></span>
+<span id="cb2-46"><a href="#cb2-46" tabindex="-1"></a>    hid_t file_id <span class="op">=</span> H5Fcreate<span class="op">(</span>filename<span class="op">,</span> H5F_ACC_TRUNC<span class="op">,</span> H5P_DEFAULT<span class="op">,</span> H5P_DEFAULT<span class="op">);</span></span>
+<span id="cb2-47"><a href="#cb2-47" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(</span>file_id <span class="op">&lt;</span> <span class="dv">0</span><span class="op">)</span> Rf_error<span class="op">(</span><span class="st">"Failed to create HDF5 file."</span><span class="op">);</span></span>
+<span id="cb2-48"><a href="#cb2-48" tabindex="-1"></a>    H5Fclose<span class="op">(</span>file_id<span class="op">);</span></span>
+<span id="cb2-49"><a href="#cb2-49" tabindex="-1"></a></span>
+<span id="cb2-50"><a href="#cb2-50" tabindex="-1"></a>    <span class="co">// Allocate memory for threads and data</span></span>
+<span id="cb2-51"><a href="#cb2-51" tabindex="-1"></a>    pthread_t<span class="op">*</span> threads <span class="op">=</span> <span class="op">(</span>pthread_t<span class="op">*)</span>malloc<span class="op">(</span>n_threads <span class="op">*</span> <span class="kw">sizeof</span><span class="op">(</span>pthread_t<span class="op">));</span></span>
+<span id="cb2-52"><a href="#cb2-52" tabindex="-1"></a>    ThreadData<span class="op">*</span> tdata <span class="op">=</span> <span class="op">(</span>ThreadData<span class="op">*)</span>malloc<span class="op">(</span>n_threads <span class="op">*</span> <span class="kw">sizeof</span><span class="op">(</span>ThreadData<span class="op">));</span></span>
+<span id="cb2-53"><a href="#cb2-53" tabindex="-1"></a></span>
+<span id="cb2-54"><a href="#cb2-54" tabindex="-1"></a>    <span class="co">// Spawn threads</span></span>
+<span id="cb2-55"><a href="#cb2-55" tabindex="-1"></a>    <span class="cf">for</span> <span class="op">(</span><span class="dt">int</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> n_threads<span class="op">;</span> i<span class="op">++)</span> <span class="op">{</span></span>
+<span id="cb2-56"><a href="#cb2-56" tabindex="-1"></a>        tdata<span class="op">[</span>i<span class="op">].</span>filename <span class="op">=</span> filename<span class="op">;</span></span>
+<span id="cb2-57"><a href="#cb2-57" tabindex="-1"></a>        tdata<span class="op">[</span>i<span class="op">].</span>thread_id <span class="op">=</span> i<span class="op">;</span></span>
+<span id="cb2-58"><a href="#cb2-58" tabindex="-1"></a>        pthread_create<span class="op">(&amp;</span>threads<span class="op">[</span>i<span class="op">],</span> NULL<span class="op">,</span> worker_func<span class="op">,</span> <span class="op">&amp;</span>tdata<span class="op">[</span>i<span class="op">]);</span></span>
+<span id="cb2-59"><a href="#cb2-59" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb2-60"><a href="#cb2-60" tabindex="-1"></a></span>
+<span id="cb2-61"><a href="#cb2-61" tabindex="-1"></a>    <span class="co">// Wait for all threads to complete</span></span>
+<span id="cb2-62"><a href="#cb2-62" tabindex="-1"></a>    <span class="cf">for</span> <span class="op">(</span><span class="dt">int</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> n_threads<span class="op">;</span> i<span class="op">++)</span> <span class="op">{</span></span>
+<span id="cb2-63"><a href="#cb2-63" tabindex="-1"></a>        pthread_join<span class="op">(</span>threads<span class="op">[</span>i<span class="op">],</span> NULL<span class="op">);</span></span>
+<span id="cb2-64"><a href="#cb2-64" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb2-65"><a href="#cb2-65" tabindex="-1"></a></span>
+<span id="cb2-66"><a href="#cb2-66" tabindex="-1"></a>    free<span class="op">(</span>threads<span class="op">);</span></span>
+<span id="cb2-67"><a href="#cb2-67" tabindex="-1"></a>    free<span class="op">(</span>tdata<span class="op">);</span></span>
+<span id="cb2-68"><a href="#cb2-68" tabindex="-1"></a></span>
+<span id="cb2-69"><a href="#cb2-69" tabindex="-1"></a>    <span class="cf">return</span> R_NilValue<span class="op">;</span></span>
+<span id="cb2-70"><a href="#cb2-70" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+</div>
+</div>
+<div class="section level2">
+<h2 id="using-rcppparallel">2. Using <code>RcppParallel</code><a class="anchor" aria-label="anchor" href="#using-rcppparallel"></a>
+</h2>
+<p>If you are using <code>Rcpp</code>, <code>RcppParallel</code>
+provides an excellent high-level abstraction for multithreading. Here is
+an example of a function that uses <code>RcppParallel</code> to write to
+different datasets within the same HDF5 file in parallel.</p>
 <div class="section level4">
 <h4 id="description-and-makevars">
 <code>DESCRIPTION</code> and <code>Makevars</code><a class="anchor" aria-label="anchor" href="#description-and-makevars"></a>
@@ -120,7 +219,7 @@ parallel.</p>
 field in your <code>DESCRIPTION</code> file. Your
 <code>src/Makevars</code> file remains the same as in the “Getting
 Started” article.</p>
-<div class="sourceCode" id="cb1"><pre class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb1-1"><a href="#cb1-1" tabindex="-1"></a><span class="fu">LinkingTo</span><span class="kw">:</span><span class="at"> hdf5lib, Rcpp, RcppParallel</span></span></code></pre></div>
+<div class="sourceCode" id="cb3"><pre class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a><span class="fu">LinkingTo</span><span class="kw">:</span><span class="at"> hdf5lib, Rcpp, RcppParallel</span></span></code></pre></div>
 </div>
 <div class="section level4">
 <h4 id="c-code-with-rcppparallel">C++ Code with <code>RcppParallel</code><a class="anchor" aria-label="anchor" href="#c-code-with-rcppparallel"></a>
@@ -129,58 +228,59 @@ Started” article.</p>
 dataset using the thread-safe low-level API.
 <code>RcppParallel::parallelFor</code> executes this worker on multiple
 threads, with each thread writing to a different dataset.</p>
-<div class="sourceCode" id="cb2"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;Rcpp.h&gt;</span></span>
-<span id="cb2-2"><a href="#cb2-2" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;RcppParallel.h&gt;</span></span>
-<span id="cb2-3"><a href="#cb2-3" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;hdf5.h&gt;</span></span>
-<span id="cb2-4"><a href="#cb2-4" tabindex="-1"></a></span>
-<span id="cb2-5"><a href="#cb2-5" tabindex="-1"></a><span class="kw">struct</span> H5Writer <span class="op">:</span> <span class="kw">public</span> RcppParallel<span class="op">::</span>Worker <span class="op">{</span></span>
-<span id="cb2-6"><a href="#cb2-6" tabindex="-1"></a>    <span class="at">const</span> <span class="bu">std::</span>string filename<span class="op">;</span></span>
-<span id="cb2-7"><a href="#cb2-7" tabindex="-1"></a></span>
-<span id="cb2-8"><a href="#cb2-8" tabindex="-1"></a>    H5Writer<span class="op">(</span><span class="at">const</span> <span class="bu">std::</span>string filename<span class="op">)</span> <span class="op">:</span> filename<span class="op">(</span>filename<span class="op">)</span> <span class="op">{}</span></span>
-<span id="cb2-9"><a href="#cb2-9" tabindex="-1"></a></span>
-<span id="cb2-10"><a href="#cb2-10" tabindex="-1"></a>    <span class="dt">void</span> <span class="kw">operator</span><span class="op">()(</span><span class="bu">std::</span>size_t begin<span class="op">,</span> <span class="bu">std::</span>size_t end<span class="op">)</span> <span class="op">{</span></span>
-<span id="cb2-11"><a href="#cb2-11" tabindex="-1"></a>        <span class="cf">for</span> <span class="op">(</span><span class="bu">std::</span>size_t i <span class="op">=</span> begin<span class="op">;</span> i <span class="op">&lt;</span> end<span class="op">;</span> i<span class="op">++)</span> <span class="op">{</span></span>
-<span id="cb2-12"><a href="#cb2-12" tabindex="-1"></a>            <span class="co">// Each thread works on a different dataset</span></span>
-<span id="cb2-13"><a href="#cb2-13" tabindex="-1"></a>            <span class="bu">std::</span>string dset_name <span class="op">=</span> <span class="st">"thread_"</span> <span class="op">+</span> <span class="bu">std::</span>to_string<span class="op">(</span>i<span class="op">);</span></span>
-<span id="cb2-14"><a href="#cb2-14" tabindex="-1"></a>            <span class="dt">int</span> data <span class="op">=</span> <span class="kw">static_cast</span><span class="op">&lt;</span><span class="dt">int</span><span class="op">&gt;(</span>i<span class="op">);</span></span>
-<span id="cb2-15"><a href="#cb2-15" tabindex="-1"></a>            <span class="dt">hsize_t</span> dims <span class="op">=</span> <span class="op">{</span><span class="dv">1</span><span class="op">};</span></span>
-<span id="cb2-16"><a href="#cb2-16" tabindex="-1"></a></span>
-<span id="cb2-17"><a href="#cb2-17" tabindex="-1"></a>            <span class="co">// HDF5's thread-safety guarantees these LL calls are safe</span></span>
-<span id="cb2-18"><a href="#cb2-18" tabindex="-1"></a>            <span class="dt">hid_t</span> file_id <span class="op">=</span> H5Fopen<span class="op">(</span>filename<span class="op">.</span>c_str<span class="op">(),</span> H5F_ACC_RDWR<span class="op">,</span> H5P_DEFAULT<span class="op">);</span></span>
-<span id="cb2-19"><a href="#cb2-19" tabindex="-1"></a>            <span class="cf">if</span> <span class="op">(</span>file_id <span class="op">&lt;</span> <span class="dv">0</span><span class="op">)</span> <span class="cf">continue</span><span class="op">;</span></span>
-<span id="cb2-20"><a href="#cb2-20" tabindex="-1"></a></span>
-<span id="cb2-21"><a href="#cb2-21" tabindex="-1"></a>            <span class="dt">hid_t</span> space_id <span class="op">=</span> H5Screate_simple<span class="op">(</span><span class="dv">1</span><span class="op">,</span> dims<span class="op">,</span> NULL<span class="op">);</span></span>
-<span id="cb2-22"><a href="#cb2-22" tabindex="-1"></a>            <span class="dt">hid_t</span> dset_id <span class="op">=</span> H5Dcreate2<span class="op">(</span>file_id<span class="op">,</span> dset_name<span class="op">.</span>c_str<span class="op">(),</span> H5T_NATIVE_INT<span class="op">,</span></span>
-<span id="cb2-23"><a href="#cb2-23" tabindex="-1"></a>                                        space_id<span class="op">,</span> H5P_DEFAULT<span class="op">,</span> H5P_DEFAULT<span class="op">,</span> H5P_DEFAULT<span class="op">);</span></span>
-<span id="cb2-24"><a href="#cb2-24" tabindex="-1"></a></span>
-<span id="cb2-25"><a href="#cb2-25" tabindex="-1"></a>            <span class="cf">if</span> <span class="op">(</span>dset_id <span class="op">&gt;=</span> <span class="dv">0</span><span class="op">)</span> <span class="op">{</span></span>
-<span id="cb2-26"><a href="#cb2-26" tabindex="-1"></a>                H5Dwrite<span class="op">(</span>dset_id<span class="op">,</span> H5T_NATIVE_INT<span class="op">,</span> H5S_ALL<span class="op">,</span> H5S_ALL<span class="op">,</span> H5P_DEFAULT<span class="op">,</span> <span class="op">&amp;</span>data<span class="op">);</span></span>
-<span id="cb2-27"><a href="#cb2-27" tabindex="-1"></a>                H5Dclose<span class="op">(</span>dset_id<span class="op">);</span></span>
-<span id="cb2-28"><a href="#cb2-28" tabindex="-1"></a>            <span class="op">}</span></span>
-<span id="cb2-29"><a href="#cb2-29" tabindex="-1"></a></span>
-<span id="cb2-30"><a href="#cb2-30" tabindex="-1"></a>            H5Sclose<span class="op">(</span>space_id<span class="op">);</span></span>
-<span id="cb2-31"><a href="#cb2-31" tabindex="-1"></a>            H5Fclose<span class="op">(</span>file_id<span class="op">);</span></span>
-<span id="cb2-32"><a href="#cb2-32" tabindex="-1"></a>        <span class="op">}</span></span>
-<span id="cb2-33"><a href="#cb2-33" tabindex="-1"></a>    <span class="op">}</span></span>
-<span id="cb2-34"><a href="#cb2-34" tabindex="-1"></a><span class="op">};</span></span>
-<span id="cb2-35"><a href="#cb2-35" tabindex="-1"></a></span>
-<span id="cb2-36"><a href="#cb2-36" tabindex="-1"></a><span class="co">//' Write to an HDF5 file in parallel</span></span>
-<span id="cb2-37"><a href="#cb2-37" tabindex="-1"></a><span class="co">//' @param filename Path to the HDF5 file.</span></span>
-<span id="cb2-38"><a href="#cb2-38" tabindex="-1"></a><span class="co">//' @param n_threads Number of threads to use.</span></span>
-<span id="cb2-39"><a href="#cb2-39" tabindex="-1"></a><span class="co">//' @export</span></span>
-<span id="cb2-40"><a href="#cb2-40" tabindex="-1"></a><span class="co">// [[Rcpp::export]]</span></span>
-<span id="cb2-41"><a href="#cb2-41" tabindex="-1"></a><span class="dt">void</span> parallel_write<span class="op">(</span><span class="bu">std::</span>string filename<span class="op">,</span> <span class="dt">int</span> n_threads<span class="op">)</span> <span class="op">{</span></span>
-<span id="cb2-42"><a href="#cb2-42" tabindex="-1"></a>    <span class="co">// Create the file first</span></span>
-<span id="cb2-43"><a href="#cb2-43" tabindex="-1"></a>    <span class="dt">hid_t</span> file_id <span class="op">=</span> H5Fcreate<span class="op">(</span>filename<span class="op">.</span>c_str<span class="op">(),</span> H5F_ACC_TRUNC<span class="op">,</span> H5P_DEFAULT<span class="op">,</span> H5P_DEFAULT<span class="op">);</span></span>
-<span id="cb2-44"><a href="#cb2-44" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(</span>file_id <span class="op">&lt;</span> <span class="dv">0</span><span class="op">)</span> Rcpp<span class="op">::</span>stop<span class="op">(</span><span class="st">"Failed to create file."</span><span class="op">);</span></span>
-<span id="cb2-45"><a href="#cb2-45" tabindex="-1"></a>    H5Fclose<span class="op">(</span>file_id<span class="op">);</span></span>
-<span id="cb2-46"><a href="#cb2-46" tabindex="-1"></a></span>
-<span id="cb2-47"><a href="#cb2-47" tabindex="-1"></a>    H5Writer writer<span class="op">(</span>filename<span class="op">);</span></span>
-<span id="cb2-48"><a href="#cb2-48" tabindex="-1"></a>    RcppParallel<span class="op">::</span>parallelFor<span class="op">(</span><span class="dv">0</span><span class="op">,</span> n_threads<span class="op">,</span> writer<span class="op">);</span></span>
-<span id="cb2-49"><a href="#cb2-49" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<div class="sourceCode" id="cb4"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb4-1"><a href="#cb4-1" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;Rcpp.h&gt;</span></span>
+<span id="cb4-2"><a href="#cb4-2" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;RcppParallel.h&gt;</span></span>
+<span id="cb4-3"><a href="#cb4-3" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;hdf5.h&gt;</span></span>
+<span id="cb4-4"><a href="#cb4-4" tabindex="-1"></a></span>
+<span id="cb4-5"><a href="#cb4-5" tabindex="-1"></a><span class="kw">struct</span> H5Writer <span class="op">:</span> <span class="kw">public</span> RcppParallel<span class="op">::</span>Worker <span class="op">{</span></span>
+<span id="cb4-6"><a href="#cb4-6" tabindex="-1"></a>    <span class="at">const</span> <span class="bu">std::</span>string filename<span class="op">;</span></span>
+<span id="cb4-7"><a href="#cb4-7" tabindex="-1"></a></span>
+<span id="cb4-8"><a href="#cb4-8" tabindex="-1"></a>    H5Writer<span class="op">(</span><span class="at">const</span> <span class="bu">std::</span>string filename<span class="op">)</span> <span class="op">:</span> filename<span class="op">(</span>filename<span class="op">)</span> <span class="op">{}</span></span>
+<span id="cb4-9"><a href="#cb4-9" tabindex="-1"></a></span>
+<span id="cb4-10"><a href="#cb4-10" tabindex="-1"></a>    <span class="dt">void</span> <span class="kw">operator</span><span class="op">()(</span><span class="bu">std::</span>size_t begin<span class="op">,</span> <span class="bu">std::</span>size_t end<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-11"><a href="#cb4-11" tabindex="-1"></a>        <span class="cf">for</span> <span class="op">(</span><span class="bu">std::</span>size_t i <span class="op">=</span> begin<span class="op">;</span> i <span class="op">&lt;</span> end<span class="op">;</span> i<span class="op">++)</span> <span class="op">{</span></span>
+<span id="cb4-12"><a href="#cb4-12" tabindex="-1"></a>            <span class="co">// Each thread works on a different dataset</span></span>
+<span id="cb4-13"><a href="#cb4-13" tabindex="-1"></a>            <span class="bu">std::</span>string dset_name <span class="op">=</span> <span class="st">"thread_"</span> <span class="op">+</span> <span class="bu">std::</span>to_string<span class="op">(</span>i<span class="op">);</span></span>
+<span id="cb4-14"><a href="#cb4-14" tabindex="-1"></a>            <span class="dt">int</span> data <span class="op">=</span> <span class="kw">static_cast</span><span class="op">&lt;</span><span class="dt">int</span><span class="op">&gt;(</span>i<span class="op">);</span></span>
+<span id="cb4-15"><a href="#cb4-15" tabindex="-1"></a>            <span class="dt">hsize_t</span> dims <span class="op">=</span> <span class="op">{</span><span class="dv">1</span><span class="op">};</span></span>
+<span id="cb4-16"><a href="#cb4-16" tabindex="-1"></a></span>
+<span id="cb4-17"><a href="#cb4-17" tabindex="-1"></a>            <span class="co">// HDF5's thread-safety guarantees these LL calls are safe</span></span>
+<span id="cb4-18"><a href="#cb4-18" tabindex="-1"></a>            <span class="dt">hid_t</span> file_id <span class="op">=</span> H5Fopen<span class="op">(</span>filename<span class="op">.</span>c_str<span class="op">(),</span> H5F_ACC_RDWR<span class="op">,</span> H5P_DEFAULT<span class="op">);</span></span>
+<span id="cb4-19"><a href="#cb4-19" tabindex="-1"></a>            <span class="cf">if</span> <span class="op">(</span>file_id <span class="op">&lt;</span> <span class="dv">0</span><span class="op">)</span> <span class="cf">continue</span><span class="op">;</span></span>
+<span id="cb4-20"><a href="#cb4-20" tabindex="-1"></a></span>
+<span id="cb4-21"><a href="#cb4-21" tabindex="-1"></a>            <span class="dt">hid_t</span> space_id <span class="op">=</span> H5Screate_simple<span class="op">(</span><span class="dv">1</span><span class="op">,</span> dims<span class="op">,</span> NULL<span class="op">);</span></span>
+<span id="cb4-22"><a href="#cb4-22" tabindex="-1"></a>            <span class="dt">hid_t</span> dset_id <span class="op">=</span> H5Dcreate2<span class="op">(</span>file_id<span class="op">,</span> dset_name<span class="op">.</span>c_str<span class="op">(),</span> H5T_NATIVE_INT<span class="op">,</span></span>
+<span id="cb4-23"><a href="#cb4-23" tabindex="-1"></a>                                     space_id<span class="op">,</span> H5P_DEFAULT<span class="op">,</span> H5P_DEFAULT<span class="op">,</span> H5P_DEFAULT<span class="op">);</span></span>
+<span id="cb4-24"><a href="#cb4-24" tabindex="-1"></a></span>
+<span id="cb4-25"><a href="#cb4-25" tabindex="-1"></a>            <span class="cf">if</span> <span class="op">(</span>dset_id <span class="op">&gt;=</span> <span class="dv">0</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-26"><a href="#cb4-26" tabindex="-1"></a>                H5Dwrite<span class="op">(</span>dset_id<span class="op">,</span> H5T_NATIVE_INT<span class="op">,</span> H5S_ALL<span class="op">,</span> H5S_ALL<span class="op">,</span> H5P_DEFAULT<span class="op">,</span> <span class="op">&amp;</span>data<span class="op">);</span></span>
+<span id="cb4-27"><a href="#cb4-27" tabindex="-1"></a>                H5Dclose<span class="op">(</span>dset_id<span class="op">);</span></span>
+<span id="cb4-28"><a href="#cb4-28" tabindex="-1"></a>            <span class="op">}</span></span>
+<span id="cb4-29"><a href="#cb4-29" tabindex="-1"></a></span>
+<span id="cb4-30"><a href="#cb4-30" tabindex="-1"></a>            H5Sclose<span class="op">(</span>space_id<span class="op">);</span></span>
+<span id="cb4-31"><a href="#cb4-31" tabindex="-1"></a>            H5Fclose<span class="op">(</span>file_id<span class="op">);</span></span>
+<span id="cb4-32"><a href="#cb4-32" tabindex="-1"></a>        <span class="op">}</span></span>
+<span id="cb4-33"><a href="#cb4-33" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb4-34"><a href="#cb4-34" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb4-35"><a href="#cb4-35" tabindex="-1"></a></span>
+<span id="cb4-36"><a href="#cb4-36" tabindex="-1"></a><span class="co">//' Write to an HDF5 file in parallel</span></span>
+<span id="cb4-37"><a href="#cb4-37" tabindex="-1"></a><span class="co">//' @param filename Path to the HDF5 file.</span></span>
+<span id="cb4-38"><a href="#cb4-38" tabindex="-1"></a><span class="co">//' @param n_threads Number of threads to use.</span></span>
+<span id="cb4-39"><a href="#cb4-39" tabindex="-1"></a><span class="co">//' @export</span></span>
+<span id="cb4-40"><a href="#cb4-40" tabindex="-1"></a><span class="co">// [[Rcpp::export]]</span></span>
+<span id="cb4-41"><a href="#cb4-41" tabindex="-1"></a><span class="dt">void</span> parallel_write<span class="op">(</span><span class="bu">std::</span>string filename<span class="op">,</span> <span class="dt">int</span> n_threads<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-42"><a href="#cb4-42" tabindex="-1"></a>    <span class="co">// Create the file first</span></span>
+<span id="cb4-43"><a href="#cb4-43" tabindex="-1"></a>    <span class="dt">hid_t</span> file_id <span class="op">=</span> H5Fcreate<span class="op">(</span>filename<span class="op">.</span>c_str<span class="op">(),</span> H5F_ACC_TRUNC<span class="op">,</span> H5P_DEFAULT<span class="op">,</span> H5P_DEFAULT<span class="op">);</span></span>
+<span id="cb4-44"><a href="#cb4-44" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(</span>file_id <span class="op">&lt;</span> <span class="dv">0</span><span class="op">)</span> Rcpp<span class="op">::</span>stop<span class="op">(</span><span class="st">"Failed to create file."</span><span class="op">);</span></span>
+<span id="cb4-45"><a href="#cb4-45" tabindex="-1"></a>    H5Fclose<span class="op">(</span>file_id<span class="op">);</span></span>
+<span id="cb4-46"><a href="#cb4-46" tabindex="-1"></a></span>
+<span id="cb4-47"><a href="#cb4-47" tabindex="-1"></a>    H5Writer writer<span class="op">(</span>filename<span class="op">);</span></span>
+<span id="cb4-48"><a href="#cb4-48" tabindex="-1"></a>    RcppParallel<span class="op">::</span>parallelFor<span class="op">(</span><span class="dv">0</span><span class="op">,</span> n_threads<span class="op">,</span> writer<span class="op">);</span></span>
+<span id="cb4-49"><a href="#cb4-49" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
 <p>Because <code>hdf5lib</code> enables thread-safety, the internal
 mutexes within the HDF5 library will serialize the low-level API calls,
 preventing a race condition.</p>
+</div>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside>

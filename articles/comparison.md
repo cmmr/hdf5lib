@@ -31,6 +31,7 @@ The table below summarizes the key differences between the two packages.
   set (including thread-safety, high-level APIs, and bundled compression
   filters). This ensures a consistent and reliable build for downstream
   packages with no effort from the user.
+
 - **`Rhdf5lib`** is designed for flexibility. It provides several
   `configure` arguments that allow users to customize the HDF5 build.
   For example, users can choose to link against a system-installed HDF5
@@ -44,6 +45,7 @@ The table below summarizes the key differences between the two packages.
   developers immediate access to the latest features, bug fixes, and
   performance improvements, such as native complex number support and
   better UTF-8 handling on Windows.
+
 - **`Rhdf5lib`** typically bundles an older, long-term support version
   of HDF5 that is standard across the Bioconductor ecosystem (v1.12.2 as
   of Bioconductor 3.19). This prioritizes stability within that
@@ -55,6 +57,7 @@ The table below summarizes the key differences between the two packages.
   plugins directly into the package (Blosc2, Zstd, LZ4, Snappy, ZFP,
   etc.), making them universally available to any package linking to it
   without requiring system-level dependencies.
+
 - **`Rhdf5lib`** provides standard native compression (gzip/szip), but
   leveraging modern codecs typically requires the user to install them
   externally on their system.
@@ -67,6 +70,7 @@ The table below summarizes the key differences between the two packages.
   multiple threads access an HDF5 file. For more details, see the
   article on [Parallel
   Programming](https://cmmr.github.io/hdf5lib/articles/parallelism.md).
+
 - **`Rhdf5lib`** does not support building with thread-safety enabled.
 
 ### 5. API Version Control
@@ -80,6 +84,7 @@ The table below summarizes the key differences between the two packages.
   feature is explained in detail in the [API
   Versioning](https://cmmr.github.io/hdf5lib/articles/api-versioning.md)
   article.
+
 - **`Rhdf5lib`** does not provide a dedicated mechanism for this. A
   developer would need to manually add the appropriate `-D` flags to
   their `Makevars`, and the underlying library may not contain the
@@ -95,6 +100,7 @@ The table below summarizes the key differences between the two packages.
   `hdf5lib (>= 2.1.0)`) and be certain that they are working with at
   least HDF5 v2.1.0 and that key features like thread-safety are
   enabled.
+
 - **`Rhdf5lib`**’s package version is not correlated with the version of
   the HDF5 C library that is ultimately used. Because `Rhdf5lib` will
   preferentially link against an HDF5 library already installed on the
@@ -106,13 +112,19 @@ The table below summarizes the key differences between the two packages.
 
 ## Conclusion: Which Should You Use?
 
-Choose **`hdf5lib`** if: \* You want a simple, reliable dependency that
-“just works” for you and your users. \* You need access to modern,
-state-of-the-art compression plugins out-of-the-box. \* You plan to use
-multithreading (e.g., with `RcppParallel`). \* You want to lock your
-package to a specific API version for long-term stability.
+Choose **`hdf5lib`** if:
 
-Choose **`Rhdf5lib`** if: \* Your package is part of the Bioconductor
-ecosystem and you need to maintain strict compatibility with it. \* You
-need to link against a specific, older configuration of HDF5 that is not
-met by `hdf5lib`’s default build.
+- You want a simple, reliable dependency that “just works” for you and
+  your users.
+- You need access to modern, state-of-the-art compression plugins
+  out-of-the-box.
+- You plan to use multithreading (e.g., with `RcppParallel`).
+- You want to lock your package to a specific API version for long-term
+  stability.
+
+Choose **`Rhdf5lib`** if:
+
+- Your package is part of the Bioconductor ecosystem and you need to
+  maintain strict compatibility with it.
+- You need to link against a specific, older configuration of HDF5 that
+  is not met by `hdf5lib`’s default build.
