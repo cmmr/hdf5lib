@@ -131,22 +131,22 @@ static size_t blosc_filter(
         PUSH_ERR("This Blosc library build does not support compressor code: %d", compcode);
     }
     
-    /* 1. Keep the safety bucket so algorithms like Snappy have room to expand 
-          highly entropic data without destroying the heap. */
-    size_t out_alloc = nbytes + BLOSC_MAX_OVERHEAD; 
+    /* 1. Allocate a massive shock-absorber.
+       Snappy's C API lacks bounds checking and its worst-case expansion is 
+       roughly nbytes + (nbytes / 6) + 32. 
+       We allocate 1.5x + 1KB to guarantee it can never overflow the heap. */
+    size_t out_alloc = nbytes + (nbytes / 2) + 1024; 
     void *outbuf = H5allocate_memory(out_alloc, 0);
     if (!outbuf) PUSH_ERR("Memory allocation failed for compression");
     
     int comp_size = blosc_compress_ctx(clevel, doshuffle, typesize, nbytes, *buf, outbuf, out_alloc, compname, 0, 1);
     
-    /* 2. Catch actual errors. 
-          If comp_size <= 0, compression failed. Return 0 so HDF5 writes uncompressed.
-          We explicitly allow comp_size >= nbytes to pass through. */
     if (comp_size <= 0) {
         H5free_memory(outbuf);
         return 0; 
     }
     
+    /* Since we massively overallocated, we must ensure HDF5 knows the *actual* size to write to disk. Returning comp_size does exactly this. */
     H5free_memory(*buf); 
     *buf = outbuf;
     *buf_size = out_alloc;
