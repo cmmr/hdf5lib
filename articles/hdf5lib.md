@@ -7,17 +7,18 @@ library in their own package. `hdf5lib` makes this easy by providing a
 reliable, self-contained HDF5 build that you can link to without
 requiring your users to install any system dependencies.
 
-We will walk through the three main steps to link your package to
+We will walk through the four main steps to link your package to
 `hdf5lib` and then demonstrate a complete example using `Rcpp`.
 
-## The 3 Steps to Link Your Package
+## The 4 Steps to Link Your Package
 
 To use `hdf5lib` in your package, you need to:
 
 1.  Declare the dependency in your `DESCRIPTION` file.
 2.  Tell the compiler where to find the `hdf5lib` headers and libraries
     in a `src/Makevars` file.
-3.  Include the HDF5 headers in your C/C++ code.
+3.  Manage the global filter state to initialize compression plugins.
+4.  Include the HDF5 headers in your C/C++ code.
 
 ### Step 1: Update `DESCRIPTION`
 
@@ -51,21 +52,50 @@ PKG_CPPFLAGS = `$(R_HOME)/bin/Rscript -e "cat(hdf5lib::c_flags(api = 2.0))"`
 PKG_LIBS     = `$(R_HOME)/bin/Rscript -e "cat(hdf5lib::ld_flags(api = 2.0))"`
 ```
 
-The `api` argument shown here offers a powerful stability feature. By
-locking your package to a specific HDF5 API version (e.g., `api = 2.0`),
-you ensure that future updates to `hdf5lib` will not introduce breaking
-changes. This gives you control over when to adopt newer HDF5 features.
-For a detailed explanation of API versioning, see the [API
-Versioning](https://cmmr.github.io/hdf5lib/articles/api-versioning.md)
-article.
+### Step 3: Manage Global Filter State (Important)
 
-### Step 3: Include HDF5 Headers
+To utilize the bundled compression plugins (LZ4, Zstd, Blosc, etc.),
+they must be registered with the HDF5 library. Because registering
+filters modifies global state and spins up background thread pools (via
+Blosc2), you should **never** register filters on a per-I/O basis.
+Instead, expose the registration functions to R and call them exactly
+once during your package’s load/unload cycle.
+
+**Create C Wrappers (e.g., in `src/init.c`):**
+
+``` c
+#include <Rinternals.h>
+#include "hdf5lib.h"
+
+SEXP r_register_hdf5_filters() {
+    hdf5lib_register_all_filters();
+    return R_NilValue;
+}
+
+SEXP r_destroy_hdf5_filters() {
+    hdf5lib_destroy_all_filters();
+    return R_NilValue;
+}
+```
+
+**Hook into R Package Load (e.g., in `R/zzz.R`):**
+
+``` r
+.onLoad <- function(libname, pkgname) {
+    # Register plugins and spin up Blosc thread pools once per session
+    .Call("r_register_hdf5_filters", PACKAGE = pkgname)
+}
+
+.onUnload <- function(libpath) {
+    # Cleanly tear down threads and free memory to prevent Valgrind warnings
+    .Call("r_destroy_hdf5_filters", PACKAGE = "myhdf5package")
+}
+```
+
+### Step 4: Include HDF5 Headers
 
 You can now include the HDF5 headers directly in your C or C++ source
 files located in the `src/` directory.
-
-The main header is `<hdf5.h>`. For the high-level APIs (which are highly
-recommended), you should also include `<hdf5_hl.h>`.
 
 ``` cpp
 #include <Rcpp.h>
@@ -81,33 +111,7 @@ Let’s create a minimal R package that uses `Rcpp` to provide one
 function: `get_hdf5_version()`, which calls the HDF5 C library and
 returns its version string.
 
-### Package Structure
-
-First, create a new package. You can use
-`Rcpp::Rcpp.package.skeleton("myhdf5package")` as a starting point. The
-file structure will look like this:
-
-    myhdf5package/
-    ├── DESCRIPTION
-    ├── NAMESPACE
-    ├── R/
-    │   └── RcppExports.R
-    ├── src/
-    │   ├── Makevars
-    │   ├── RcppExports.cpp
-    │   └── hdf5_helpers.cpp  // Our new C++ file
-    └── man/
-
-### `DESCRIPTION` and `Makevars`
-
-Update `DESCRIPTION` and create `src/Makevars` as described in Steps 1
-and 2.
-
 ### C++ Source Code (`src/hdf5_helpers.cpp`)
-
-This file contains the C++ function that will be callable from R. It
-uses `H5get_libversion` to query the library version and returns it as a
-string.
 
 ``` cpp
 #include <Rcpp.h>
@@ -117,8 +121,6 @@ string.
 
 //' Get the version of the linked HDF5 library
 //'
-//' This function calls the HDF5 C API to retrieve the library version
-//' and returns it as a character string (e.g., "2.0.0").
 //' @export
 // [[Rcpp::export]]
 Rcpp::String get_hdf5_version() {
@@ -141,19 +143,13 @@ Rcpp::String get_hdf5_version() {
 
 ### Build and Run
 
-1.  Run `Rcpp::compileAttributes()` to generate the Rcpp export files
-    (`R/RcppExports.R` and `src/RcppExports.cpp`).
-2.  Build and install your package using `devtools::install()` or by
-    building a source tarball.
+1.  Run `Rcpp::compileAttributes()` to generate the Rcpp export files.
+2.  Build and install your package.
 
 Now, you can use your new function from R:
 
 ``` r
 library(myhdf5package)
 get_hdf5_version()
-#> "2.0.0"
+#> "2.1.0"
 ```
-
-This simple example demonstrates that your package is successfully
-linking to `hdf5lib` and can call its functions. You can now build more
-complex functionality by expanding on this foundation.

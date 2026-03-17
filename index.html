@@ -18,8 +18,8 @@
 <link href="deps/font-awesome-6.5.2/css/v4-shims.min.css" rel="stylesheet">
 <script src="deps/headroom-0.11.0/headroom.min.js"></script><script src="deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="deps/search-1.0.0/fuse.min.js"></script><script src="deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="pkgdown.js"></script><link href="extra.css" rel="stylesheet">
 <meta property="og:title" content="Headers and Static Libraries for HDF5">
-<meta name="description" content="HDF5 (Hierarchical Data Format 5) is a high-performance library and file format for storing and managing large, complex data. This package provides the static libraries and headers for the HDF5 C library (release 2.0.0). It is intended for R package developers to use in the LinkingTo field, which eliminates the need for users to install system-level HDF5 dependencies. This build is compiled with thread-safety enabled and supports dynamic loading of external compression filters. HDF5 is developed by The HDF Group &lt;https://www.hdfgroup.org/&gt;.">
-<meta property="og:description" content="HDF5 (Hierarchical Data Format 5) is a high-performance library and file format for storing and managing large, complex data. This package provides the static libraries and headers for the HDF5 C library (release 2.0.0). It is intended for R package developers to use in the LinkingTo field, which eliminates the need for users to install system-level HDF5 dependencies. This build is compiled with thread-safety enabled and supports dynamic loading of external compression filters. HDF5 is developed by The HDF Group &lt;https://www.hdfgroup.org/&gt;.">
+<meta name="description" content="HDF5 (Hierarchical Data Format 5) is a high-performance library and file format for storing and managing large, complex data. This package provides the static libraries and headers for the HDF5 C library (release 2.1.0). It is intended for R package developers to use in the LinkingTo field, which eliminates the need for users to install system-level HDF5 dependencies. This build is compiled with thread-safety enabled and supports dynamic loading of external compression filters. HDF5 is developed by The HDF Group &lt;https://www.hdfgroup.org/&gt;.">
+<meta property="og:description" content="HDF5 (Hierarchical Data Format 5) is a high-performance library and file format for storing and managing large, complex data. This package provides the static libraries and headers for the HDF5 C library (release 2.1.0). It is intended for R package developers to use in the LinkingTo field, which eliminates the need for users to install system-level HDF5 dependencies. This build is compiled with thread-safety enabled and supports dynamic loading of external compression filters. HDF5 is developed by The HDF Group &lt;https://www.hdfgroup.org/&gt;.">
 <meta property="og:image" content="https://cmmr.github.io/hdf5lib/logo.png">
 </head>
 <body>
@@ -30,7 +30,7 @@
 
     <a class="navbar-brand me-2" href="index.html">hdf5lib</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.0.0.7</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.1.0.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -47,7 +47,7 @@
 <li><a class="dropdown-item" href="articles/api-versioning.html">API Versioning</a></li>
     <li><a class="dropdown-item" href="articles/comparison.html">Comparison</a></li>
     <li><a class="dropdown-item" href="articles/compression.html">Compression &amp; Filters</a></li>
-    <li><a class="dropdown-item" href="articles/cookbook.html">Cookbook</a></li>
+    <li><a class="dropdown-item" href="articles/integration.html">Integration Guide</a></li>
     <li><a class="dropdown-item" href="articles/parallelism.html">Parallel Programming</a></li>
   </ul>
 </li>
@@ -78,20 +78,11 @@
 <h2 id="features">Features<a class="anchor" aria-label="anchor" href="#features"></a>
 </h2>
 <ul>
-<li><p><strong>Portable &amp; Self-Contained:</strong> Builds the HDF5 library from source using only standard R build tools. This ensures your package works “out of the box” on any system without requiring pre-installed libraries or administrative privileges.</p></li>
-<li>
-<p><strong>Comprehensive API Coverage:</strong> Provides access to the complete core HDF5 v2.0.0 library, including both the <strong>Low-Level</strong> and <strong>High-Level</strong> C APIs.</p>
-<ul>
-<li><p>
-<b>Compression &amp; Filters:</b> Bundles an extensive suite of compression filters directly within the package. This includes native <code>gzip/deflate</code> and <code>szip</code>, as well as high-performance plugins for <b>Bzip2</b>, <b>LZF</b>, <b>LZ4</b>, <b>Zstandard (Zstd)</b>, <b>Snappy</b>, <b>Bitshuffle</b>, <b>ZFP</b>, <b>Blosc</b>, and <b>Blosc2</b>. These provide state-of-the-art compression out-of-the-box without requiring any external system-level libraries.
-</p></li>
-<li><p>
-<b>Modern Features:</b> Includes native complex number support and improved UTF-8 handling on Windows.
-</p></li>
-</ul>
-</li>
-<li><p><strong>Flexible API Versioning:</strong> Downstream packages can compile against specific HDF5 API versions (e.g., 2.0, 1.14, 1.12). This allows you to lock your package to a specific API, ensuring future <code>hdf5lib</code> updates won’t break your build.</p></li>
-<li><p><strong>Safe for Parallel Code:</strong> Compiled with thread-safety enabled to prevent data corruption when using multi-threaded frameworks like <code>RcppParallel</code>. <em>You must still use a file locking mechanism if (1) you use the High-Level (HL) APIs, which are not thread-safe, or (2) you are accessing the file from multiple processes rather than multiple threads.</em></p></li>
+<li><p><strong>Zero-Dependency &amp; CRAN-Ready:</strong> Builds the HDF5 library from source using only standard R build tools. This guarantees your package works “out of the box” on any operating system without requiring users to install system-level libraries or hold administrative privileges.</p></li>
+<li><p><strong>Comprehensive Core API (v2.1.0):</strong> Provides complete access to the HDF5 C API, including both the <strong>Low-Level</strong> and simplified <strong>High-Level</strong> interfaces, giving you full control over file structure, metadata, and raw I/O.</p></li>
+<li><p><strong>State-of-the-Art Compression Built-In:</strong> Bundles an extensive suite of compression filters directly within the package. Alongside native <code>gzip/deflate</code> and <code>szip</code>, your package gains immediate access to high-performance plugins like <strong>Zstandard (Zstd)</strong>, <strong>LZ4</strong>, <strong>Blosc/Blosc2</strong>, <strong>Snappy</strong>, <strong>ZFP</strong>, <strong>Bzip2</strong>, <strong>LZF</strong>, and <strong>Bitshuffle</strong> - all without relying on external system libraries.</p></li>
+<li><p><strong>API Version Locking:</strong> Protect your package from future breaking changes. Downstream packages can selectively compile against specific HDF5 API versions (e.g., <code>2.0</code>, <code>1.14</code>, <code>1.12</code>), ensuring long-term stability and a predictable build cycle.</p></li>
+<li><p><strong>Safe for Parallel Processing:</strong> Compiled with thread-safety enabled by default. This prevents data corruption when integrating with multi-threaded R frameworks like <code>RcppParallel</code>. <em>(Note: External file locking is still required if you use the High-Level APIs, which are not thread-safe, or if you access files across multiple independent processes).</em></p></li>
 </ul>
 </div>
 <div class="section level2">
@@ -192,7 +183,7 @@
 <h2 id="included-hdf5-apis">
 <strong>Included HDF5 APIs</strong><a class="anchor" aria-label="anchor" href="#included-hdf5-apis"></a>
 </h2>
-<p>This package provides access to the <strong>complete core HDF5 C API</strong> (v2.0.0). Developers have full access to all standard functions, macros, and types for local file I/O, metadata management, and data manipulation.</p>
+<p>This package provides access to the <strong>complete core HDF5 C API</strong> (v2.1.0). Developers have full access to all standard functions, macros, and types for local file I/O, metadata management, and data manipulation.</p>
 <blockquote>
 <p><strong>Note:</strong> To maintain a zero-dependency footprint, optional features requiring external system libraries - such as Parallel HDF5 (MPI), HDFS, and S3 support - are not included.</p>
 </blockquote>
@@ -250,9 +241,9 @@
 <p>The <a href="https://doi.org/doi:10.18129/B9.bioc.Rhdf5lib" class="external-link"><code>Rhdf5lib</code></a> package also provides the HDF5 C library. <code>hdf5lib</code> was created to provide a general-purpose, standalone HDF5 library provider that offers several key distinctions:</p>
 <ul>
 <li><p><strong>Zero Configuration Installation:</strong> <code>hdf5lib</code> is designed for simplicity. Installation via <code><a href="https://rdrr.io/r/utils/install.packages.html" class="external-link">install.packages()</a></code> requires no user configuration and reliably provides a modern HDF5 build with important features enabled by default. <code>Rhdf5lib</code>, while flexible, requires users to manage compile-time configuration options for a customized build.</p></li>
-<li><p><strong>Modern HDF5 Version:</strong> <code>hdf5lib</code> bundles HDF5 v2.0.0, providing access to the latest features and fixes, including native complex number support and improved UTF-8 handling on Windows. This is more recent than the version typically bundled in <code>Rhdf5lib</code> (v1.12.2 as of Bioconductor 3.19).</p></li>
+<li><p><strong>Modern HDF5 Version:</strong> <code>hdf5lib</code> bundles HDF5 v2.1.0, providing access to the latest features and fixes, including native complex number support and improved UTF-8 handling on Windows. This is more recent than the version typically bundled in <code>Rhdf5lib</code> (v1.12.2 as of Bioconductor 3.19).</p></li>
 <li><p><strong>Thread-Safety Enabled:</strong> <code>hdf5lib</code> builds HDF5 with thread-safety enabled, ensuring safe use with parallel R packages (like <code>RcppParallel</code>). <code>Rhdf5lib</code> does not support building with this feature.</p></li>
-<li><p><strong>Predictable Versioning and Features:</strong> The version of <code>hdf5lib</code> directly corresponds to the bundled HDF5 version (e.g., <code>hdf5lib</code> v2.0.0.x bundles HDF5 v2.0.0). This allows developers to require a minimum <code>hdf5lib</code> version to guarantee a specific HDF5 version and a consistent set of features. In contrast, <code>Rhdf5lib</code> may link against a pre-existing system library or be configured at install-time, so its package version does not guarantee which version of HDF5 is actually in use or which features are enabled.</p></li>
+<li><p><strong>Predictable Versioning and Features:</strong> The version of <code>hdf5lib</code> directly corresponds to the bundled HDF5 version (e.g., <code>hdf5lib</code> v2.1.0.x bundles HDF5 v2.1.0). This allows developers to require a minimum <code>hdf5lib</code> version to guarantee a specific HDF5 version and a consistent set of features. In contrast, <code>Rhdf5lib</code> may link against a pre-existing system library or be configured at install-time, so its package version does not guarantee which version of HDF5 is actually in use or which features are enabled.</p></li>
 </ul>
 <p><code>hdf5lib</code> is intended to be a simple and reliable provider of the HDF5 C library for any R package.</p>
 </div>

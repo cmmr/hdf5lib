@@ -27,7 +27,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">hdf5lib</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.0.0.7</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.1.0.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -44,7 +44,7 @@
 <li><a class="dropdown-item" href="../articles/api-versioning.html">API Versioning</a></li>
     <li><a class="dropdown-item" href="../articles/comparison.html">Comparison</a></li>
     <li><a class="dropdown-item" href="../articles/compression.html">Compression &amp; Filters</a></li>
-    <li><a class="dropdown-item" href="../articles/cookbook.html">Cookbook</a></li>
+    <li><a class="dropdown-item" href="../articles/integration.html">Integration Guide</a></li>
     <li><a class="dropdown-item" href="../articles/parallelism.html">Parallel Programming</a></li>
   </ul>
 </li>
@@ -83,18 +83,20 @@
 library in their own package. <code>hdf5lib</code> makes this easy by
 providing a reliable, self-contained HDF5 build that you can link to
 without requiring your users to install any system dependencies.</p>
-<p>We will walk through the three main steps to link your package to
+<p>We will walk through the four main steps to link your package to
 <code>hdf5lib</code> and then demonstrate a complete example using
 <code>Rcpp</code>.</p>
 </div>
 <div class="section level2">
-<h2 id="the-3-steps-to-link-your-package">The 3 Steps to Link Your Package<a class="anchor" aria-label="anchor" href="#the-3-steps-to-link-your-package"></a>
+<h2 id="the-4-steps-to-link-your-package">The 4 Steps to Link Your Package<a class="anchor" aria-label="anchor" href="#the-4-steps-to-link-your-package"></a>
 </h2>
 <p>To use <code>hdf5lib</code> in your package, you need to:</p>
 <ol style="list-style-type: decimal">
 <li>Declare the dependency in your <code>DESCRIPTION</code> file.</li>
 <li>Tell the compiler where to find the <code>hdf5lib</code> headers and
 libraries in a <code>src/Makevars</code> file.</li>
+<li>Manage the global filter state to initialize compression
+plugins.</li>
 <li>Include the HDF5 headers in your C/C++ code.</li>
 </ol>
 <div class="section level3">
@@ -123,27 +125,53 @@ exact strings needed.</p>
 <span id="cb2-3"><a href="#cb2-3" tabindex="-1"></a></span>
 <span id="cb2-4"><a href="#cb2-4" tabindex="-1"></a><span class="co"># Get linker flags (e.g., -L/path/to/libs -lhdf5z)</span></span>
 <span id="cb2-5"><a href="#cb2-5" tabindex="-1"></a><span class="dt">PKG_LIBS</span>     <span class="ch">=</span><span class="st"> `</span><span class="ch">$(</span><span class="dt">R_HOME</span><span class="ch">)</span><span class="st">/bin/Rscript -e "cat(hdf5lib::ld_flags(api = 2.0))"`</span></span></code></pre></div>
-<p>The <code>api</code> argument shown here offers a powerful stability
-feature. By locking your package to a specific HDF5 API version (e.g.,
-<code>api = 2.0</code>), you ensure that future updates to
-<code>hdf5lib</code> will not introduce breaking changes. This gives you
-control over when to adopt newer HDF5 features. For a detailed
-explanation of API versioning, see the <a href="api-versioning.html">API
-Versioning</a> article.</p>
 </div>
 <div class="section level3">
-<h3 id="step-3-include-hdf5-headers">Step 3: Include HDF5 Headers<a class="anchor" aria-label="anchor" href="#step-3-include-hdf5-headers"></a>
+<h3 id="step-3-manage-global-filter-state-important">Step 3: Manage Global Filter State (Important)<a class="anchor" aria-label="anchor" href="#step-3-manage-global-filter-state-important"></a>
+</h3>
+<p>To utilize the bundled compression plugins (LZ4, Zstd, Blosc, etc.),
+they must be registered with the HDF5 library. Because registering
+filters modifies global state and spins up background thread pools (via
+Blosc2), you should <strong>never</strong> register filters on a per-I/O
+basis. Instead, expose the registration functions to R and call them
+exactly once during your package’s load/unload cycle.</p>
+<p><strong>Create C Wrappers (e.g., in
+<code>src/init.c</code>):</strong></p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;Rinternals.h&gt;</span></span>
+<span id="cb3-2"><a href="#cb3-2" tabindex="-1"></a><span class="pp">#include </span><span class="im">"hdf5lib.h"</span></span>
+<span id="cb3-3"><a href="#cb3-3" tabindex="-1"></a></span>
+<span id="cb3-4"><a href="#cb3-4" tabindex="-1"></a>SEXP r_register_hdf5_filters<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb3-5"><a href="#cb3-5" tabindex="-1"></a>    hdf5lib_register_all_filters<span class="op">();</span></span>
+<span id="cb3-6"><a href="#cb3-6" tabindex="-1"></a>    <span class="cf">return</span> R_NilValue<span class="op">;</span></span>
+<span id="cb3-7"><a href="#cb3-7" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb3-8"><a href="#cb3-8" tabindex="-1"></a></span>
+<span id="cb3-9"><a href="#cb3-9" tabindex="-1"></a>SEXP r_destroy_hdf5_filters<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb3-10"><a href="#cb3-10" tabindex="-1"></a>    hdf5lib_destroy_all_filters<span class="op">();</span></span>
+<span id="cb3-11"><a href="#cb3-11" tabindex="-1"></a>    <span class="cf">return</span> R_NilValue<span class="op">;</span></span>
+<span id="cb3-12"><a href="#cb3-12" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p><strong>Hook into R Package Load (e.g., in
+<code>R/zzz.R</code>):</strong></p>
+<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">.onLoad</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">libname</span>, <span class="va">pkgname</span><span class="op">)</span> <span class="op">{</span></span>
+<span>    <span class="co"># Register plugins and spin up Blosc thread pools once per session</span></span>
+<span>    <span class="fu"><a href="https://rdrr.io/r/base/CallExternal.html" class="external-link">.Call</a></span><span class="op">(</span><span class="st">"r_register_hdf5_filters"</span>, PACKAGE <span class="op">=</span> <span class="va">pkgname</span><span class="op">)</span></span>
+<span><span class="op">}</span></span>
+<span></span>
+<span><span class="va">.onUnload</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">libpath</span><span class="op">)</span> <span class="op">{</span></span>
+<span>    <span class="co"># Cleanly tear down threads and free memory to prevent Valgrind warnings</span></span>
+<span>    <span class="fu"><a href="https://rdrr.io/r/base/CallExternal.html" class="external-link">.Call</a></span><span class="op">(</span><span class="st">"r_destroy_hdf5_filters"</span>, PACKAGE <span class="op">=</span> <span class="st">"myhdf5package"</span><span class="op">)</span></span>
+<span><span class="op">}</span></span></code></pre></div>
+</div>
+<div class="section level3">
+<h3 id="step-4-include-hdf5-headers">Step 4: Include HDF5 Headers<a class="anchor" aria-label="anchor" href="#step-4-include-hdf5-headers"></a>
 </h3>
 <p>You can now include the HDF5 headers directly in your C or C++ source
 files located in the <code>src/</code> directory.</p>
-<p>The main header is <code>&lt;hdf5.h&gt;</code>. For the high-level
-APIs (which are highly recommended), you should also include
-<code>&lt;hdf5_hl.h&gt;</code>.</p>
-<div class="sourceCode" id="cb3"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;Rcpp.h&gt;</span></span>
-<span id="cb3-2"><a href="#cb3-2" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;hdf5.h&gt;</span></span>
-<span id="cb3-3"><a href="#cb3-3" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;hdf5_hl.h&gt;</span></span>
-<span id="cb3-4"><a href="#cb3-4" tabindex="-1"></a></span>
-<span id="cb3-5"><a href="#cb3-5" tabindex="-1"></a><span class="co">// Your code using HDF5 functions goes here...</span></span></code></pre></div>
+<div class="sourceCode" id="cb5"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb5-1"><a href="#cb5-1" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;Rcpp.h&gt;</span></span>
+<span id="cb5-2"><a href="#cb5-2" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;hdf5.h&gt;</span></span>
+<span id="cb5-3"><a href="#cb5-3" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;hdf5_hl.h&gt;</span></span>
+<span id="cb5-4"><a href="#cb5-4" tabindex="-1"></a></span>
+<span id="cb5-5"><a href="#cb5-5" tabindex="-1"></a><span class="co">// Your code using HDF5 functions goes here...</span></span></code></pre></div>
 </div>
 </div>
 <div class="section level2">
@@ -153,81 +181,47 @@ APIs (which are highly recommended), you should also include
 provide one function: <code>get_hdf5_version()</code>, which calls the
 HDF5 C library and returns its version string.</p>
 <div class="section level3">
-<h3 id="package-structure">Package Structure<a class="anchor" aria-label="anchor" href="#package-structure"></a>
-</h3>
-<p>First, create a new package. You can use
-<code>Rcpp::Rcpp.package.skeleton("myhdf5package")</code> as a starting
-point. The file structure will look like this:</p>
-<pre><code>myhdf5package/
-├── DESCRIPTION
-├── NAMESPACE
-├── R/
-│   └── RcppExports.R
-├── src/
-│   ├── Makevars
-│   ├── RcppExports.cpp
-│   └── hdf5_helpers.cpp  // Our new C++ file
-└── man/</code></pre>
-</div>
-<div class="section level3">
-<h3 id="description-and-makevars">
-<code>DESCRIPTION</code> and <code>Makevars</code><a class="anchor" aria-label="anchor" href="#description-and-makevars"></a>
-</h3>
-<p>Update <code>DESCRIPTION</code> and create <code>src/Makevars</code>
-as described in Steps 1 and 2.</p>
-</div>
-<div class="section level3">
 <h3 id="c-source-code-srchdf5_helpers-cpp">C++ Source Code (<code>src/hdf5_helpers.cpp</code>)<a class="anchor" aria-label="anchor" href="#c-source-code-srchdf5_helpers-cpp"></a>
 </h3>
-<p>This file contains the C++ function that will be callable from R. It
-uses <code>H5get_libversion</code> to query the library version and
-returns it as a string.</p>
-<div class="sourceCode" id="cb5"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb5-1"><a href="#cb5-1" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;Rcpp.h&gt;</span></span>
-<span id="cb5-2"><a href="#cb5-2" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;hdf5.h&gt;</span></span>
-<span id="cb5-3"><a href="#cb5-3" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;string&gt;</span></span>
-<span id="cb5-4"><a href="#cb5-4" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;vector&gt;</span></span>
-<span id="cb5-5"><a href="#cb5-5" tabindex="-1"></a></span>
-<span id="cb5-6"><a href="#cb5-6" tabindex="-1"></a><span class="co">//' Get the version of the linked HDF5 library</span></span>
-<span id="cb5-7"><a href="#cb5-7" tabindex="-1"></a><span class="co">//'</span></span>
-<span id="cb5-8"><a href="#cb5-8" tabindex="-1"></a><span class="co">//' This function calls the HDF5 C API to retrieve the library version</span></span>
-<span id="cb5-9"><a href="#cb5-9" tabindex="-1"></a><span class="co">//' and returns it as a character string (e.g., "2.0.0").</span></span>
-<span id="cb5-10"><a href="#cb5-10" tabindex="-1"></a><span class="co">//' @export</span></span>
-<span id="cb5-11"><a href="#cb5-11" tabindex="-1"></a><span class="co">// [[Rcpp::export]]</span></span>
-<span id="cb5-12"><a href="#cb5-12" tabindex="-1"></a>Rcpp<span class="op">::</span>String get_hdf5_version<span class="op">()</span> <span class="op">{</span></span>
-<span id="cb5-13"><a href="#cb5-13" tabindex="-1"></a>    <span class="dt">unsigned</span> <span class="dt">int</span> majnum<span class="op">,</span> minnum<span class="op">,</span> relnum<span class="op">;</span></span>
-<span id="cb5-14"><a href="#cb5-14" tabindex="-1"></a></span>
-<span id="cb5-15"><a href="#cb5-15" tabindex="-1"></a>    <span class="co">// Call the HDF5 C function</span></span>
-<span id="cb5-16"><a href="#cb5-16" tabindex="-1"></a>    <span class="dt">herr_t</span> status <span class="op">=</span> H5get_libversion<span class="op">(&amp;</span>majnum<span class="op">,</span> <span class="op">&amp;</span>minnum<span class="op">,</span> <span class="op">&amp;</span>relnum<span class="op">);</span></span>
-<span id="cb5-17"><a href="#cb5-17" tabindex="-1"></a></span>
-<span id="cb5-18"><a href="#cb5-18" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(</span>status <span class="op">&lt;</span> <span class="dv">0</span><span class="op">)</span> <span class="op">{</span></span>
-<span id="cb5-19"><a href="#cb5-19" tabindex="-1"></a>        Rcpp<span class="op">::</span>stop<span class="op">(</span><span class="st">"Failed to get HDF5 library version."</span><span class="op">);</span></span>
-<span id="cb5-20"><a href="#cb5-20" tabindex="-1"></a>    <span class="op">}</span></span>
-<span id="cb5-21"><a href="#cb5-21" tabindex="-1"></a></span>
-<span id="cb5-22"><a href="#cb5-22" tabindex="-1"></a>    <span class="co">// Format the version string</span></span>
-<span id="cb5-23"><a href="#cb5-23" tabindex="-1"></a>    <span class="bu">std::</span>vector<span class="op">&lt;</span><span class="dt">char</span><span class="op">&gt;</span> version_str<span class="op">(</span><span class="dv">20</span><span class="op">);</span></span>
-<span id="cb5-24"><a href="#cb5-24" tabindex="-1"></a>    snprintf<span class="op">(</span>version_str<span class="op">.</span>data<span class="op">(),</span> version_str<span class="op">.</span>size<span class="op">(),</span> <span class="st">"</span><span class="sc">%u</span><span class="st">.</span><span class="sc">%u</span><span class="st">.</span><span class="sc">%u</span><span class="st">"</span><span class="op">,</span> majnum<span class="op">,</span> minnum<span class="op">,</span> relnum<span class="op">);</span></span>
-<span id="cb5-25"><a href="#cb5-25" tabindex="-1"></a></span>
-<span id="cb5-26"><a href="#cb5-26" tabindex="-1"></a>    <span class="cf">return</span> Rcpp<span class="op">::</span>String<span class="op">(</span>version_str<span class="op">.</span>data<span class="op">());</span></span>
-<span id="cb5-27"><a href="#cb5-27" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<div class="sourceCode" id="cb6"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb6-1"><a href="#cb6-1" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;Rcpp.h&gt;</span></span>
+<span id="cb6-2"><a href="#cb6-2" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;hdf5.h&gt;</span></span>
+<span id="cb6-3"><a href="#cb6-3" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;string&gt;</span></span>
+<span id="cb6-4"><a href="#cb6-4" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;vector&gt;</span></span>
+<span id="cb6-5"><a href="#cb6-5" tabindex="-1"></a></span>
+<span id="cb6-6"><a href="#cb6-6" tabindex="-1"></a><span class="co">//' Get the version of the linked HDF5 library</span></span>
+<span id="cb6-7"><a href="#cb6-7" tabindex="-1"></a><span class="co">//'</span></span>
+<span id="cb6-8"><a href="#cb6-8" tabindex="-1"></a><span class="co">//' @export</span></span>
+<span id="cb6-9"><a href="#cb6-9" tabindex="-1"></a><span class="co">// [[Rcpp::export]]</span></span>
+<span id="cb6-10"><a href="#cb6-10" tabindex="-1"></a>Rcpp<span class="op">::</span>String get_hdf5_version<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb6-11"><a href="#cb6-11" tabindex="-1"></a>    <span class="dt">unsigned</span> <span class="dt">int</span> majnum<span class="op">,</span> minnum<span class="op">,</span> relnum<span class="op">;</span></span>
+<span id="cb6-12"><a href="#cb6-12" tabindex="-1"></a></span>
+<span id="cb6-13"><a href="#cb6-13" tabindex="-1"></a>    <span class="co">// Call the HDF5 C function</span></span>
+<span id="cb6-14"><a href="#cb6-14" tabindex="-1"></a>    <span class="dt">herr_t</span> status <span class="op">=</span> H5get_libversion<span class="op">(&amp;</span>majnum<span class="op">,</span> <span class="op">&amp;</span>minnum<span class="op">,</span> <span class="op">&amp;</span>relnum<span class="op">);</span></span>
+<span id="cb6-15"><a href="#cb6-15" tabindex="-1"></a></span>
+<span id="cb6-16"><a href="#cb6-16" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(</span>status <span class="op">&lt;</span> <span class="dv">0</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb6-17"><a href="#cb6-17" tabindex="-1"></a>        Rcpp<span class="op">::</span>stop<span class="op">(</span><span class="st">"Failed to get HDF5 library version."</span><span class="op">);</span></span>
+<span id="cb6-18"><a href="#cb6-18" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb6-19"><a href="#cb6-19" tabindex="-1"></a></span>
+<span id="cb6-20"><a href="#cb6-20" tabindex="-1"></a>    <span class="co">// Format the version string</span></span>
+<span id="cb6-21"><a href="#cb6-21" tabindex="-1"></a>    <span class="bu">std::</span>vector<span class="op">&lt;</span><span class="dt">char</span><span class="op">&gt;</span> version_str<span class="op">(</span><span class="dv">20</span><span class="op">);</span></span>
+<span id="cb6-22"><a href="#cb6-22" tabindex="-1"></a>    snprintf<span class="op">(</span>version_str<span class="op">.</span>data<span class="op">(),</span> version_str<span class="op">.</span>size<span class="op">(),</span> <span class="st">"</span><span class="sc">%u</span><span class="st">.</span><span class="sc">%u</span><span class="st">.</span><span class="sc">%u</span><span class="st">"</span><span class="op">,</span> majnum<span class="op">,</span> minnum<span class="op">,</span> relnum<span class="op">);</span></span>
+<span id="cb6-23"><a href="#cb6-23" tabindex="-1"></a></span>
+<span id="cb6-24"><a href="#cb6-24" tabindex="-1"></a>    <span class="cf">return</span> Rcpp<span class="op">::</span>String<span class="op">(</span>version_str<span class="op">.</span>data<span class="op">());</span></span>
+<span id="cb6-25"><a href="#cb6-25" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
 </div>
 <div class="section level3">
 <h3 id="build-and-run">Build and Run<a class="anchor" aria-label="anchor" href="#build-and-run"></a>
 </h3>
 <ol style="list-style-type: decimal">
 <li>Run <code>Rcpp::compileAttributes()</code> to generate the Rcpp
-export files (<code>R/RcppExports.R</code> and
-<code>src/RcppExports.cpp</code>).</li>
-<li>Build and install your package using
-<code>devtools::install()</code> or by building a source tarball.</li>
+export files.</li>
+<li>Build and install your package.</li>
 </ol>
 <p>Now, you can use your new function from R:</p>
-<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va">myhdf5package</span><span class="op">)</span></span>
 <span><span class="fu">get_hdf5_version</span><span class="op">(</span><span class="op">)</span></span>
-<span><span class="co">#&gt; "2.0.0"</span></span></code></pre></div>
-<p>This simple example demonstrates that your package is successfully
-linking to <code>hdf5lib</code> and can call its functions. You can now
-build more complex functionality by expanding on this foundation.</p>
+<span><span class="co">#&gt; "2.1.0"</span></span></code></pre></div>
 </div>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

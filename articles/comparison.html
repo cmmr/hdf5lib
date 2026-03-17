@@ -27,7 +27,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">hdf5lib</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.0.0.7</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.1.0.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -44,7 +44,7 @@
 <li><a class="dropdown-item" href="../articles/api-versioning.html">API Versioning</a></li>
     <li><a class="dropdown-item" href="../articles/comparison.html">Comparison</a></li>
     <li><a class="dropdown-item" href="../articles/compression.html">Compression &amp; Filters</a></li>
-    <li><a class="dropdown-item" href="../articles/cookbook.html">Cookbook</a></li>
+    <li><a class="dropdown-item" href="../articles/integration.html">Integration Guide</a></li>
     <li><a class="dropdown-item" href="../articles/parallelism.html">Parallel Programming</a></li>
   </ul>
 </li>
@@ -89,9 +89,9 @@ right choice for your project.</p>
 packages.</p>
 <table class="table">
 <colgroup>
-<col width="24%">
-<col width="33%">
-<col width="42%">
+<col width="23%">
+<col width="35%">
+<col width="40%">
 </colgroup>
 <thead><tr class="header">
 <th>Feature</th>
@@ -108,26 +108,31 @@ packages.</p>
 </tr>
 <tr class="even">
 <td><strong>HDF5 Version</strong></td>
-<td>Bundled &amp; predictable (v2.0.0)</td>
+<td>Bundled &amp; predictable (v2.1.0)</td>
 <td>Variable (older bundle or system)</td>
 </tr>
 <tr class="odd">
+<td><strong>Compression Plugins</strong></td>
+<td><strong>Bundled (Blosc2, Zstd, LZ4, etc.)</strong></td>
+<td>Requires external/system libraries</td>
+</tr>
+<tr class="even">
 <td><strong>Build Type</strong></td>
 <td>Static library only</td>
 <td>Static or shared library</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td><strong>Thread-Safety</strong></td>
 <td><strong>Enabled by default</strong></td>
 <td>Not supported</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td><strong>API Version Control</strong></td>
 <td>Simple <code>api</code> flag in <code><a href="../reference/c_flags.html">c_flags()</a></code>
 </td>
 <td>Requires manual <code>-D</code> flags</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td><strong>Ecosystem</strong></td>
 <td>General purpose</td>
 <td>Primarily for the Bioconductor ecosystem</td>
@@ -142,83 +147,109 @@ packages.</p>
 <h3 id="installation-and-configuration">1. Installation and Configuration<a class="anchor" aria-label="anchor" href="#installation-and-configuration"></a>
 </h3>
 <ul>
-<li><p><strong><code>hdf5lib</code></strong> is designed for simplicity.
+<li>
+<strong><code>hdf5lib</code></strong> is designed for simplicity.
 Installation via <code>install.packages("hdf5lib")</code> is a
 “zero-config” process. It always builds its bundled HDF5 source code
-with a standard, modern feature set (including thread-safety and
-high-level APIs). This ensures a consistent and reliable build for
-downstream packages with no effort from the user.</p></li>
-<li><p><strong><code>Rhdf5lib</code></strong> is designed for
-flexibility. It provides several <code>configure</code> arguments that
-allow users to customize the HDF5 build. For example, users can choose
-to link against a system-installed HDF5 library or disable features like
-the high-level APIs. While powerful, this flexibility means that a
-downstream package developer cannot be certain which HDF5 features will
-be available on a user’s machine.</p></li>
+with a standard, modern feature set (including thread-safety, high-level
+APIs, and bundled compression filters). This ensures a consistent and
+reliable build for downstream packages with no effort from the
+user.</li>
+<li>
+<strong><code>Rhdf5lib</code></strong> is designed for flexibility.
+It provides several <code>configure</code> arguments that allow users to
+customize the HDF5 build. For example, users can choose to link against
+a system-installed HDF5 library or disable features like the high-level
+APIs. While powerful, this flexibility means that a downstream package
+developer cannot be certain which HDF5 features will be available on a
+user’s machine.</li>
 </ul>
 </div>
 <div class="section level3">
 <h3 id="hdf5-version">2. HDF5 Version<a class="anchor" aria-label="anchor" href="#hdf5-version"></a>
 </h3>
 <ul>
-<li><p><strong><code>hdf5lib</code></strong> bundles a modern version of
-HDF5 (v2.0.0). This gives developers immediate access to the latest
+<li>
+<strong><code>hdf5lib</code></strong> bundles a modern version of
+HDF5 (v2.1.0). This gives developers immediate access to the latest
 features, bug fixes, and performance improvements, such as native
-complex number support and better UTF-8 handling on Windows.</p></li>
-<li><p><strong><code>Rhdf5lib</code></strong> typically bundles an
-older, long-term support version of HDF5 that is standard across the
+complex number support and better UTF-8 handling on Windows.</li>
+<li>
+<strong><code>Rhdf5lib</code></strong> typically bundles an older,
+long-term support version of HDF5 that is standard across the
 Bioconductor ecosystem (v1.12.2 as of Bioconductor 3.19). This
 prioritizes stability within that ecosystem over access to the newest
-features.</p></li>
+features.</li>
 </ul>
 </div>
 <div class="section level3">
-<h3 id="thread-safety">3. Thread-Safety<a class="anchor" aria-label="anchor" href="#thread-safety"></a>
+<h3 id="compression-filters">3. Compression Filters<a class="anchor" aria-label="anchor" href="#compression-filters"></a>
 </h3>
 <ul>
-<li><p><strong><code>hdf5lib</code></strong> builds HDF5 with
-thread-safety enabled by default. This is a critical feature for modern
-R packages that use parallelism (e.g., via <code>RcppParallel</code>),
-as it prevents data corruption when multiple threads access an HDF5
-file. For more details, see the article on
-<a href="parallelism.html">Parallel Programming</a>.</p></li>
-<li><p><strong><code>Rhdf5lib</code></strong> does not support building
-with thread-safety enabled.</p></li>
+<li>
+<strong><code>hdf5lib</code></strong> bundles a wide array of
+state-of-the-art compression plugins directly into the package (Blosc2,
+Zstd, LZ4, Snappy, ZFP, etc.), making them universally available to any
+package linking to it without requiring system-level dependencies.</li>
+<li>
+<strong><code>Rhdf5lib</code></strong> provides standard native
+compression (gzip/szip), but leveraging modern codecs typically requires
+the user to install them externally on their system.</li>
 </ul>
 </div>
 <div class="section level3">
-<h3 id="api-version-control">4. API Version Control<a class="anchor" aria-label="anchor" href="#api-version-control"></a>
+<h3 id="thread-safety">4. Thread-Safety<a class="anchor" aria-label="anchor" href="#thread-safety"></a>
 </h3>
 <ul>
-<li><p><strong><code>hdf5lib</code></strong> provides a simple
+<li>
+<strong><code>hdf5lib</code></strong> builds HDF5 with thread-safety
+enabled by default. This is a critical feature for modern R packages
+that use parallelism (e.g., via <code>RcppParallel</code>), as it
+prevents data corruption when multiple threads access an HDF5 file. For
+more details, see the article on <a href="parallelism.html">Parallel
+Programming</a>.</li>
+<li>
+<strong><code>Rhdf5lib</code></strong> does not support building
+with thread-safety enabled.</li>
+</ul>
+</div>
+<div class="section level3">
+<h3 id="api-version-control">5. API Version Control<a class="anchor" aria-label="anchor" href="#api-version-control"></a>
+</h3>
+<ul>
+<li>
+<strong><code>hdf5lib</code></strong> provides a simple
 <code>api</code> argument in its <code><a href="../reference/c_flags.html">c_flags()</a></code> and
 <code><a href="../reference/ld_flags.html">ld_flags()</a></code> helper functions. This makes it trivial for a
 developer to lock their package to a specific HDF5 API version (e.g.,
 <code>api = 1.14</code>), ensuring that future updates to
 <code>hdf5lib</code> will not break their package. This feature is
 explained in detail in the <a href="api-versioning.html">API
-Versioning</a> article.</p></li>
-<li><p><strong><code>Rhdf5lib</code></strong> does not provide a
-dedicated mechanism for this. A developer would need to manually add the
+Versioning</a> article.</li>
+<li>
+<strong><code>Rhdf5lib</code></strong> does not provide a dedicated
+mechanism for this. A developer would need to manually add the
 appropriate <code>-D</code> flags to their <code>Makevars</code>, and
 the underlying library may not contain the symbols for all API
-versions.</p></li>
+versions.</li>
 </ul>
 </div>
 <div class="section level3">
-<h3 id="versioning-and-predictability">5. Versioning and Predictability<a class="anchor" aria-label="anchor" href="#versioning-and-predictability"></a>
+<h3 id="versioning-and-predictability">6. Versioning and Predictability<a class="anchor" aria-label="anchor" href="#versioning-and-predictability"></a>
 </h3>
 <ul>
-<li><p><strong><code>hdf5lib</code></strong> offers a predictable
+<li>
+<strong><code>hdf5lib</code></strong> offers a predictable
 dependency. The version of the <code>hdf5lib</code> package itself tells
 you the version of the underlying HDF5 C library. For example,
-<code>hdf5lib</code> version <code>2.0.0.x</code> bundles HDF5 version
-<code>2.0.0</code>. This allows a downstream package developer to
+<code>hdf5lib</code> version <code>2.1.0.x</code> bundles HDF5 version
+<code>2.1.0</code>. This allows a downstream package developer to
 specify a minimum <code>hdf5lib</code> version in their
-<code>DESCRIPTION</code> file (e.g., <code>hdf5lib (&gt;= 2.0.0)</code>)
-and be certain that they are working with at least HDF5 v2.0.0 and that
-key features like thread-safety are enabled.</p></li>
-<li><p><strong><code>Rhdf5lib</code></strong>’s package version is not
+<code>DESCRIPTION</code> file (e.g., <code>hdf5lib (&gt;= 2.1.0)</code>)
+and be certain that they are working with at least HDF5 v2.1.0 and that
+key features like thread-safety are enabled.</li>
+<li>
+<strong><code>Rhdf5lib</code></strong>’s package version is not
 correlated with the version of the HDF5 C library that is ultimately
 used. Because <code>Rhdf5lib</code> will preferentially link against an
 HDF5 library already installed on the user’s system, or use
@@ -226,32 +257,24 @@ configuration arguments passed during installation, a developer has no
 guarantee about what HDF5 version is present or what features it was
 built with. This can lead to portability issues where a package works
 for one user but fails for another who has a different HDF5
-configuration.</p></li>
+configuration.</li>
 </ul>
 </div>
 </div>
 <div class="section level2">
 <h2 id="conclusion-which-should-you-use">Conclusion: Which Should You Use?<a class="anchor" aria-label="anchor" href="#conclusion-which-should-you-use"></a>
 </h2>
-<p>Choose <strong><code>hdf5lib</code></strong> if:</p>
-<ul>
-<li>You want a simple, reliable dependency that “just works” for you and
-your users.</li>
-<li>You need modern HDF5 features.</li>
-<li>You plan to use multithreading (e.g., with
-<code>RcppParallel</code>).</li>
-<li>You want to lock your package to a specific API version for
-long-term stability.</li>
-<li>You need to guarantee a minimum HDF5 version and feature set for
-your users.</li>
-</ul>
-<p>Choose <strong><code>Rhdf5lib</code></strong> if:</p>
-<ul>
-<li>Your package is part of the Bioconductor ecosystem and you need to
-maintain strict compatibility with it.</li>
-<li>You need to link against a specific, older configuration of HDF5
-that is not met by <code>hdf5lib</code>’s default build.</li>
-</ul>
+<p>Choose <strong><code>hdf5lib</code></strong> if: * You want a simple,
+reliable dependency that “just works” for you and your users. * You need
+access to modern, state-of-the-art compression plugins out-of-the-box. *
+You plan to use multithreading (e.g., with <code>RcppParallel</code>). *
+You want to lock your package to a specific API version for long-term
+stability.</p>
+<p>Choose <strong><code>Rhdf5lib</code></strong> if: * Your package is
+part of the Bioconductor ecosystem and you need to maintain strict
+compatibility with it. * You need to link against a specific, older
+configuration of HDF5 that is not met by <code>hdf5lib</code>’s default
+build.</p>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside>

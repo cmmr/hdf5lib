@@ -27,7 +27,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">hdf5lib</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.0.0.7</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.1.0.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -44,7 +44,7 @@
 <li><a class="dropdown-item" href="../articles/api-versioning.html">API Versioning</a></li>
     <li><a class="dropdown-item" href="../articles/comparison.html">Comparison</a></li>
     <li><a class="dropdown-item" href="../articles/compression.html">Compression &amp; Filters</a></li>
-    <li><a class="dropdown-item" href="../articles/cookbook.html">Cookbook</a></li>
+    <li><a class="dropdown-item" href="../articles/integration.html">Integration Guide</a></li>
     <li><a class="dropdown-item" href="../articles/parallelism.html">Parallel Programming</a></li>
   </ul>
 </li>
@@ -100,6 +100,13 @@ same HDF5 file at the same time. To manage multi-process access, you
 must use an external mechanism like file locking (e.g., via the R
 package <code>flock</code>).
 </li>
+<br><li>
+<b>Filters and Compression:</b> If your parallel threads will be reading
+or writing compressed datasets using bundled plugins (like Blosc or
+Zstd), ensure you have registered the filters globally during package
+load (via <code>.onLoad</code>) as detailed in the Getting Started
+guide. Do not register filters inside the parallel workers.
+</li>
 </ul>
 </div>
 <p>Here is an example of a function that uses <code>RcppParallel</code>
@@ -144,7 +151,7 @@ threads, with each thread writing to a different dataset.</p>
 <span id="cb2-20"><a href="#cb2-20" tabindex="-1"></a></span>
 <span id="cb2-21"><a href="#cb2-21" tabindex="-1"></a>            <span class="dt">hid_t</span> space_id <span class="op">=</span> H5Screate_simple<span class="op">(</span><span class="dv">1</span><span class="op">,</span> dims<span class="op">,</span> NULL<span class="op">);</span></span>
 <span id="cb2-22"><a href="#cb2-22" tabindex="-1"></a>            <span class="dt">hid_t</span> dset_id <span class="op">=</span> H5Dcreate2<span class="op">(</span>file_id<span class="op">,</span> dset_name<span class="op">.</span>c_str<span class="op">(),</span> H5T_NATIVE_INT<span class="op">,</span></span>
-<span id="cb2-23"><a href="#cb2-23" tabindex="-1"></a>                                     space_id<span class="op">,</span> H5P_DEFAULT<span class="op">,</span> H5P_DEFAULT<span class="op">,</span> H5P_DEFAULT<span class="op">);</span></span>
+<span id="cb2-23"><a href="#cb2-23" tabindex="-1"></a>                                        space_id<span class="op">,</span> H5P_DEFAULT<span class="op">,</span> H5P_DEFAULT<span class="op">,</span> H5P_DEFAULT<span class="op">);</span></span>
 <span id="cb2-24"><a href="#cb2-24" tabindex="-1"></a></span>
 <span id="cb2-25"><a href="#cb2-25" tabindex="-1"></a>            <span class="cf">if</span> <span class="op">(</span>dset_id <span class="op">&gt;=</span> <span class="dv">0</span><span class="op">)</span> <span class="op">{</span></span>
 <span id="cb2-26"><a href="#cb2-26" tabindex="-1"></a>                H5Dwrite<span class="op">(</span>dset_id<span class="op">,</span> H5T_NATIVE_INT<span class="op">,</span> H5S_ALL<span class="op">,</span> H5S_ALL<span class="op">,</span> H5P_DEFAULT<span class="op">,</span> <span class="op">&amp;</span>data<span class="op">);</span></span>

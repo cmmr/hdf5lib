@@ -16,6 +16,11 @@ threads make calls to the HDF5 library simultaneously.
   multiple independent *processes* writing to the same HDF5 file at the
   same time. To manage multi-process access, you must use an external
   mechanism like file locking (e.g., via the R package `flock`).
+- **Filters and Compression:** If your parallel threads will be reading
+  or writing compressed datasets using bundled plugins (like Blosc or
+  Zstd), ensure you have registered the filters globally during package
+  load (via `.onLoad`) as detailed in the Getting Started guide. Do not
+  register filters inside the parallel workers.
 
 Here is an example of a function that uses `RcppParallel` to write to
 different datasets within the same HDF5 file in parallel.
@@ -60,7 +65,7 @@ struct H5Writer : public RcppParallel::Worker {
 
             hid_t space_id = H5Screate_simple(1, dims, NULL);
             hid_t dset_id = H5Dcreate2(file_id, dset_name.c_str(), H5T_NATIVE_INT,
-                                     space_id, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+                                        space_id, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
 
             if (dset_id >= 0) {
                 H5Dwrite(dset_id, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT, &data);

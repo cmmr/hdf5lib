@@ -27,7 +27,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">hdf5lib</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.0.0.7</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.1.0.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -44,7 +44,7 @@
 <li><a class="dropdown-item" href="../articles/api-versioning.html">API Versioning</a></li>
     <li><a class="dropdown-item" href="../articles/comparison.html">Comparison</a></li>
     <li><a class="dropdown-item" href="../articles/compression.html">Compression &amp; Filters</a></li>
-    <li><a class="dropdown-item" href="../articles/cookbook.html">Cookbook</a></li>
+    <li><a class="dropdown-item" href="../articles/integration.html">Integration Guide</a></li>
     <li><a class="dropdown-item" href="../articles/parallelism.html">Parallel Programming</a></li>
   </ul>
 </li>
@@ -117,7 +117,7 @@ multiple API versions, your code will compile and link correctly.</p>
 <p>The <code>api</code> argument accepts the following values:</p>
 <ul>
 <li>
-<code>2.0</code> (HDF5 2.0.x)</li>
+<code>2.0</code> (HDF5 2.1.x)</li>
 <li>
 <code>1.14</code> (HDF5 1.14.x)</li>
 <li>
@@ -129,8 +129,13 @@ multiple API versions, your code will compile and link correctly.</p>
 <li>
 <code>1.6</code> (HDF5 1.6.x)</li>
 </ul>
-<p>For new packages, it is generally recommended to use the latest API
-version (<code>2.0</code>) or omit the argument entirely.</p>
+<blockquote>
+<p><strong>Note:</strong> You must choose from the explicit list above.
+There is no <code>api = 2.1</code> option, as the HDF5 library does not
+utilize an <code>H5_USE_210_API_DEFAULT</code> macro internally. To
+build against the 2.1.x series, use <code>api = 2.0</code> or simply
+omit the argument.</p>
+</blockquote>
 </div>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

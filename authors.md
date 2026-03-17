@@ -28,10 +28,10 @@
   bzip2 library
 
 - **Francesc Alted**. Contributor, copyright holder.  
-  blosc2 library
+  blosc and blosc2 libraries
 
 - **Blosc Development Team**. Copyright holder.  
-  blosc2 library
+  blosc and blosc2 libraries
 
 - **Zeev Tarento**. Contributor, copyright holder.  
   csnappy library
@@ -55,7 +55,7 @@
   liblzf library
 
 - **Yann Collet**. Contributor, copyright holder.  
-  lz4 and zstd filters
+  lz4 and zstd libraries
 
 - **Lawrence Livermore National Security, LLC**. Copyright holder.  
   zfp library
@@ -72,12 +72,12 @@ Source:
 [`DESCRIPTION`](https://github.com/cmmr/hdf5lib/blob/main/DESCRIPTION)
 
 Smith D (2026). *hdf5lib: Headers and Static Libraries for 'HDF5'*. R
-package version 2.0.0.7, <https://github.com/cmmr/hdf5lib>.
+package version 2.1.0.0, <https://github.com/cmmr/hdf5lib>.
 
     @Manual{,
       title = {hdf5lib: Headers and Static Libraries for 'HDF5'},
       author = {Daniel P. Smith},
       year = {2026},
-      note = {R package version 2.0.0.7},
+      note = {R package version 2.1.0.0},
       url = {https://github.com/cmmr/hdf5lib},
     }
