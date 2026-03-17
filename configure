@@ -227,7 +227,8 @@ cd ..
 echo "--- [hdf5lib] Building ZSTD..."
 cd zstd
 
-ZSTD_FLAGS="-DZSTD_LIB_MINIFY=1 -DZSTD_LIB_DICTBUILDER=0 -DZSTD_LIB_DEPRECATED=0"
+ZSTD_FLAGS="-I. -Icommon -Icompress -Idecompress -IdictBuilder"
+ZSTD_FLAGS="$ZSTD_FLAGS -DZSTD_LIB_MINIFY=1 -DZSTD_LIB_DICTBUILDER=1 -DZSTD_LIB_DEPRECATED=0"
 ZSTD_FLAGS="$ZSTD_FLAGS -DZSTD_LEGACY_SUPPORT=0 -DZSTD_DISABLE_ASM -DZSTD_MULTITHREAD"
 if [ "$WIN" -eq 0 ]; then
   ZSTD_FLAGS="$ZSTD_FLAGS -pthread"
@@ -235,10 +236,10 @@ fi
 
 echo "  ZSTD_FLAGS: $ZSTD_FLAGS"
 
-for src in common/*.c compress/*.c decompress/*.c; do
+for src in common/*.c compress/*.c decompress/*.c dictBuilder/*.c; do
   dest=zstd_$(basename "$src" .c).o
-  echo "  c_build \$ZSTD_FLAGS -I. -Icommon -c $src -o $dest"
-  c_build $ZSTD_FLAGS -I. -Icommon -c $src -o $dest
+  echo "  c_build \$ZSTD_FLAGS -c $src -o $dest"
+  c_build $ZSTD_FLAGS -c $src -o $dest
 done
 
 cd ..
@@ -252,6 +253,7 @@ cd blosc1
 BLOSC1_FLAGS="-I../hdf5/src -I../lz4 -I../zstd -I../gzip -I../snappy -I../zfp/include -Iblosc"
 BLOSC1_FLAGS="$BLOSC1_FLAGS -DHAVE_LZ4 -DHAVE_SNAPPY -DHAVE_ZLIB -DHAVE_ZSTD -DBLOSC_STRICT_ALIGN"
 BLOSC1_FLAGS="$BLOSC1_FLAGS -Wno-unused-variable -Wno-pedantic -Wno-deprecated-declarations"
+BLOSC1_FLAGS="$BLOSC1_FLAGS -Wno-unused-but-set-variable -Wno-unused-function -Wno-attributes"
 
 # Isolate Blosc1 symbols from Blosc2 to prevent link-time collisions
 for obj in get_run_16 get_match blosclz_compress blosclz_decompress fastcopy copy_match; do
@@ -266,14 +268,6 @@ for src in blosc/*.c; do
   c_build $BLOSC1_FLAGS -c $src -o $dest
 done
 
-if [ "$WIN" -eq 1 ]; then
-  for src in blosc/win32/*.c; do
-    dest=blosc1_$(basename "$src" .c).o
-    echo "  c_build \$BLOSC1_FLAGS -c $src -o $dest"
-    c_build $BLOSC1_FLAGS -c $src -o $dest
-  done
-fi
-
 cd ..
 
 
@@ -282,9 +276,10 @@ echo "--- [hdf5lib] Building BLOSC2..."
 cd blosc2
 
 # Enable required internal codecs; Suppress compiler warnings
-BLOSC2_FLAGS="-I../lz4 -I../zstd -I../gzip -I../snappy -I../zfp/include -Iinclude -Iblosc"
-BLOSC2_FLAGS="$BLOSC2_FLAGS -DHAVE_ZSTD -DHAVE_ZLIB -DBLOSC_STRICT_ALIGN"
+BLOSC2_FLAGS="-I../lz4 -I../zstd -I../zstd/dictBuilder -I../gzip -I../snappy -I../zfp/include"
+BLOSC2_FLAGS="$BLOSC2_FLAGS -Iinclude -Iblosc -DHAVE_ZSTD -DHAVE_ZLIB -DBLOSC_STRICT_ALIGN"
 BLOSC2_FLAGS="$BLOSC2_FLAGS -Wno-unused-variable -Wno-pedantic -Wno-deprecated-declarations"
+BLOSC2_FLAGS="$BLOSC2_FLAGS -Wno-unused-but-set-variable -Wno-unused-function -Wno-attributes"
 echo "  BLOSC2_FLAGS: $BLOSC2_FLAGS"
 
 for src in blosc/*.c plugins/codecs/*/*.c ../../src/config/blosc2/*.c; do
@@ -292,11 +287,6 @@ for src in blosc/*.c plugins/codecs/*/*.c ../../src/config/blosc2/*.c; do
   echo "  c_build \$BLOSC2_FLAGS -c $src -o $dest"
   c_build $BLOSC2_FLAGS -c $src -o $dest
 done
-
-if [ "$WIN" -eq 1 ]; then
-  echo "  c_build \$BLOSC2_FLAGS -c blosc/win32/threading.c -o blosc2_threading.o"
-  c_build $BLOSC2_FLAGS -c blosc/win32/threading.c -o blosc2_threading.o
-fi
 
 cd ..
 

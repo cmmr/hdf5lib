@@ -28,7 +28,7 @@ utils::untar(
   exdir   = dirname(tarfile),
   files   = paste0(paste0("zstd-", VER, "/"), c(
     'LICENSE', 'lib/zstd.h', 'lib/zstd_errors.h',
-    'lib/common', 'lib/compress', 'lib/decompress' )))
+    'lib/common', 'lib/compress', 'lib/decompress', 'lib/dictBuilder' )))
 
 
 

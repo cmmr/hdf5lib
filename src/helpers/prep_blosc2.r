@@ -35,8 +35,7 @@ utils::untar(
         'blosc2.c', 'blosclz.c', 'blosc2-stdio.c', 'directories.c', 
         'fastcopy.c', 'stune.c', 'timestamp.c', 'schunk.c', 'frame.c', 
         'sframe.c', 'b2nd.c', 'b2nd_utils.c', 'delta.c', 'trunc-prec.c', 
-        'shuffle.c', 'shuffle-generic.c', 'bitshuffle-generic.c',
-        'win32/threading.c' )),
+        'shuffle.c', 'shuffle-generic.c', 'bitshuffle-generic.c' )),
       paste0('plugins/codecs/ndlz/', c(
         'ndlz.h', 'ndlz.c', 'ndlz-private.h', 'xxhash.h', 'xxhash.c',
         'ndlz4x4.h', 'ndlz4x4.c', 'ndlz8x8.h', 'ndlz8x8.c' )),

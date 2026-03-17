@@ -33,8 +33,7 @@ utils::untar(
       paste0('blosc/', c(
         'blosc.c', 'blosclz.c', 'fastcopy.c', 'shuffle.c', 'shuffle-generic.c', 'bitshuffle-generic.c',
         'blosc.h', 'blosc-common.h', 'blosc-comp-features.h', 'blosc-export.h', 'blosclz.h', 'fastcopy.h', 
-        'shuffle.h', 'shuffle-generic.h', 'bitshuffle-generic.h',
-        'win32/pthread.c', 'win32/pthread.h', 'win32/stdint-windows.h' ))
+        'shuffle.h', 'shuffle-generic.h', 'bitshuffle-generic.h' ))
     ))))
 
 
