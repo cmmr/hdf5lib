@@ -98,27 +98,12 @@ static herr_t visit_cb(hid_t loc_id, const char *name, const H5L_info_t *info, v
     }
 
 cleanup:
-    printf("      -> [DEBUG] cleanup: freeing buf_f/buf_i... "); 
-    fflush(stdout);
-    
     /* Hard nullification to prevent double free risks */
     if (buf_f) { free(buf_f); buf_f = NULL; }
     if (buf_i) { free(buf_i); buf_i = NULL; }
-    
-    printf("DONE.\n"); 
-    fflush(stdout);
 
-    printf("      -> [DEBUG] cleanup: closing type... "); 
-    fflush(stdout);
     if (type >= 0) H5Tclose(type);
-    printf("DONE.\n"); 
-    fflush(stdout);
-
-    printf("      -> [DEBUG] cleanup: closing dset... "); 
-    fflush(stdout);
     if (dset >= 0) H5Dclose(dset);
-    printf("DONE.\n"); 
-    fflush(stdout);
 
     return 0;
 }

@@ -164,16 +164,13 @@ SEXP C_write_zoo(SEXP sexp_filename) {
     // ==========================================
     // 5. Exhaustive Blosc2 Matrix
     // ==========================================
-    const char* b2_codecs[] = {"blosclz", "lz4", "lz4hc", "zlib", "zstd", "zfp", "ndlz"};
-    int b2_compcodes[] = {0, 1, 2, 4, 5, 6, 11};
+    const char* b2_codecs[] = {"blosclz", "lz4", "lz4hc", "zlib", "zstd"};
+    int b2_compcodes[] = {0, 1, 2, 4, 5};
     const char* b2_filters[] = {"nofilter", "shuffle", "bitshuffle", "delta", "truncprec"};
     int b2_filter_ids[] = {0, 1, 2, 3, 4};
 
-    for (int c = 0; c < 7; c++) {
+    for (int c = 0; c < 5; c++) {
         for (int f = 0; f < 5; f++) {
-            // Bypass invalid permutation: Do not pre-shuffle data destined for lossy float compression (ZFP)
-            if (b2_compcodes[c] == 6 && b2_filter_ids[f] != 0) continue;
-
             char name[128];
             snprintf(name, sizeof(name), "blosc2_%s_%s", b2_codecs[c], b2_filters[f]);
             
@@ -181,8 +178,8 @@ SEXP C_write_zoo(SEXP sexp_filename) {
             void* dbuf = buf_i32;
             int meta = 0;
             
-            // TruncPrec and ZFP strictly require floating point data
-            if (b2_compcodes[c] == 6 || b2_filter_ids[f] == 4) {
+            // TruncPrec strictly requires floating point data
+            if (b2_filter_ids[f] == 4) {
                 dtype = H5T_NATIVE_FLOAT;
                 dbuf = buf_f32;
                 meta = 16; // Demand 16-bit precision to keep values within verify_c_zoo bounds

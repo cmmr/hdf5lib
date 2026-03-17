@@ -30,18 +30,11 @@ def main():
         sys.exit(1)
 
     passed_tests = 0
-    
-    # Pre-calculate actual total to avoid counting skipped datasets in the denominator
-    valid_datasets = [n for n in f.keys() if "ndlz" not in n]
-    total_datasets = len(valid_datasets)
+    total_datasets = len(f.keys())
 
     print(f"\n--- Verifying {total_datasets} datasets in {FILENAME} ---")
     
     for name in f.keys():
-        if "ndlz" in name:
-            print(f"[{name: <25}] -> Skipping (Unsupported by Python hdf5plugin)")
-            continue
-
         dset = f[name]
         print(f"[{name: <25}] -> Reading... ", end="")
         sys.stdout.flush()

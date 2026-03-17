@@ -146,15 +146,9 @@ static size_t bshuf_filter(
     }
     
     size_t num_elems = nbytes_uncomp / elem_size;
-    
-    printf("\n      -> [BSHUF DEBUG] Allocating %zu bytes for %zu elems... ", nbytes_uncomp, num_elems);
-    fflush(stdout);
 
     void *out_buf = H5allocate_memory(nbytes_uncomp, 0);
     if (!out_buf) PUSH_ERR("bshuf_filter: Memory allocation failed");
-
-    printf("DONE.\n      -> [BSHUF DEBUG] Decompressing algo %d... ", comp_algo);
-    fflush(stdout);
 
     int64_t err = -1;
     if (comp_algo == BSHUF_H5_COMPRESS_LZ4) {
@@ -165,23 +159,14 @@ static size_t bshuf_filter(
       err = bshuf_bitunshuffle(in_buf, out_buf, num_elems, elem_size, block_size);
     }
 
-    printf("DONE (err code: %lld).\n", (long long)err);
-    fflush(stdout);
-
     if (err < 0) {
       H5free_memory(out_buf);
       PUSH_ERR("bshuf_filter: Bitshuffle decompression failed");
     }
 
-    printf("      -> [BSHUF DEBUG] Freeing input buffer and returning... ");
-    fflush(stdout);
-
     H5free_memory(*buf);
     *buf = out_buf;
     *buf_size = nbytes_uncomp;
-    
-    printf("DONE.\n");
-    fflush(stdout);
     
     return nbytes_uncomp;
   }
