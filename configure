@@ -220,7 +220,7 @@ for src in src/*.c; do
   c_build $ZFP_FLAGS -c $src -o $dest
 done
 
-cp -r include/*.h .
+cp -r include/* .
 cd ..
 
 
