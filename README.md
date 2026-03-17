@@ -177,7 +177,7 @@ The [`Rhdf5lib`](https://doi.org/doi:10.18129/B9.bioc.Rhdf5lib) package also pro
 
 ## **License**
 
-The `hdf5lib` package itself is available under the MIT license. The bundled HDF5, zlib, LZ4, Zstandard, and libaec libraries are available under their own permissive licenses, as detailed in [inst/COPYRIGHTS](https://github.com/cmmr/hdf5lib/blob/main/inst/COPYRIGHTS).
+The `hdf5lib` package itself is available under the MIT license. The bundled HDF5, zlib-ng, libaec, Bzip2, LZF, LZ4, Zstandard, Snappy, Bitshuffle, ZFP, Blosc, and Blosc2 libraries are available under their own permissive licenses, as detailed in [inst/COPYRIGHTS](https://github.com/cmmr/hdf5lib/blob/main/inst/COPYRIGHTS).
 
 *(Note: Only the HDF5 library headers are exposed).*
 
