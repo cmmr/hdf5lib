@@ -1,0 +1,12 @@
+diff -ru src/c-blosc2-orig/blosc/blosc2-stdio.c src/c-blosc2-2.23.1/blosc/blosc2-stdio.c
+--- src/c-blosc2-orig/blosc/blosc2-stdio.c	2026-03-03 09:50:48.000000000 +0000
++++ src/c-blosc2-2.23.1/blosc/blosc2-stdio.c	2026-03-17 23:42:02.200668400 +0000
+@@ -93,7 +93,7 @@
+ }
+ 
+ #if defined(_WIN32)
+-void _print_last_error() {
++void _print_last_error(void) {
+     DWORD last_error = GetLastError();
+     if(last_error == 0) {
+         return;
