@@ -70,10 +70,9 @@ case " $R_CFLAGS " in
 esac
 
 # Mimic CRAN's pedantic mode
-case " $R_CFLAGS " in
-  *"-pedantic"*) R_CFLAGS="$R_CFLAGS" ;;
-  *)             R_CFLAGS="$R_CFLAGS -pedantic -Wstrict-prototypes -Wall" ;;
-esac
+if [ "$NOT_CRAN" = "true" ]; then
+  R_CFLAGS="$R_CFLAGS -pedantic -Wstrict-prototypes -Wall -Werror"
+fi
 
 # Suppress Clang's noisy GNU extension warnings for Blosc2 headers
 # (macOS often aliases 'gcc' to 'clang', so we check the version output)
