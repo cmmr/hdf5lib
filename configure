@@ -69,6 +69,12 @@ case " $R_CFLAGS " in
   *)       R_CFLAGS="$R_CFLAGS -O2" ;;
 esac
 
+# Mimic CRAN's pedantic mode
+case " $R_CFLAGS " in
+  *"-pedantic"*) R_CFLAGS="$R_CFLAGS" ;;
+  *)             R_CFLAGS="$R_CFLAGS -pedantic -Wstrict-prototypes -Wall" ;;
+esac
+
 # Suppress Clang's noisy GNU extension warnings for Blosc2 headers
 # (macOS often aliases 'gcc' to 'clang', so we check the version output)
 if "$R_CC" --version 2>&1 | grep -qi "clang"; then
