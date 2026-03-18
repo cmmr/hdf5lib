@@ -1,0 +1,12 @@
+diff -ru src/hdf5-orig/src/H5RTpkg.h src/hdf5-2.1.0/src/H5RTpkg.h
+--- src/hdf5-orig/src/H5RTpkg.h	2026-03-02 18:45:35.000000000 +0000
++++ src/hdf5-2.1.0/src/H5RTpkg.h	2026-03-18 15:43:17.369221900 +0000
+@@ -33,7 +33,7 @@
+ typedef struct H5RT_node_t H5RT_node_t;
+ 
+ /* Internal node of the r-tree */
+-typedef struct H5RT_node_t {
++struct H5RT_node_t {
+     hsize_t min[H5S_MAX_RANK]; /* Invalid for root node */
+     hsize_t max[H5S_MAX_RANK]; /* Invalid for root node */
+     union {

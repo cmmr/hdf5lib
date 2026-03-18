@@ -53,6 +53,7 @@ jobs:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
       R_KEEP_PKG_SOURCE: no
       NOT_CRAN: true
+      USE_STRICT_FLAGS: true
 
     steps:
       - uses: actions/checkout@v4

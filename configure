@@ -84,25 +84,29 @@ for flag in $R_CFLAGS; do
   esac
 done
 
-# Mimic CRAN's pedantic mode
-STRICT_FLAGS=""
-if [ "$NOT_CRAN" = "true" ]; then
-  STRICT_FLAGS="-pedantic -Wstrict-prototypes -Wall -Werror"
-fi
-
 
 # Construct final flags
 export CC="$R_CC"
 export AR="$R_AR"
 export CFLAGS="$R_CFLAGS $R_CPICFLAGS -DNDEBUG -I../lib $R_CPPFLAGS"
 
+# Mimic CRAN's strict syntax checking when calling gcc/clang directly
+if [ "$USE_STRICT_FLAGS" = "true" ]; then
+  for flag in -pedantic -Wstrict-prototypes -Wall -Werror; do
+    case " $R_CFLAGS " in
+      *" $flag "*) R_CFLAGS="$R_CFLAGS" ;;
+      *)           R_CFLAGS="$R_CFLAGS $flag" ;;
+    esac
+  done
+fi
+
 # Use shell function instead of string variable to safely inject 
 # local package flags BEFORE the system R_CPPFLAGS. This prevents 
 # global system libraries from shadowing our bundled headers.
 c_build() {
-  $R_CC $R_CFLAGS $R_CPICFLAGS $STRICT_FLAGS -DNDEBUG -I../lib "$@" $R_CPPFLAGS
+  $R_CC $R_CFLAGS $R_CPICFLAGS -DNDEBUG -I../lib "$@" $R_CPPFLAGS
 }
-echo "  c_build: $R_CC $R_CFLAGS $R_CPICFLAGS $STRICT_FLAGS -DNDEBUG -I../lib \"\$@\" $R_CPPFLAGS"
+echo "  c_build: $R_CC $R_CFLAGS $R_CPICFLAGS -DNDEBUG -I../lib \"\$@\" $R_CPPFLAGS"
 
 
 # 4. Set up build directory and vars -------------------------------------------
@@ -166,10 +170,13 @@ cd ..
 echo "--- [hdf5lib] Building SNAPPY (csnappy)..."
 cd snappy
 
+SNAPPY_FLAGS=" -I.-Wno-constant-logical-operand"
+echo "  SNAPPY_FLAGS: $SNAPPY_FLAGS"
+
 for src in *.c; do
   dest=snappy_$(basename "$src" .c).o
-  echo "  c_build -I. -c $src -o $dest"
-  c_build -I. -c $src -o $dest
+  echo "  c_build \$SNAPPY_FLAGS -c $src -o $dest"
+  c_build $SNAPPY_FLAGS -c $src -o $dest
 done
 
 cp ../../src/config/snappy/snappy-c.h .
