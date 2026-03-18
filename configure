@@ -170,7 +170,7 @@ cd ..
 echo "--- [hdf5lib] Building SNAPPY (csnappy)..."
 cd snappy
 
-SNAPPY_FLAGS=" -I.-Wno-constant-logical-operand"
+SNAPPY_FLAGS="-I. -Wno-constant-logical-operand"
 echo "  SNAPPY_FLAGS: $SNAPPY_FLAGS"
 
 for src in *.c; do
