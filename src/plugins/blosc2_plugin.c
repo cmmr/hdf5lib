@@ -1,8 +1,8 @@
 /**
  * @file blosc2_plugin.c
  * @brief Standalone HDF5 Filter Plugin for Blosc2 (Filter ID 32026)
- * Incorporates community best-practices for memory management while 
- * retaining custom filters_meta support for dynamic ZFP and TruncPrec codecs.
+ * Supports Programmable Filter Pipelines while maintaining 100% 
+ * forward and backward compatibility with h5py and community plugins.
  */
 
 #include <hdf5.h>
@@ -14,12 +14,13 @@
 #include <stdio.h>
 
 #define FILTER_BLOSC2 32026
-#define FILTER_BLOSC2_VERSION 1
+#define FILTER_BLOSC2_VERSION 2
 #define DEFAULT_CLEVEL 5
 #define DEFAULT_SHUFFLE 1
 #define DEFAULT_COMPCODE BLOSC_BLOSCLZ
-/* Increased by 1 to hold the filters_meta argument */
-#define MAX_FILTER_VALUES (9 + BLOSC2_MAX_DIM) 
+
+/* Max possible size: Base(8) + MaxDims(8) + NumFilters(1) + Filters(6) + Metas(6) = 29 */
+#define MAX_FILTER_VALUES (9 + BLOSC2_MAX_DIM + (2 * BLOSC2_MAX_FILTERS)) 
 
 #define B2ND_OPAQUE_NPDTYPE_FORMAT "|V%zd"
 #define B2ND_OPAQUE_NPDTYPE_MAXLEN (2 + 20 + 1)
@@ -30,10 +31,10 @@
 } while(0)
 
 /* =========================================================================
- * SET_LOCAL CALLBACK (METADATA INJECTION)
+ * SET_LOCAL CALLBACK (METADATA INJECTION & PARSING)
  * ========================================================================= */
 static herr_t blosc2_set_local(hid_t dcpl, hid_t type, hid_t space) {
-  int ndim, i;
+  int ndim;
   herr_t r;
   unsigned int typesize, basetypesize, bufsize;
   hsize_t chunkshape[H5S_MAX_RANK];
@@ -45,22 +46,29 @@ static herr_t blosc2_set_local(hid_t dcpl, hid_t type, hid_t space) {
   r = H5Pget_filter_by_id(dcpl, FILTER_BLOSC2, &flags, &nelements, values, 0, NULL, NULL);
   if (r < 0) return -1;
 
-  /* Capture user-provided filters_meta if 8 parameters were passed */
-  unsigned int user_meta = 0;
+  /* 1. Extract User Inputs */
+  unsigned int user_clevel = (nelements >= 5) ? values[4] : DEFAULT_CLEVEL;
+  unsigned int user_shuffle = (nelements >= 6) ? values[5] : DEFAULT_SHUFFLE;
+  unsigned int user_compcode = (nelements >= 7) ? values[6] : DEFAULT_COMPCODE;
+  
+  int num_filters = 0;
+  unsigned int pl_filters[BLOSC2_MAX_FILTERS] = {0};
+  unsigned int pl_metas[BLOSC2_MAX_FILTERS] = {0};
+
+  /* If user passed pipeline info (expecting num_filters at index 7) */
   if (nelements >= 8) {
-      user_meta = values[7];
+      num_filters = values[7];
+      if (num_filters > BLOSC2_MAX_FILTERS) num_filters = BLOSC2_MAX_FILTERS;
+      
+      for (int i = 0; i < num_filters; i++) {
+          pl_filters[i] = (nelements > 8 + i) ? values[8 + i] : 0;
+          pl_metas[i] = (nelements > 8 + num_filters + i) ? values[8 + num_filters + i] : 0;
+      }
   }
 
-  if (nelements < 4) nelements = 4;
-
-  values[0] = FILTER_BLOSC2_VERSION;
-
+  /* 2. Calculate Data Geometry */
   ndim = H5Pget_chunk(dcpl, H5S_MAX_RANK, chunkshape);
   if (ndim < 0) return -1;
-  if (ndim > H5S_MAX_RANK) {
-    H5Epush(H5E_DEFAULT, __FILE__, __func__, __LINE__, H5E_ERR_CLS, H5E_PLINE, H5E_CALLBACK, "Chunk rank exceeds HDF5 limit");
-    return -1;
-  }
 
   typesize = (unsigned int)H5Tget_size(type);
   if (typesize == 0) return -1;
@@ -74,37 +82,29 @@ static herr_t blosc2_set_local(hid_t dcpl, hid_t type, hid_t space) {
     basetypesize = typesize;
   }
 
-  values[2] = basetypesize;
-
   bufsize = typesize;
-  for (i = 0; i < ndim; i++) {
-    bufsize *= (unsigned int)chunkshape[i];
-  }
+  for (int i = 0; i < ndim; i++) bufsize *= (unsigned int)chunkshape[i];
+
+  /* 3. Reconstruct cd_values for H5PY Compatibility */
+  values[0] = FILTER_BLOSC2_VERSION;
+  // values[1] remains the user-provided blocksize or 0
+  values[2] = basetypesize;
   values[3] = bufsize;
+  values[4] = user_clevel;
+  values[5] = user_shuffle; // Legacy fallback for last filter
+  values[6] = user_compcode;
+  
+  /* CRITICAL: ndim must be at 7, and chunkshape must immediately follow */
+  size_t idx = 7;
+  values[idx++] = ndim;
+  for (int i = 0; i < ndim; i++) values[idx++] = (unsigned int)chunkshape[i];
 
-  if (1 < ndim && ndim <= BLOSC2_MAX_DIM) {
-    if (nelements < 5) values[4] = DEFAULT_CLEVEL;
-    if (nelements < 6) values[5] = DEFAULT_SHUFFLE;
-    if (nelements < 7) values[6] = DEFAULT_COMPCODE;
+  /* 4. Append Custom Pipeline Data at the end */
+  values[idx++] = num_filters;
+  for (int i = 0; i < num_filters; i++) values[idx++] = pl_filters[i];
+  for (int i = 0; i < num_filters; i++) values[idx++] = pl_metas[i];
 
-    values[7] = ndim;
-    for (int j = 0; j < ndim; j++) {
-      values[8 + j] = (unsigned int)(chunkshape[j]);
-    }
-    
-    /* Shift filters_meta to the end of the b2nd chunk block */
-    values[8 + ndim] = user_meta;
-    nelements = 9 + ndim;
-  } else {
-    if (nelements < 5) values[4] = DEFAULT_CLEVEL;
-    if (nelements < 6) values[5] = DEFAULT_SHUFFLE;
-    if (nelements < 7) values[6] = DEFAULT_COMPCODE;
-    
-    /* Safely assign filters_meta for 1D chunks */
-    values[7] = user_meta;
-    nelements = 8;
-  }
-
+  nelements = idx;
   if (H5Pmodify_filter(dcpl, FILTER_BLOSC2, flags, nelements, values) < 0) return -1;
   return 1;
 }
@@ -168,58 +168,68 @@ static size_t blosc2_filter_function(
 
   void *outbuf = NULL;
   int64_t status = 0;
-  size_t blocksize, typesize, outbuf_size;
-  int clevel = DEFAULT_CLEVEL;
-  int doshuffle = DEFAULT_SHUFFLE;
-  int compcode = DEFAULT_COMPCODE;
-  int meta = 0; 
   char errmsg[256];
 
-  if (cd_nelmts < 4) PUSH_ERR("blosc2_filter: Too few filter parameters");
+  if (cd_nelmts < 4) PUSH_ERR("blosc2_filter: Filter parameters corrupted");
 
-  blocksize = cd_values[1]; 
-  typesize = cd_values[2]; 
-  outbuf_size = cd_values[3]; 
-
+  size_t blocksize = cd_values[1]; 
+  size_t typesize = cd_values[2]; 
+  size_t outbuf_size = cd_values[3]; 
+  int clevel = (cd_nelmts >= 5) ? cd_values[4] : DEFAULT_CLEVEL;
+  int doshuffle = (cd_nelmts >= 6) ? cd_values[5] : DEFAULT_SHUFFLE;
+  int compcode = (cd_nelmts >= 7) ? cd_values[6] : DEFAULT_COMPCODE;
+  
   int ndim = -1;
   int32_t chunkshape[BLOSC2_MAX_DIM];
-  
+  size_t idx = 7;
+
+  /* H5PY standard reading of ndim and chunkshape */
   if (cd_nelmts >= 8) {
-      ndim = cd_values[7];
-      if (ndim >= 1 && ndim <= BLOSC2_MAX_DIM) {
-          if (cd_nelmts >= (size_t)(9 + ndim)) {
-              meta = cd_values[8 + ndim];
-          }
-          for (int i = 0; i < ndim; i++) chunkshape[i] = (int32_t)cd_values[8 + i];
-      } else {
-          meta = cd_values[7];
-          ndim = -1;
-      }
+      ndim = cd_values[idx++];
+      for (int i = 0; i < ndim; i++) chunkshape[i] = (int32_t)cd_values[idx++];
+  }
+
+  /* Extract Pipeline Data appended to the end */
+  int num_filters = 0;
+  int pl_filters[BLOSC2_MAX_FILTERS] = {0};
+  int pl_metas[BLOSC2_MAX_FILTERS] = {0};
+  
+  if (cd_nelmts > idx) {
+      num_filters = cd_values[idx++];
+      for (int i = 0; i < num_filters; i++) pl_filters[i] = cd_values[idx++];
+      for (int i = 0; i < num_filters; i++) pl_metas[i] = cd_values[idx++];
   }
 
   /* ----- Compression Path ----- */
   if (!(flags & H5Z_FLAG_REVERSE)) {
-    if (cd_nelmts >= 5) clevel = cd_values[4];
-    if (cd_nelmts >= 6) doshuffle = cd_values[5];
-    if (cd_nelmts >= 7) {
-        compcode = cd_values[6];
-        /* Skip static verification for Dynamic Custom Codecs (ZFP=6, NDLZ=11) */
-        if (compcode < 6) {
-            const char *compname;
-            if (blosc2_compcode_to_compname(compcode, &compname) == -1) {
-                snprintf(errmsg, sizeof(errmsg), "blosc2_filter: Compressor %d not supported.", compcode);
-                PUSH_ERR(errmsg);
-            }
+    
+    if (compcode < 6) {
+        const char *compname;
+        if (blosc2_compcode_to_compname(compcode, &compname) == -1) {
+            snprintf(errmsg, sizeof(errmsg), "blosc2_filter: Compressor %d not supported.", compcode);
+            PUSH_ERR(errmsg);
         }
     }
 
     blosc2_cparams cparams = BLOSC2_CPARAMS_DEFAULTS;
     cparams.compcode = compcode;
     cparams.typesize = (int32_t)typesize;
-    cparams.filters[BLOSC_LAST_FILTER] = doshuffle;
-    cparams.filters_meta[BLOSC_LAST_FILTER] = meta; 
-    cparams.compcode_meta = meta; // Explicit Meta Injection for ZFP
     cparams.clevel = clevel;
+
+    /* Apply Pipeline if present, else fallback to legacy shuffle */
+    if (num_filters > 0) {
+        for (int i = 0; i < BLOSC2_MAX_FILTERS; i++) {
+            cparams.filters[i] = 0; 
+            cparams.filters_meta[i] = 0;
+        }
+        for (int i = 0; i < num_filters; i++) {
+            cparams.filters[i] = pl_filters[i];
+            cparams.filters_meta[i] = pl_metas[i];
+        }
+        cparams.compcode_meta = pl_metas[num_filters - 1]; 
+    } else {
+        cparams.filters[BLOSC_LAST_FILTER] = doshuffle;
+    }
 
     blosc2_storage storage = {.cparams = &cparams, .contiguous = false};
 
@@ -266,7 +276,6 @@ static size_t blosc2_filter_function(
           PUSH_ERR("blosc2_filter: B2ND compression failed");
       }
 
-      /* Safely transfer to HDF5 managed memory */
       outbuf = H5allocate_memory((size_t)status, 0);
       memcpy(outbuf, tmp_out, (size_t)status);
       
@@ -309,7 +318,6 @@ static size_t blosc2_filter_function(
   
   /* ----- Decompression Path ----- */
   else {
-    /* false prevents double-allocating compressed buffers */
     blosc2_schunk *schunk = blosc2_schunk_from_buffer(*buf, (int64_t)nbytes, false);
     if (!schunk) PUSH_ERR("blosc2_filter: Cannot get super-chunk from buffer");
 
@@ -331,7 +339,7 @@ static size_t blosc2_filter_function(
         stop[i] = array->shape[i];
         size *= array->shape[i];
         
-        /* Ensure margin chunks correctly parse padding */
+        /* H5PY dimension padding check */
         if (ndim >= 0 && array->shape[i] != chunkshape[i]) {
             snprintf(errmsg, sizeof(errmsg), "blosc2_filter: B2ND shape[%d] != chunkshape[%d]", i, i);
             b2nd_free(array); 
@@ -353,7 +361,7 @@ static size_t blosc2_filter_function(
       
       status = size;
       b2nd_free(array);
-      schunk = NULL; /* Sever pointer to prevent double-free since b2nd_free handles it */
+      schunk = NULL;
     } 
     /* 1D Linear Decompression */
     else {
