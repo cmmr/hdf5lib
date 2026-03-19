@@ -3,6 +3,7 @@
  * @brief Standalone HDF5 Filter Plugin for Blosc2 (Filter ID 32026)
  * Supports Programmable Filter Pipelines while maintaining 100% 
  * forward and backward compatibility with h5py and community plugins.
+ * * Includes ZFP Safety Overrides to prevent bit-corruption from pre-filters.
  */
 
 #include <hdf5.h>
@@ -229,6 +230,21 @@ static size_t blosc2_filter_function(
         cparams.compcode_meta = pl_metas[num_filters - 1]; 
     } else {
         cparams.filters[BLOSC_LAST_FILTER] = doshuffle;
+        /* Single-filter meta usually passed in cd_values[7], but we leave compcode_meta 
+           untouched here as our set_local strictly parses it for pipelines. */
+    }
+
+    /* ==========================================================
+     * ZFP SAFETY OVERRIDE
+     * ZFP performs lossy compression directly on numerical values.
+     * If bytes are shuffled before ZFP, it compresses the rearranged 
+     * byte stream, causing catastrophic bit-level corruption.
+     * We forcibly wipe all pre-filters if a ZFP codec is detected.
+     * ========================================================== */
+    if (compcode == 33 || compcode == 34 || compcode == 35) {
+        for (int i = 0; i < BLOSC2_MAX_FILTERS; i++) {
+            cparams.filters[i] = 0; /* BLOSC_NOSHUFFLE */
+        }
     }
 
     blosc2_storage storage = {.cparams = &cparams, .contiguous = false};

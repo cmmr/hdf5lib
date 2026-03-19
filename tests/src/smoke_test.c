@@ -426,9 +426,10 @@ SEXP C_smoke_test(SEXP sexp_filename) {
     {"blosc2_snappy",H5Z_FILTER_BLOSC2, 7, {0, 0, 0, 0, 5, 1, 3},         TEST_ALL},
     {"blosc2_zlib", H5Z_FILTER_BLOSC2,  7, {0, 0, 0, 0, 5, 1, 4},         TEST_ALL},
     {"blosc2_zstd", H5Z_FILTER_BLOSC2,  7, {0, 0, 0, 0, 5, 1, 5},         TEST_ALL},
-    /* Safely updated prefilter for ZFP below to 0 (nofilter) to avoid bit corruption */
-    {"blosc2_zfp",  H5Z_FILTER_BLOSC2,  7, {0, 0, 0, 0, 5, 0, 6},         TEST_NUMERIC_ONLY}, 
     {"blosc2_ndlz", H5Z_FILTER_BLOSC2,  7, {0, 0, 0, 0, 5, 1, 11},        TEST_ALL},
+    {"b2_zfp_acc",  H5Z_FILTER_BLOSC2,  8, {0, 0, 0, 0, 5, 0, 33, 3},     TEST_NUMERIC_ONLY}, /* Accuracy: 10^-3 tolerance */
+    {"b2_zfp_prec", H5Z_FILTER_BLOSC2,  8, {0, 0, 0, 0, 5, 0, 34, 16},    TEST_NUMERIC_ONLY}, /* Precision: 16 bit-planes */
+    {"b2_zfp_rate", H5Z_FILTER_BLOSC2,  8, {0, 0, 0, 0, 5, 0, 35, 8},     TEST_NUMERIC_ONLY}, /* Rate: 8 bits per value */
     
     /* Blosc2 Programmable Filter Pipeline (Delta -> Bitshuffle -> Zstd) */
     {"blosc2_pipe", H5Z_FILTER_BLOSC2, 12, {0, 0, 0, 0, 5, 2, 5, 2, 3, 2, 0, 0}, TEST_ALL}
