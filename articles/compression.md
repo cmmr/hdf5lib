@@ -18,6 +18,7 @@ requirements of HDF5 compression:
     be stored in “chunks.” You must define a chunk size for your dataset
     using `H5Pset_chunk()`. Applying a filter to a contiguous dataset
     will fail.
+
 2.  **Filter Registration (Plugins Only):** If you are using any of the
     bundled plugins (Zstd, LZ4, Blosc, etc.), they must be registered
     globally in your R session. You should do this exactly once during
@@ -146,6 +147,13 @@ internal thread pools to compress blocks of data in parallel. Data
 written via the Blosc2 plugin in `hdf5lib` is fully interoperable with
 the Python `h5py` ecosystem.
 
+A major upgrade in Blosc2 is the **Programmable Filter Pipeline**, which
+allows you to chain up to 6 distinct pre-filters (e.g., Delta followed
+by Bitshuffle) before the data hits the final compressor. Our plugin
+implementation is uniquely engineered to pack these complex pipelines
+into HDF5 safely, ensuring the resulting dataset remains 100% decodable
+by standard `h5py` and community plugins.
+
 > **Warning on ZFP and Pre-filters:** If you choose ZFP as the internal
 > Blosc2 codec (`cd_values[6]=6`), you **must** set the pre-filter to
 > `0` (nofilter). Pre-filters like Shuffle or Bitshuffle rearrange the
@@ -154,6 +162,11 @@ the Python `h5py` ecosystem.
 > When these lossily-altered bits are later unshuffled, it results in
 > catastrophic bit-level corruption, introducing what amounts to random
 > bit flips in your original numbers.
+
+#### Standard (Single Filter) Format
+
+If you only need one pre-filter, use the standard 8-element
+configuration:
 
 - **Filter ID:** `32026`
 - **Elements (`cd_nelmts`):** 8
@@ -171,6 +184,45 @@ the Python `h5py` ecosystem.
 // Blosc2 using Zstd (level 5) and the Bitshuffle pre-filter
 unsigned int cd_values[8] = { 0, 0, 0, 0, 5, 2, 5, 0 }; 
 H5Pset_filter(plist_id, 32026, H5Z_FLAG_MANDATORY, 8, cd_values);
+```
+
+#### Multi-Filter Pipeline Format
+
+To chain multiple pre-filters, expand the `cd_values` array. The plugin
+will automatically parse this array and dynamically translate it during
+dataset creation to preserve strict `h5py` layout compatibility.
+
+- **Elements (`cd_nelmts`):** `8 + (2 * N)`, where `N` is the number of
+  filters.
+- **`cd_values[0-3]`:** Reserved (Pass `0`).
+- **`cd_values[4]`:** Compression level (`0` to `9`).
+- **`cd_values[5]`:** Legacy fallback pre-filter (Typically matches your
+  last filter, e.g., `2` for bitshuffle. Required for legacy fallback).
+- **`cd_values[6]`:** Compressor ID.
+- **`cd_values[7]`:** Number of pipeline filters `N` (maximum of 6).
+- **`cd_values[8 ... 8+N-1]`:** The sequence of Filter IDs (e.g., `3`
+  for Delta, then `2` for Bitshuffle).
+- **`cd_values[8+N ... 8+2N-1]`:** Metadata for each respective filter
+  (usually `0`).
+
+``` c
+// Blosc2 Pipeline: Delta -> Bitshuffle -> Zstd (level 5)
+unsigned int cd_pipeline[12] = {0};
+cd_pipeline[4] = 5; // Compression level
+cd_pipeline[5] = 2; // Legacy fallback (Bitshuffle)
+cd_pipeline[6] = 5; // Compressor (Zstd)
+
+cd_pipeline[7] = 2; // Number of pipeline filters
+
+// Filter IDs
+cd_pipeline[8] = 3; // Filter 1: Delta
+cd_pipeline[9] = 2; // Filter 2: Bitshuffle
+
+// Filter Metadata
+cd_pipeline[10] = 0; // Meta for Delta
+cd_pipeline[11] = 0; // Meta for Bitshuffle
+
+H5Pset_filter(plist_id, 32026, H5Z_FLAG_MANDATORY, 12, cd_pipeline);
 ```
 
 ### 8. ZFP
@@ -260,6 +312,7 @@ necessary flags to enable this feature.
 
 1.  **Install the Filter:** The user obtains and installs the desired
     filter plugin (`.so`, `.dylib`, or `.dll` files).
+
 2.  **Set the Plugin Path:** The user must tell the HDF5 library where
     to find the installed plugins by setting the `HDF5_PLUGIN_PATH`
     environment variable.
