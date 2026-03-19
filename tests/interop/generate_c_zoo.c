@@ -221,6 +221,30 @@ SEXP C_write_zoo(SEXP sexp_filename) {
     H5Pset_szip(plist, H5_SZIP_NN_OPTION_MASK, 8);
     write_dset(file_id, space_id, "szip_nn", H5T_NATIVE_INT, plist, buf_i32); H5Pclose(plist);
 
+    // ==========================================
+    // 7. Blosc2 Multi-Filter Pipeline
+    // ==========================================
+    // This dataset must be written using the upgraded blosc2_plugin.c 
+    // to correctly shift the pipeline parameters behind ndim/chunkshape.
+    // When done correctly, this chunk will be 100% readable by standard h5py.
+    plist = H5Pcreate(H5P_DATASET_CREATE); 
+    H5Pset_chunk(plist, 2, dims);
+
+    unsigned int cd_pipeline[12] = {0};
+    cd_pipeline[4] = 5; // Compression level
+    cd_pipeline[5] = 2; // Legacy fallback shuffle (BITSHUFFLE = 2)
+    cd_pipeline[6] = 5; // Compressor code (ZSTD = 5)
+    
+    cd_pipeline[7] = 2; // Number of pipeline filters
+    cd_pipeline[8] = 3; // Filter 1: DELTA = 3
+    cd_pipeline[9] = 2; // Filter 2: BITSHUFFLE = 2
+    cd_pipeline[10] = 0; // Meta for Filter 1
+    cd_pipeline[11] = 0; // Meta for Filter 2
+    
+    H5Pset_filter(plist, H5Z_FILTER_BLOSC2, H5Z_FLAG_MANDATORY, 12, cd_pipeline);
+    write_dset(file_id, space_id, "blosc2_delta_bshuf_zstd", H5T_NATIVE_INT, plist, buf_i32); 
+    H5Pclose(plist);
+
     // Cleanup
     H5Sclose(space_id); H5Fclose(file_id); hdf5lib_destroy_all_filters();
     free(buf_f64); free(buf_f32); free(buf_i64); free(buf_i32); free(buf_i16);
