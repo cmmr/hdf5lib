@@ -45,7 +45,7 @@ typedef struct {
   const char* name;
   H5Z_filter_t id;
   size_t       nelmts;
-  unsigned int cd_values[7];
+  unsigned int cd_values[12]; /* Increased from 7 to 12 to support Blosc2 pipelines */
   int          test_mask;
 } FilterConfig;
 
@@ -426,8 +426,12 @@ SEXP C_smoke_test(SEXP sexp_filename) {
     {"blosc2_snappy",H5Z_FILTER_BLOSC2, 7, {0, 0, 0, 0, 5, 1, 3},         TEST_ALL},
     {"blosc2_zlib", H5Z_FILTER_BLOSC2,  7, {0, 0, 0, 0, 5, 1, 4},         TEST_ALL},
     {"blosc2_zstd", H5Z_FILTER_BLOSC2,  7, {0, 0, 0, 0, 5, 1, 5},         TEST_ALL},
-    {"blosc2_zfp",  H5Z_FILTER_BLOSC2,  7, {0, 0, 0, 0, 5, 1, 6},         TEST_NUMERIC_ONLY}, 
-    {"blosc2_ndlz", H5Z_FILTER_BLOSC2,  7, {0, 0, 0, 0, 5, 1, 11},        TEST_ALL}
+    /* Safely updated prefilter for ZFP below to 0 (nofilter) to avoid bit corruption */
+    {"blosc2_zfp",  H5Z_FILTER_BLOSC2,  7, {0, 0, 0, 0, 5, 0, 6},         TEST_NUMERIC_ONLY}, 
+    {"blosc2_ndlz", H5Z_FILTER_BLOSC2,  7, {0, 0, 0, 0, 5, 1, 11},        TEST_ALL},
+    
+    /* Blosc2 Programmable Filter Pipeline (Delta -> Bitshuffle -> Zstd) */
+    {"blosc2_pipe", H5Z_FILTER_BLOSC2, 12, {0, 0, 0, 0, 5, 2, 5, 2, 3, 2, 0, 0}, TEST_ALL}
   };
   
   int num_filters = sizeof(filters) / sizeof(FilterConfig);
