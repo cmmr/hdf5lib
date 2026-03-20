@@ -108,7 +108,7 @@ Blosc2 pipelines are defined by summing the bit values of your desired pre-filte
     * `2` = Bitshuffle (Prioritized if both 1 and 2 are passed)
     * `4` = Delta
     * `8` = Truncate Precision
-* **`cd_values[6]`:** Compressor ID (`0`=blosclz, `1`=lz4, `2`=lz4hc, `3`=snappy, `4`=zlib, `5`=zstd, `11`=ndlz, `33`=zfp_acc, `34`=zfp_prec, `35`=zfp_rate).
+* **`cd_values[6]`:** Compressor ID (`0`=blosclz, `1`=lz4, `2`=lz4hc, `4`=zlib, `5`=zstd, `11`=ndlz, `33`=zfp_acc, `34`=zfp_prec, `35`=zfp_rate).
 * **`cd_values[7]`:** Metadata Value. This serves a dual purpose based on your configuration:
     * *Truncate Precision:* If the `truncprec` pre-filter is active (bitmask in `cd_values[5]` includes `8`), this integer defines the number of bits of precision to keep.
     * *ZFP Metadata:* If using a ZFP compressor (`cd_values[6]` is 33, 34, or 35), this integer sets the specific lossy parameter based on the chosen mode (e.g., the exact bits of precision to keep).

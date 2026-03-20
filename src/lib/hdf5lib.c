@@ -16,8 +16,6 @@ extern const H5Z_class2_t zfp_class;
 extern const H5Z_class2_t zstd_class;
 
 /* --- Declare C-Blosc2 Globals & Codecs --- */
-extern blosc2_codec g_codecs[256];
-extern blosc2_codec snappy_codec;
 extern blosc2_codec ndlz_codec;
 extern blosc2_codec zfp_prec_codec;
 extern blosc2_codec zfp_acc_codec;
@@ -46,14 +44,9 @@ extern int register_codec_private(blosc2_codec *codec);
 herr_t hdf5lib_register_all_filters(void) {
     herr_t err = 0;
 
-    /* 1. Initialize Blosc engines globally */
+    /* Initialize Blosc engines globally */
     blosc_init();
     blosc2_init();
-
-    /* 2. Shoehorn custom static codecs into Blosc2 natively */
-    
-    /* BYPASS GUARD: Manually inject legacy Snappy (compcode 3) safely */
-    g_codecs[3] = snappy_codec;
 
     /* Use the standard API for modern codecs (IDs >= 32) and verify success */
     REG_BLOSC2_CODEC(&ndlz_codec, "ndlz");
@@ -61,7 +54,7 @@ herr_t hdf5lib_register_all_filters(void) {
     REG_BLOSC2_CODEC(&zfp_acc_codec, "zfp_acc");
     REG_BLOSC2_CODEC(&zfp_rate_codec, "zfp_rate");
 
-    /* 3. Register the standalone HDF5 plugins and verify success */
+    /* Register the standalone HDF5 plugins and verify success */
     REG_HDF5_FILTER(&blosc_class, "blosc");
     REG_HDF5_FILTER(&blosc2_class, "blosc2");
     REG_HDF5_FILTER(&bshuf_class, "bshuf");
@@ -78,6 +71,7 @@ herr_t hdf5lib_register_all_filters(void) {
 
 /* --- Cleanup Function --- */
 herr_t hdf5lib_destroy_all_filters(void) {
+
   /* Unregister standalone HDF5 plugins to prevent dangling pointers 
      if the R package's shared object is dynamically unloaded. */
   H5Zunregister(blosc_class.id);

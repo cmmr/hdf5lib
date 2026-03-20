@@ -292,7 +292,7 @@ echo "--- [hdf5lib] Building BLOSC2..."
 cd blosc2
 
 # Enable required internal codecs; Suppress compiler warnings
-BLOSC2_FLAGS="-Iinclude -Iblosc -I../lz4 -I../zstd -I../gzip -I../snappy -I../zfp"
+BLOSC2_FLAGS="-Iinclude -Iblosc -I../lz4 -I../zstd -I../gzip -I../zfp"
 BLOSC2_FLAGS="$BLOSC2_FLAGS -DHAVE_ZSTD -DHAVE_ZLIB -DBLOSC_STRICT_ALIGN -DBIT_STREAM_WORD_TYPE=uint8"
 BLOSC2_FLAGS="$BLOSC2_FLAGS -Wno-unused-variable -Wno-pedantic -Wno-deprecated-declarations"
 BLOSC2_FLAGS="$BLOSC2_FLAGS -Wno-unused-but-set-variable -Wno-unused-function -Wno-attributes"
