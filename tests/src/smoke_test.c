@@ -601,9 +601,9 @@ SEXP C_smoke_test(SEXP sexp_filename) {
     {"blosc2_ndlz", H5Z_FILTER_BLOSC2,  7, {0, 0, 0, 0, 5, 1, 11},        TEST_ARR},
     
     /* Blosc2 + ZFP Codecs strict limits (TEST_FLOAT_ONLY) */
-    {"b2_zfp_acc",  H5Z_FILTER_BLOSC2,  8, {0, 0, 0, 0,  3, 0, 33},       TEST_FLOAT_ONLY}, 
-    {"b2_zfp_prec", H5Z_FILTER_BLOSC2,  8, {0, 0, 0, 0, 16, 0, 34},       TEST_FLOAT_ONLY}, 
-    {"b2_zfp_rate", H5Z_FILTER_BLOSC2,  8, {0, 0, 0, 0,  8, 0, 35},       TEST_FLOAT_ONLY}, 
+    {"b2_zfp_acc",  H5Z_FILTER_BLOSC2,  8, {0, 0, 0, 0, 5, 0, 33,  3},    TEST_FLOAT_ONLY}, 
+    {"b2_zfp_prec", H5Z_FILTER_BLOSC2,  8, {0, 0, 0, 0, 5, 0, 34, 16},    TEST_FLOAT_ONLY}, 
+    {"b2_zfp_rate", H5Z_FILTER_BLOSC2,  8, {0, 0, 0, 0, 5, 0, 35,  8},    TEST_FLOAT_ONLY}, 
     
     /* Blosc2 Programmable Filter Pipeline (Delta -> Bitshuffle -> Zstd) */
     {"blosc2_pipe", H5Z_FILTER_BLOSC2, 12, {0, 0, 0, 0, 5, 2, 5, 2, 3, 2, 0, 0}, TEST_ALL}

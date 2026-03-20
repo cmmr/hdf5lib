@@ -48,10 +48,10 @@ static herr_t blosc2_set_local(hid_t dcpl, hid_t type, hid_t space) {
   if (r < 0) return -1;
 
   /* 1. Extract User Inputs */
-  unsigned int user_clevel_or_meta = (nelements >= 5) ? values[4] : DEFAULT_CLEVEL;
-  unsigned int user_filter_mask    = (nelements >= 6) ? values[5] : DEFAULT_SHUFFLE;
-  unsigned int user_compcode       = (nelements >= 7) ? values[6] : DEFAULT_COMPCODE;
-  unsigned int truncprec_meta      = (nelements >= 8) ? values[7] : 0;
+  unsigned int user_clevel      = (nelements >= 5) ? values[4] : DEFAULT_CLEVEL;
+  unsigned int user_filter_mask = (nelements >= 6) ? values[5] : DEFAULT_SHUFFLE;
+  unsigned int user_compcode    = (nelements >= 7) ? values[6] : DEFAULT_COMPCODE;
+  unsigned int user_meta        = (nelements >= 8) ? values[7] : 0;
 
   /* 2. Calculate Data Geometry */
   ndim = H5Pget_chunk(dcpl, H5S_MAX_RANK, chunkshape);
@@ -77,10 +77,10 @@ static herr_t blosc2_set_local(hid_t dcpl, hid_t type, hid_t space) {
   // values[1] remains the user-provided blocksize or 0
   values[2] = basetypesize;
   values[3] = bufsize;
-  values[4] = user_clevel_or_meta;
+  values[4] = user_clevel;
   values[5] = user_filter_mask; 
   values[6] = user_compcode;
-  values[7] = truncprec_meta;
+  values[7] = user_meta;
   
   /* CRITICAL: ndim is shifted to 8, and chunkshape must immediately follow */
   size_t idx = 8;
@@ -156,17 +156,17 @@ static size_t blosc2_filter_function(
   if (cd_nelmts < 4) PUSH_ERR("blosc2_filter: Filter parameters corrupted");
 
   size_t blocksize = cd_values[1]; 
-  size_t typesize = cd_values[2]; 
+  size_t typesize  = cd_values[2]; 
   size_t outbuf_size = cd_values[3]; 
   
-  int clevel_or_meta = (cd_nelmts >= 5) ? cd_values[4] : DEFAULT_CLEVEL;
-  int filter_mask    = (cd_nelmts >= 6) ? cd_values[5] : DEFAULT_SHUFFLE;
-  int compcode       = (cd_nelmts >= 7) ? cd_values[6] : DEFAULT_COMPCODE;
-  int truncprec_meta = (cd_nelmts >= 8) ? cd_values[7] : 0;
+  int clevel      = (cd_nelmts >= 5) ? cd_values[4] : DEFAULT_CLEVEL;
+  int filter_mask = (cd_nelmts >= 6) ? cd_values[5] : DEFAULT_SHUFFLE;
+  int compcode    = (cd_nelmts >= 7) ? cd_values[6] : DEFAULT_COMPCODE;
+  int meta_value  = (cd_nelmts >= 8) ? cd_values[7] : 0;
   
   int ndim = -1;
   int32_t chunkshape[BLOSC2_MAX_DIM];
-  size_t idx = 8; /* 7 is now strictly reserved for truncprec_meta */
+  size_t idx = 8; 
 
   /* H5PY standard reading of ndim and chunkshape */
   if (cd_nelmts >= 9) {
@@ -188,13 +188,12 @@ static size_t blosc2_filter_function(
     blosc2_cparams cparams = BLOSC2_CPARAMS_DEFAULTS;
     cparams.compcode = compcode;
     cparams.typesize = (int32_t)typesize;
+    cparams.clevel   = clevel;
 
-    /* Parameter Overload: ZFP Metadata vs Encoder Clevel */
+    /* Codec-level Metadata (e.g., ZFP target values) */
     if (compcode == 33 || compcode == 34 || compcode == 35) {
-        cparams.clevel = DEFAULT_CLEVEL;       /* Provide a generic valid clevel to Blosc2 internals */
-        cparams.compcode_meta = clevel_or_meta; /* Inject ZFP meta from cd_values[4] */
+        cparams.compcode_meta = meta_value;
     } else {
-        cparams.clevel = clevel_or_meta;
         cparams.compcode_meta = 0;
     }
 
@@ -217,7 +216,7 @@ static size_t blosc2_filter_function(
         /* 1. Truncate Precision (Highest priority, must run first) */
         if (filter_mask & 8) {
             cparams.filters[f_idx] = BLOSC_TRUNCPREC;
-            cparams.filters_meta[f_idx] = truncprec_meta;
+            cparams.filters_meta[f_idx] = meta_value; /* Dual use of meta_value */
             f_idx++;
         }
         
