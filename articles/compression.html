@@ -82,12 +82,40 @@ automatically decompresses it for you. This can lead to significant
 savings in storage space and faster I/O performance.</p>
 <p><code>hdf5lib</code> provides built-in support for <code>gzip</code>
 and <code>szip</code> compression natively, and additionally bundles an
-extensive suite of high-performance modern filter plugins.</p>
+extensive suite of high-performance modern filter plugins. All
+compression plugins bundled with <code>hdf5lib</code> have been
+rigorously tested to ensure strict interoperability with the standard
+Python <code>h5py</code> ecosystem.</p>
 <div class="section level2">
-<h2 id="the-golden-rules-of-hdf5-compression">The Golden Rules of HDF5 Compression<a class="anchor" aria-label="anchor" href="#the-golden-rules-of-hdf5-compression"></a>
+<h2 id="terminology">Terminology<a class="anchor" aria-label="anchor" href="#terminology"></a>
 </h2>
-<p>Before configuring any filter, you must understand the two
-fundamental requirements of HDF5 compression:</p>
+<p>To navigate HDF5 compression effectively, it is helpful to understand
+the specific terminology used throughout this guide and the broader HDF5
+ecosystem:</p>
+<ul>
+<li><p><strong>Filter:</strong> A function in the HDF5 data pipeline
+that transforms data before it is written to disk or after it is read
+from disk.</p></li>
+<li><p><strong>Pre-filter:</strong> A specific type of filter (like
+Bitshuffle) designed to rearrange bytes to make the data more
+mathematically compressible before handing it off to the main
+compressor.</p></li>
+<li><p><strong>Compressor / Codec:</strong> The algorithm (e.g., Zstd,
+LZ4, ZFP) that actually shrinks the physical data footprint.</p></li>
+<li><p><strong>Plugin:</strong> An external, dynamically loaded library
+(e.g., a <code>.so</code> or <code>.dll</code> file) that provides the
+HDF5 library with the code needed to execute a filter that isn’t built
+into the core library.</p></li>
+<li><p><strong>Mode:</strong> A specific operational setting for a
+compressor (e.g., ZFP’s “Fixed Accuracy” mode or LZ4’s “High
+Compression” mode).</p></li>
+</ul>
+</div>
+<div class="section level2">
+<h2 id="fundamental-requirements-for-hdf5-compression">Fundamental Requirements for HDF5 Compression<a class="anchor" aria-label="anchor" href="#fundamental-requirements-for-hdf5-compression"></a>
+</h2>
+<p>Before configuring any filter, you must understand the fundamental
+rules of HDF5 compression:</p>
 <ol style="list-style-type: decimal">
 <li><p><strong>Chunking is Mandatory:</strong> Compression in HDF5
 requires the data to be stored in “chunks.” You must define a chunk size
@@ -102,6 +130,12 @@ during your package’s <code>.onLoad</code> hook using
 Registering filters per-I/O operation will severely degrade performance.
 See the <a href="hdf5lib.html">Getting Started</a> guide for the
 boilerplate code.</p></li>
+<li><p><strong>The Reader Must Have the Plugin:</strong> If you compress
+a dataset using an external plugin (like Zstd or LZ4), <strong>any
+application that opens that file must also have the corresponding HDF5
+plugin installed.</strong> If you are generating files for external
+users and cannot guarantee they have these plugins installed, use the
+built-in <code>gzip</code> filter for maximum portability.</p></li>
 </ol>
 <hr>
 </div>
@@ -118,6 +152,11 @@ bundled with <code>hdf5lib</code>.</p>
 <div class="section level3">
 <h3 id="gzip-deflate">1. GZIP / Deflate<a class="anchor" aria-label="anchor" href="#gzip-deflate"></a>
 </h3>
+<p><strong>Recommendation:</strong> <strong>Use for Maximum
+Portability.</strong> GZIP is built directly into the core HDF5 library,
+meaning files compressed with it can be read by any standard HDF5
+installation globally without needing external plugins. However, it is
+significantly slower than modern alternatives.</p>
 <ul>
 <li>
 <strong>Filter ID:</strong> <code>H5Z_FILTER_DEFLATE</code> (1)</li>
@@ -133,34 +172,12 @@ GZIP. HDF5 provides a dedicated helper function.</p>
 <span id="cb1-2"><a href="#cb1-2" tabindex="-1"></a>H5Pset_deflate<span class="op">(</span>plist_id<span class="op">,</span> <span class="dv">9</span><span class="op">);</span></span></code></pre></div>
 </div>
 <div class="section level3">
-<h3 id="szip">2. SZIP<a class="anchor" aria-label="anchor" href="#szip"></a>
+<h3 id="zstandard-zstd">2. Zstandard (Zstd)<a class="anchor" aria-label="anchor" href="#zstandard-zstd"></a>
 </h3>
-<ul>
-<li>
-<strong>Filter ID:</strong> <code>H5Z_FILTER_SZIP</code> (4)</li>
-<li>
-<strong>Elements (<code>cd_nelmts</code>):</strong> 2</li>
-<li>
-<strong><code>cd_values[0]</code>:</strong> Options mask (e.g.,
-<code>H5_SZIP_NN_OPTION_MASK</code> or
-<code>H5_SZIP_EC_OPTION_MASK</code>).</li>
-<li>
-<strong><code>cd_values[1]</code>:</strong> Pixels per block. Must
-be even, typically <code>8</code>, <code>16</code>, or
-<code>32</code>.</li>
-</ul>
-<p>Like GZIP, SZIP has a dedicated helper function.</p>
-<blockquote>
-<p><strong>Restriction:</strong> SZIP strictly requires numeric data. It
-does not support strings or variable-length types. The chunk size (in
-elements) must also be an exact multiple of the block size.</p>
-</blockquote>
-<div class="sourceCode" id="cb2"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a><span class="co">// Apply SZIP compression (Entropy Coding method, 8 pixels per block)</span></span>
-<span id="cb2-2"><a href="#cb2-2" tabindex="-1"></a>H5Pset_szip<span class="op">(</span>plist_id<span class="op">,</span> H5_SZIP_EC_OPTION_MASK<span class="op">,</span> <span class="dv">8</span><span class="op">);</span></span></code></pre></div>
-</div>
-<div class="section level3">
-<h3 id="zstandard-zstd">3. Zstandard (Zstd)<a class="anchor" aria-label="anchor" href="#zstandard-zstd"></a>
-</h3>
+<p><strong>Recommendation:</strong> <strong>Use as the Default
+General-Purpose Compressor.</strong> Developed by Facebook, Zstd
+provides compression ratios comparable to or better than GZIP, but at
+substantially faster compression and decompression speeds.</p>
 <ul>
 <li>
 <strong>Filter ID:</strong> <code>32015</code>
@@ -168,16 +185,23 @@ elements) must also be an exact multiple of the block size.</p>
 <li>
 <strong>Elements (<code>cd_nelmts</code>):</strong> 1</li>
 <li>
-<strong><code>cd_values[0]</code>:</strong> Compression level,
-generally from <code>1</code> (fastest) to <code>22</code> (best). A
-highly recommended default is <code>3</code> or <code>5</code>.</li>
+<strong><code>cd_values[0]</code>:</strong> Compression level, from
+<code>1</code> (fastest) to <code>22</code> (best). Use <code>3</code>
+or <code>5</code> as a default; these provide an optimal balance of
+speed and file size, whereas levels above 10 offer steeply diminishing
+returns for significantly longer compression times.</li>
 </ul>
-<div class="sourceCode" id="cb3"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a><span class="dt">unsigned</span> <span class="dt">int</span> cd_values<span class="op">[</span><span class="dv">1</span><span class="op">]</span> <span class="op">=</span> <span class="op">{</span> <span class="dv">5</span> <span class="op">};</span> <span class="co">// Zstd level 5</span></span>
-<span id="cb3-2"><a href="#cb3-2" tabindex="-1"></a>H5Pset_filter<span class="op">(</span>plist_id<span class="op">,</span> <span class="dv">32015</span><span class="op">,</span> H5Z_FLAG_MANDATORY<span class="op">,</span> <span class="dv">1</span><span class="op">,</span> cd_values<span class="op">);</span></span></code></pre></div>
+<div class="sourceCode" id="cb2"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a><span class="dt">unsigned</span> <span class="dt">int</span> cd_values<span class="op">[</span><span class="dv">1</span><span class="op">]</span> <span class="op">=</span> <span class="op">{</span> <span class="dv">5</span> <span class="op">};</span> <span class="co">// Zstd level 5</span></span>
+<span id="cb2-2"><a href="#cb2-2" tabindex="-1"></a>H5Pset_filter<span class="op">(</span>plist_id<span class="op">,</span> <span class="dv">32015</span><span class="op">,</span> H5Z_FLAG_MANDATORY<span class="op">,</span> <span class="dv">1</span><span class="op">,</span> cd_values<span class="op">);</span></span></code></pre></div>
 </div>
 <div class="section level3">
-<h3 id="lz4">4. LZ4<a class="anchor" aria-label="anchor" href="#lz4"></a>
+<h3 id="lz4">3. LZ4<a class="anchor" aria-label="anchor" href="#lz4"></a>
 </h3>
+<p><strong>Recommendation:</strong> <strong>Use for Maximum
+Speed.</strong> LZ4 prioritizes extreme compression and decompression
+speeds (often bottlenecked only by RAM bandwidth) over finding the
+absolute smallest file size. Ideal for hot data, fast pipelines, or
+real-time I/O.</p>
 <ul>
 <li>
 <strong>Filter ID:</strong> <code>32004</code>
@@ -193,89 +217,29 @@ Passing <code>0</code> uses the standard, lightning-fast LZ4. Passing a
 value <code>&gt;0</code> (e.g., <code>9</code>) enables LZ4-HC (High
 Compression) mode.</li>
 </ul>
-<div class="sourceCode" id="cb4"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb4-1"><a href="#cb4-1" tabindex="-1"></a><span class="dt">unsigned</span> <span class="dt">int</span> cd_values<span class="op">[</span><span class="dv">2</span><span class="op">]</span> <span class="op">=</span> <span class="op">{</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">9</span> <span class="op">};</span> <span class="co">// LZ4 High Compression</span></span>
-<span id="cb4-2"><a href="#cb4-2" tabindex="-1"></a>H5Pset_filter<span class="op">(</span>plist_id<span class="op">,</span> <span class="dv">32004</span><span class="op">,</span> H5Z_FLAG_MANDATORY<span class="op">,</span> <span class="dv">2</span><span class="op">,</span> cd_values<span class="op">);</span></span></code></pre></div>
+<div class="sourceCode" id="cb3"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a><span class="dt">unsigned</span> <span class="dt">int</span> cd_values<span class="op">[</span><span class="dv">2</span><span class="op">]</span> <span class="op">=</span> <span class="op">{</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">9</span> <span class="op">};</span> <span class="co">// LZ4 High Compression</span></span>
+<span id="cb3-2"><a href="#cb3-2" tabindex="-1"></a>H5Pset_filter<span class="op">(</span>plist_id<span class="op">,</span> <span class="dv">32004</span><span class="op">,</span> H5Z_FLAG_MANDATORY<span class="op">,</span> <span class="dv">2</span><span class="op">,</span> cd_values<span class="op">);</span></span></code></pre></div>
 </div>
 <div class="section level3">
-<h3 id="bitshuffle">5. Bitshuffle<a class="anchor" aria-label="anchor" href="#bitshuffle"></a>
+<h3 id="blosc2">4. Blosc2<a class="anchor" aria-label="anchor" href="#blosc2"></a>
 </h3>
-<ul>
-<li>
-<strong>Filter ID:</strong> <code>32008</code>
-</li>
-<li>
-<strong>Elements (<code>cd_nelmts</code>):</strong> 3</li>
-<li>
-<strong><code>cd_values[0]</code>:</strong> Block size. Pass
-<code>0</code> to let the library choose the optimal default (usually
-1024).</li>
-<li>
-<strong><code>cd_values[1]</code>:</strong> Compressor algorithm.
-<code>0</code> = raw bitshuffling (no compression), <code>2</code> =
-LZ4, <code>3</code> = Zstd.</li>
-<li>
-<strong><code>cd_values[2]</code>:</strong> Compression level. Only
-applies if Zstd is selected (e.g., <code>5</code>). Pass <code>0</code>
-for uncompressed or LZ4.</li>
-</ul>
-<div class="sourceCode" id="cb5"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb5-1"><a href="#cb5-1" tabindex="-1"></a><span class="co">// Bitshuffle data, then apply Zstd compression at level 5</span></span>
-<span id="cb5-2"><a href="#cb5-2" tabindex="-1"></a><span class="dt">unsigned</span> <span class="dt">int</span> cd_values<span class="op">[</span><span class="dv">3</span><span class="op">]</span> <span class="op">=</span> <span class="op">{</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">3</span><span class="op">,</span> <span class="dv">5</span> <span class="op">};</span> </span>
-<span id="cb5-3"><a href="#cb5-3" tabindex="-1"></a>H5Pset_filter<span class="op">(</span>plist_id<span class="op">,</span> <span class="dv">32008</span><span class="op">,</span> H5Z_FLAG_MANDATORY<span class="op">,</span> <span class="dv">3</span><span class="op">,</span> cd_values<span class="op">);</span></span></code></pre></div>
-</div>
-<div class="section level3">
-<h3 id="blosc-v1">6. Blosc (v1)<a class="anchor" aria-label="anchor" href="#blosc-v1"></a>
-</h3>
-<p>The original Blosc meta-compressor. While Blosc2 is the modern
-standard, Blosc v1 is fully supported for backwards compatibility.</p>
-<ul>
-<li>
-<strong>Filter ID:</strong> <code>32001</code>
-</li>
-<li>
-<strong>Elements (<code>cd_nelmts</code>):</strong> 7</li>
-<li>
-<strong><code>cd_values[0-3]</code>:</strong> Reserved (Pass
-<code>0</code>).</li>
-<li>
-<strong><code>cd_values[4]</code>:</strong> Compression level
-(<code>0</code> to <code>9</code>).</li>
-<li>
-<strong><code>cd_values[5]</code>:</strong> Pre-filter
-(<code>0</code>=nofilter, <code>1</code>=byte shuffle,
-<code>2</code>=bit shuffle).</li>
-<li>
-<strong><code>cd_values[6]</code>:</strong> Compressor ID
-(<code>0</code>=blosclz, <code>1</code>=lz4, <code>2</code>=lz4hc,
-<code>3</code>=snappy, <code>4</code>=zlib, <code>5</code>=zstd).</li>
-</ul>
-<div class="sourceCode" id="cb6"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb6-1"><a href="#cb6-1" tabindex="-1"></a><span class="co">// Blosc v1 using LZ4 (level 5) and the standard byte shuffle pre-filter</span></span>
-<span id="cb6-2"><a href="#cb6-2" tabindex="-1"></a><span class="dt">unsigned</span> <span class="dt">int</span> cd_values<span class="op">[</span><span class="dv">7</span><span class="op">]</span> <span class="op">=</span> <span class="op">{</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">5</span><span class="op">,</span> <span class="dv">1</span><span class="op">,</span> <span class="dv">1</span> <span class="op">};</span> </span>
-<span id="cb6-3"><a href="#cb6-3" tabindex="-1"></a>H5Pset_filter<span class="op">(</span>plist_id<span class="op">,</span> <span class="dv">32001</span><span class="op">,</span> H5Z_FLAG_MANDATORY<span class="op">,</span> <span class="dv">7</span><span class="op">,</span> cd_values<span class="op">);</span></span></code></pre></div>
-</div>
-<div class="section level3">
-<h3 id="blosc2">7. Blosc2<a class="anchor" aria-label="anchor" href="#blosc2"></a>
-</h3>
-<p>Blosc2 is a high-performance meta-compressor capable of utilizing
-internal thread pools to compress blocks of data in parallel. Data
-written via the Blosc2 plugin in <code>hdf5lib</code> is fully
-interoperable with the Python <code>h5py</code> ecosystem.</p>
-<p>A major upgrade in Blosc2 is the <strong>Programmable Filter
-Pipeline</strong>, which allows you to chain up to 6 distinct
-pre-filters (e.g., Delta followed by Bitshuffle) before the data hits
-the final compressor. Our plugin implementation is uniquely engineered
-to pack these complex pipelines into HDF5 safely, ensuring the resulting
-dataset remains 100% decodable by standard <code>h5py</code> and
-community plugins.</p>
+<p><strong>Recommendation:</strong> <strong>Use for Parallel Compression
+and Complex Pipelines.</strong> Blosc2 utilizes internal thread pools to
+compress blocks of data in parallel. It also features a Programmable
+Filter Pipeline, allowing you to chain up to 6 distinct pre-filters
+(e.g., Delta followed by Bitshuffle) before the data hits the final
+compressor. Our plugin implementation ensures that even these complex
+multi-filter pipelines remain 100% decodable by standard
+<code>h5py</code> and community plugins.</p>
 <blockquote>
-<p><strong>Warning on ZFP and Pre-filters:</strong> If you choose ZFP as
-the internal Blosc2 codec (<code>cd_values[6]=6</code>), you
-<strong>must</strong> set the pre-filter to <code>0</code> (nofilter).
-Pre-filters like Shuffle or Bitshuffle rearrange the byte structure of
-your data. ZFP will then interpret this shuffled byte stream as actual
-numerical values and apply lossy encoding to it. When these
-lossily-altered bits are later unshuffled, it results in catastrophic
-bit-level corruption, introducing what amounts to random bit flips in
-your original numbers.</p>
+<p><strong>Restrictions:</strong> When using a ZFP compressor codec
+(<code>33</code>, <code>34</code>, <code>35</code>), you
+<strong>must</strong> pass floating-point data (<code>float32</code> or
+<code>float64</code>). Furthermore, any filter applied to the data
+before it reaches ZFP will completely corrupt the dataset. You
+<strong>must not</strong> apply upstream filters natively in HDF5 (e.g.,
+<code>H5Pset_shuffle</code>), nor chain pre-filters internally within
+the Blosc2 pipeline, when ZFP is the target codec.</p>
 </blockquote>
 <div class="section level4">
 <h4 id="standard-single-filter-format">Standard (Single Filter) Format<a class="anchor" aria-label="anchor" href="#standard-single-filter-format"></a>
@@ -293,7 +257,10 @@ configuration:</p>
 <code>0</code>).</li>
 <li>
 <strong><code>cd_values[4]</code>:</strong> Compression level
-(<code>0</code> to <code>9</code>).</li>
+(<code>0</code> to <code>9</code>). <em>Note: Blosc2 enforces a
+universal 0-9 scale. If you select a codec with a wider range like Zstd,
+Blosc2 internally maps this 0-9 value to Zstd’s 1-22 scale.</em>
+</li>
 <li>
 <strong><code>cd_values[5]</code>:</strong> Pre-filter
 (<code>0</code>=nofilter, <code>1</code>=shuffle,
@@ -303,24 +270,34 @@ configuration:</p>
 <strong><code>cd_values[6]</code>:</strong> Compressor ID
 (<code>0</code>=blosclz, <code>1</code>=lz4, <code>2</code>=lz4hc,
 <code>3</code>=snappy, <code>4</code>=zlib, <code>5</code>=zstd,
-<code>6</code>=zfp, <code>11</code>=ndlz).</li>
+<code>11</code>=ndlz, <code>33</code>=zfp_acc, <code>34</code>=zfp_prec,
+<code>35</code>=zfp_rate).</li>
 <li>
 <strong><code>cd_values[7]</code>:</strong> Metadata. Usually
-<code>0</code>. If using the <code>truncprec</code> filter
+<code>0</code>.
+<ul>
+<li>If using the <code>truncprec</code> pre-filter
 (<code>cd_values[5]=4</code>), this defines the number of bits of
 precision to keep (e.g., <code>16</code>).</li>
+<li>If using a ZFP compressor (<code>cd_values[6]</code> is 33, 34, or
+35), this integer sets the specific lossy parameter based on the chosen
+mode. <strong>See the ZFP section below for a guide on how to choose
+your mode and set this value.</strong>
+</li>
 </ul>
-<div class="sourceCode" id="cb7"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a><span class="co">// Blosc2 using Zstd (level 5) and the Bitshuffle pre-filter</span></span>
-<span id="cb7-2"><a href="#cb7-2" tabindex="-1"></a><span class="dt">unsigned</span> <span class="dt">int</span> cd_values<span class="op">[</span><span class="dv">8</span><span class="op">]</span> <span class="op">=</span> <span class="op">{</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">5</span><span class="op">,</span> <span class="dv">2</span><span class="op">,</span> <span class="dv">5</span><span class="op">,</span> <span class="dv">0</span> <span class="op">};</span> </span>
-<span id="cb7-3"><a href="#cb7-3" tabindex="-1"></a>H5Pset_filter<span class="op">(</span>plist_id<span class="op">,</span> <span class="dv">32026</span><span class="op">,</span> H5Z_FLAG_MANDATORY<span class="op">,</span> <span class="dv">8</span><span class="op">,</span> cd_values<span class="op">);</span></span></code></pre></div>
+</li>
+</ul>
+<div class="sourceCode" id="cb4"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb4-1"><a href="#cb4-1" tabindex="-1"></a><span class="co">// Blosc2 using ZFP Fixed Precision mode, keeping exactly 16 bits of precision</span></span>
+<span id="cb4-2"><a href="#cb4-2" tabindex="-1"></a><span class="dt">unsigned</span> <span class="dt">int</span> cd_values<span class="op">[</span><span class="dv">8</span><span class="op">]</span> <span class="op">=</span> <span class="op">{</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">5</span><span class="op">,</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">34</span><span class="op">,</span> <span class="dv">16</span> <span class="op">};</span> </span>
+<span id="cb4-3"><a href="#cb4-3" tabindex="-1"></a>H5Pset_filter<span class="op">(</span>plist_id<span class="op">,</span> <span class="dv">32026</span><span class="op">,</span> H5Z_FLAG_MANDATORY<span class="op">,</span> <span class="dv">8</span><span class="op">,</span> cd_values<span class="op">);</span></span></code></pre></div>
 </div>
 <div class="section level4">
 <h4 id="multi-filter-pipeline-format">Multi-Filter Pipeline Format<a class="anchor" aria-label="anchor" href="#multi-filter-pipeline-format"></a>
 </h4>
 <p>To chain multiple pre-filters, expand the <code>cd_values</code>
 array. The plugin will automatically parse this array and dynamically
-translate it during dataset creation to preserve strict
-<code>h5py</code> layout compatibility.</p>
+translate it during dataset creation to preserve strict layout
+compatibility.</p>
 <ul>
 <li>
 <strong>Elements (<code>cd_nelmts</code>):</strong>
@@ -349,30 +326,75 @@ Bitshuffle).</li>
 <strong><code>cd_values[8+N ... 8+2N-1]</code>:</strong> Metadata
 for each respective filter (usually <code>0</code>).</li>
 </ul>
-<div class="sourceCode" id="cb8"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb8-1"><a href="#cb8-1" tabindex="-1"></a><span class="co">// Blosc2 Pipeline: Delta -&gt; Bitshuffle -&gt; Zstd (level 5)</span></span>
-<span id="cb8-2"><a href="#cb8-2" tabindex="-1"></a><span class="dt">unsigned</span> <span class="dt">int</span> cd_pipeline<span class="op">[</span><span class="dv">12</span><span class="op">]</span> <span class="op">=</span> <span class="op">{</span><span class="dv">0</span><span class="op">};</span></span>
-<span id="cb8-3"><a href="#cb8-3" tabindex="-1"></a>cd_pipeline<span class="op">[</span><span class="dv">4</span><span class="op">]</span> <span class="op">=</span> <span class="dv">5</span><span class="op">;</span> <span class="co">// Compression level</span></span>
-<span id="cb8-4"><a href="#cb8-4" tabindex="-1"></a>cd_pipeline<span class="op">[</span><span class="dv">5</span><span class="op">]</span> <span class="op">=</span> <span class="dv">2</span><span class="op">;</span> <span class="co">// Legacy fallback (Bitshuffle)</span></span>
-<span id="cb8-5"><a href="#cb8-5" tabindex="-1"></a>cd_pipeline<span class="op">[</span><span class="dv">6</span><span class="op">]</span> <span class="op">=</span> <span class="dv">5</span><span class="op">;</span> <span class="co">// Compressor (Zstd)</span></span>
-<span id="cb8-6"><a href="#cb8-6" tabindex="-1"></a></span>
-<span id="cb8-7"><a href="#cb8-7" tabindex="-1"></a>cd_pipeline<span class="op">[</span><span class="dv">7</span><span class="op">]</span> <span class="op">=</span> <span class="dv">2</span><span class="op">;</span> <span class="co">// Number of pipeline filters</span></span>
-<span id="cb8-8"><a href="#cb8-8" tabindex="-1"></a></span>
-<span id="cb8-9"><a href="#cb8-9" tabindex="-1"></a><span class="co">// Filter IDs</span></span>
-<span id="cb8-10"><a href="#cb8-10" tabindex="-1"></a>cd_pipeline<span class="op">[</span><span class="dv">8</span><span class="op">]</span> <span class="op">=</span> <span class="dv">3</span><span class="op">;</span> <span class="co">// Filter 1: Delta</span></span>
-<span id="cb8-11"><a href="#cb8-11" tabindex="-1"></a>cd_pipeline<span class="op">[</span><span class="dv">9</span><span class="op">]</span> <span class="op">=</span> <span class="dv">2</span><span class="op">;</span> <span class="co">// Filter 2: Bitshuffle</span></span>
-<span id="cb8-12"><a href="#cb8-12" tabindex="-1"></a></span>
-<span id="cb8-13"><a href="#cb8-13" tabindex="-1"></a><span class="co">// Filter Metadata</span></span>
-<span id="cb8-14"><a href="#cb8-14" tabindex="-1"></a>cd_pipeline<span class="op">[</span><span class="dv">10</span><span class="op">]</span> <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> <span class="co">// Meta for Delta</span></span>
-<span id="cb8-15"><a href="#cb8-15" tabindex="-1"></a>cd_pipeline<span class="op">[</span><span class="dv">11</span><span class="op">]</span> <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> <span class="co">// Meta for Bitshuffle</span></span>
-<span id="cb8-16"><a href="#cb8-16" tabindex="-1"></a></span>
-<span id="cb8-17"><a href="#cb8-17" tabindex="-1"></a>H5Pset_filter<span class="op">(</span>plist_id<span class="op">,</span> <span class="dv">32026</span><span class="op">,</span> H5Z_FLAG_MANDATORY<span class="op">,</span> <span class="dv">12</span><span class="op">,</span> cd_pipeline<span class="op">);</span></span></code></pre></div>
+<div class="sourceCode" id="cb5"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb5-1"><a href="#cb5-1" tabindex="-1"></a><span class="co">// Blosc2 Pipeline: Delta -&gt; Bitshuffle -&gt; Zstd (level 5)</span></span>
+<span id="cb5-2"><a href="#cb5-2" tabindex="-1"></a><span class="dt">unsigned</span> <span class="dt">int</span> cd_pipeline<span class="op">[</span><span class="dv">12</span><span class="op">]</span> <span class="op">=</span> <span class="op">{</span><span class="dv">0</span><span class="op">};</span></span>
+<span id="cb5-3"><a href="#cb5-3" tabindex="-1"></a>cd_pipeline<span class="op">[</span><span class="dv">4</span><span class="op">]</span> <span class="op">=</span> <span class="dv">1</span><span class="op">;</span> <span class="co">// Compression level (~3 on Zstd range)</span></span>
+<span id="cb5-4"><a href="#cb5-4" tabindex="-1"></a>cd_pipeline<span class="op">[</span><span class="dv">5</span><span class="op">]</span> <span class="op">=</span> <span class="dv">2</span><span class="op">;</span> <span class="co">// Legacy fallback (Bitshuffle)</span></span>
+<span id="cb5-5"><a href="#cb5-5" tabindex="-1"></a>cd_pipeline<span class="op">[</span><span class="dv">6</span><span class="op">]</span> <span class="op">=</span> <span class="dv">5</span><span class="op">;</span> <span class="co">// Compressor (Zstd)</span></span>
+<span id="cb5-6"><a href="#cb5-6" tabindex="-1"></a></span>
+<span id="cb5-7"><a href="#cb5-7" tabindex="-1"></a>cd_pipeline<span class="op">[</span><span class="dv">7</span><span class="op">]</span> <span class="op">=</span> <span class="dv">2</span><span class="op">;</span> <span class="co">// Number of pipeline filters</span></span>
+<span id="cb5-8"><a href="#cb5-8" tabindex="-1"></a></span>
+<span id="cb5-9"><a href="#cb5-9" tabindex="-1"></a><span class="co">// Filter IDs</span></span>
+<span id="cb5-10"><a href="#cb5-10" tabindex="-1"></a>cd_pipeline<span class="op">[</span><span class="dv">8</span><span class="op">]</span> <span class="op">=</span> <span class="dv">3</span><span class="op">;</span> <span class="co">// Filter 1: Delta</span></span>
+<span id="cb5-11"><a href="#cb5-11" tabindex="-1"></a>cd_pipeline<span class="op">[</span><span class="dv">9</span><span class="op">]</span> <span class="op">=</span> <span class="dv">2</span><span class="op">;</span> <span class="co">// Filter 2: Bitshuffle</span></span>
+<span id="cb5-12"><a href="#cb5-12" tabindex="-1"></a></span>
+<span id="cb5-13"><a href="#cb5-13" tabindex="-1"></a><span class="co">// Filter Metadata</span></span>
+<span id="cb5-14"><a href="#cb5-14" tabindex="-1"></a>cd_pipeline<span class="op">[</span><span class="dv">10</span><span class="op">]</span> <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> <span class="co">// Meta for Delta</span></span>
+<span id="cb5-15"><a href="#cb5-15" tabindex="-1"></a>cd_pipeline<span class="op">[</span><span class="dv">11</span><span class="op">]</span> <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> <span class="co">// Meta for Bitshuffle</span></span>
+<span id="cb5-16"><a href="#cb5-16" tabindex="-1"></a></span>
+<span id="cb5-17"><a href="#cb5-17" tabindex="-1"></a>H5Pset_filter<span class="op">(</span>plist_id<span class="op">,</span> <span class="dv">32026</span><span class="op">,</span> H5Z_FLAG_MANDATORY<span class="op">,</span> <span class="dv">12</span><span class="op">,</span> cd_pipeline<span class="op">);</span></span></code></pre></div>
 </div>
 </div>
 <div class="section level3">
-<h3 id="zfp">8. ZFP<a class="anchor" aria-label="anchor" href="#zfp"></a>
+<h3 id="zfp">5. ZFP<a class="anchor" aria-label="anchor" href="#zfp"></a>
 </h3>
-<p>ZFP is designed for high-speed, lossy (and lossless) compression of
-floating-point and integer arrays.</p>
+<p><strong>Recommendation:</strong> <strong>Use for High-Speed Lossy
+Compression.</strong> ZFP mathematically simplifies multidimensional
+arrays to achieve massive compression ratios. Use when perfect
+bit-for-bit reconstruction is not required.</p>
+<blockquote>
+<p><strong>Restrictions:</strong> ZFP strictly requires numeric,
+multidimensional arrays (natively supporting 32/64-bit integers and
+32/64-bit floats). Any filter applied to the data before it reaches ZFP
+will completely corrupt the dataset. You <strong>must not</strong> apply
+upstream HDF5 pre-filters (e.g., Shuffle, Bitshuffle, Scale-Offset)
+before ZFP in your property list.</p>
+</blockquote>
+<p><em>(Note: While ZFP can be invoked as a codec within the Blosc2
+meta-compressor, doing so restricts it to floating-point data only and
+limits the available compression modes to Accuracy, Precision, and Rate.
+For integer arrays, Expert mode, or Reversible (lossless) mode, you must
+use this standalone ZFP plugin).</em></p>
+<div class="section level4">
+<h4 id="the-zfp-modes-explained-simply">The ZFP Modes Explained Simply<a class="anchor" aria-label="anchor" href="#the-zfp-modes-explained-simply"></a>
+</h4>
+<ul>
+<li><p><strong>Fixed Accuracy:</strong> Defines a strict absolute error
+tolerance. Passing <code>3</code> ensures no decompressed value deviates
+from the original by more than
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mn>10</mn><mrow><mo>−</mo><mn>3</mn></mrow></msup><annotation encoding="application/x-tex">10^{-3}</annotation></semantics></math>
+(<code>0.001</code>), regardless of whether the number is huge or
+tiny.</p></li>
+<li><p><strong>Fixed Precision:</strong> Defines a sliding scale of
+detail. Passing <code>16</code> keeps roughly 5 digits of detail scaled
+proportionally to the size of the number, allowing larger absolute
+errors on massive numbers and tiny absolute errors on microscopic
+fractions.</p></li>
+<li><p><strong>Fixed Rate:</strong> Defines a strict storage limit.
+Passing <code>8</code> forces the compressor to use exactly 8 bits of
+storage per value, guaranteeing a highly predictable file size.</p></li>
+<li><p><strong>Expert:</strong> Allows manual configuration of the
+underlying ZFP parameters (<code>minbits</code>, <code>maxbits</code>,
+<code>maxprec</code>, <code>minexp</code>) for advanced users requiring
+highly specific encoding profiles.</p></li>
+<li><p><strong>Reversible:</strong> Provides perfectly lossless
+compression, guaranteeing exact bit-for-bit reconstruction of the
+original numerical array.</p></li>
+</ul>
+</div>
+<div class="section level4">
+<h4 id="plugin-configuration">Plugin Configuration<a class="anchor" aria-label="anchor" href="#plugin-configuration"></a>
+</h4>
 <ul>
 <li>
 <strong>Filter ID:</strong> <code>32013</code>
@@ -390,36 +412,134 @@ parameters. For instance, in Precision mode
 bits of precision to keep, padding the rest with zeros (e.g.,
 <code>{2, 0, 16, 0, 0, 0}</code>).</li>
 </ul>
-<blockquote>
-<p><strong>Restriction:</strong> ZFP strictly requires numeric,
-multidimensional arrays. It will fail if applied to strings, compound
-datatypes, or 1D arrays of bytes.</p>
-<p><strong>Warning on Pre-filters:</strong> If you are using ZFP in a
-lossy mode (Rate, Precision, or Accuracy) via a filter pipeline, do
-<strong>not</strong> apply pre-filters like Shuffle or Bitshuffle before
-it. Because shuffling rearranges the byte structure, ZFP ends up
-interpreting and lossily encoding the rearranged byte stream as if they
-were the actual numerical values. Unshuffling these lossily-modified
-bits during decompression will result in catastrophic, random bit flips
-in your final data.</p>
-</blockquote>
 <p>While you can manually pack the 6-element <code>cd_values</code>
 array, the ZFP plugin exposes convenient external helper functions that
 you can declare in your C code to set the parameters effortlessly.</p>
-<div class="sourceCode" id="cb9"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb9-1"><a href="#cb9-1" tabindex="-1"></a><span class="co">// Declare the external helpers provided by the bundled ZFP plugin</span></span>
-<span id="cb9-2"><a href="#cb9-2" tabindex="-1"></a><span class="kw">extern</span> herr_t H5Pset_zfp_rate<span class="op">(</span>hid_t plist<span class="op">,</span> <span class="dt">double</span> rate<span class="op">);</span></span>
-<span id="cb9-3"><a href="#cb9-3" tabindex="-1"></a><span class="kw">extern</span> herr_t H5Pset_zfp_precision<span class="op">(</span>hid_t plist<span class="op">,</span> <span class="dt">unsigned</span> <span class="dt">int</span> prec<span class="op">);</span></span>
-<span id="cb9-4"><a href="#cb9-4" tabindex="-1"></a><span class="kw">extern</span> herr_t H5Pset_zfp_accuracy<span class="op">(</span>hid_t plist<span class="op">,</span> <span class="dt">double</span> acc<span class="op">);</span></span>
-<span id="cb9-5"><a href="#cb9-5" tabindex="-1"></a><span class="kw">extern</span> herr_t H5Pset_zfp_reversible<span class="op">(</span>hid_t plist<span class="op">);</span> <span class="co">// Lossless mode</span></span>
-<span id="cb9-6"><a href="#cb9-6" tabindex="-1"></a></span>
-<span id="cb9-7"><a href="#cb9-7" tabindex="-1"></a><span class="co">// ... later in your code ...</span></span>
-<span id="cb9-8"><a href="#cb9-8" tabindex="-1"></a></span>
-<span id="cb9-9"><a href="#cb9-9" tabindex="-1"></a><span class="co">// Compress data using ZFP's Accuracy mode (maintaining 0.001 tolerance)</span></span>
-<span id="cb9-10"><a href="#cb9-10" tabindex="-1"></a>H5Pset_zfp_accuracy<span class="op">(</span>plist_id<span class="op">,</span> <span class="fl">0.001</span><span class="op">);</span></span></code></pre></div>
+<div class="sourceCode" id="cb6"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb6-1"><a href="#cb6-1" tabindex="-1"></a><span class="co">// Declare the external helpers provided by the bundled ZFP plugin</span></span>
+<span id="cb6-2"><a href="#cb6-2" tabindex="-1"></a><span class="kw">extern</span> herr_t H5Pset_zfp_rate<span class="op">(</span>hid_t plist<span class="op">,</span> <span class="dt">double</span> rate<span class="op">);</span></span>
+<span id="cb6-3"><a href="#cb6-3" tabindex="-1"></a><span class="kw">extern</span> herr_t H5Pset_zfp_precision<span class="op">(</span>hid_t plist<span class="op">,</span> <span class="dt">unsigned</span> <span class="dt">int</span> prec<span class="op">);</span></span>
+<span id="cb6-4"><a href="#cb6-4" tabindex="-1"></a><span class="kw">extern</span> herr_t H5Pset_zfp_accuracy<span class="op">(</span>hid_t plist<span class="op">,</span> <span class="dt">double</span> acc<span class="op">);</span></span>
+<span id="cb6-5"><a href="#cb6-5" tabindex="-1"></a><span class="kw">extern</span> herr_t H5Pset_zfp_expert<span class="op">(</span>hid_t plist<span class="op">,</span> <span class="dt">unsigned</span> <span class="dt">int</span> minbits<span class="op">,</span> <span class="dt">unsigned</span> <span class="dt">int</span> maxbits<span class="op">,</span> <span class="dt">unsigned</span> <span class="dt">int</span> maxprec<span class="op">,</span> <span class="dt">int</span> minexp<span class="op">);</span></span>
+<span id="cb6-6"><a href="#cb6-6" tabindex="-1"></a><span class="kw">extern</span> herr_t H5Pset_zfp_reversible<span class="op">(</span>hid_t plist<span class="op">);</span> <span class="co">// Lossless mode</span></span>
+<span id="cb6-7"><a href="#cb6-7" tabindex="-1"></a></span>
+<span id="cb6-8"><a href="#cb6-8" tabindex="-1"></a><span class="co">// ... later in your code ...</span></span>
+<span id="cb6-9"><a href="#cb6-9" tabindex="-1"></a></span>
+<span id="cb6-10"><a href="#cb6-10" tabindex="-1"></a><span class="co">// Compress data using ZFP's Accuracy mode (maintaining 0.001 tolerance)</span></span>
+<span id="cb6-11"><a href="#cb6-11" tabindex="-1"></a>H5Pset_zfp_accuracy<span class="op">(</span>plist_id<span class="op">,</span> <span class="fl">0.001</span><span class="op">);</span></span></code></pre></div>
+</div>
+</div>
+<div class="section level3">
+<h3 id="bitshuffle">6. Bitshuffle<a class="anchor" aria-label="anchor" href="#bitshuffle"></a>
+</h3>
+<p><strong>Recommendation:</strong> <strong>Use to Boost Compression of
+Structured Data.</strong> Bitshuffle is not a standalone compressor; it
+is a pre-filter that transposes the bits in structured arrays (like
+integers, floats, or compound datatypes) to expose redundancy, before
+handing that data off to an internal compressor (LZ4 or Zstd). It vastly
+improves compression ratios for highly structured datasets.</p>
+<ul>
+<li>
+<strong>Filter ID:</strong> <code>32008</code>
+</li>
+<li>
+<strong>Elements (<code>cd_nelmts</code>):</strong> 3</li>
+<li>
+<strong><code>cd_values[0]</code>:</strong> Block size. Pass
+<code>0</code> to let the library choose the optimal default (usually
+1024).</li>
+<li>
+<strong><code>cd_values[1]</code>:</strong> Compressor algorithm.
+<code>0</code> = raw bitshuffling (no compression), <code>2</code> =
+LZ4, <code>3</code> = Zstd.</li>
+<li>
+<strong><code>cd_values[2]</code>:</strong> Compression level. Only
+applies if Zstd is selected (e.g., <code>5</code>). Pass <code>0</code>
+for uncompressed or LZ4.</li>
+</ul>
+<div class="sourceCode" id="cb7"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a><span class="co">// Bitshuffle data, then apply Zstd compression at level 5</span></span>
+<span id="cb7-2"><a href="#cb7-2" tabindex="-1"></a><span class="dt">unsigned</span> <span class="dt">int</span> cd_values<span class="op">[</span><span class="dv">3</span><span class="op">]</span> <span class="op">=</span> <span class="op">{</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">3</span><span class="op">,</span> <span class="dv">5</span> <span class="op">};</span> </span>
+<span id="cb7-3"><a href="#cb7-3" tabindex="-1"></a>H5Pset_filter<span class="op">(</span>plist_id<span class="op">,</span> <span class="dv">32008</span><span class="op">,</span> H5Z_FLAG_MANDATORY<span class="op">,</span> <span class="dv">3</span><span class="op">,</span> cd_values<span class="op">);</span></span></code></pre></div>
+</div>
+<div class="section level3">
+<h3 id="blosc-v1">7. Blosc (v1)<a class="anchor" aria-label="anchor" href="#blosc-v1"></a>
+</h3>
+<p><strong>Recommendation:</strong> <strong>Use for Backwards
+Compatibility.</strong> Blosc v1 was a pioneering meta-compressor, but
+it has been entirely superseded by Blosc2 (which is faster, smarter, and
+supports more features). This filter is bundled strictly to ensure
+backward compatibility for reading older HDF5 files. Use Blosc2 for all
+new development.</p>
+<ul>
+<li>
+<strong>Filter ID:</strong> <code>32001</code>
+</li>
+<li>
+<strong>Elements (<code>cd_nelmts</code>):</strong> 7</li>
+<li>
+<strong><code>cd_values[0-3]</code>:</strong> Reserved (Pass
+<code>0</code>).</li>
+<li>
+<strong><code>cd_values[4]</code>:</strong> Compression level
+(<code>0</code> to <code>9</code>). <em>Note: Blosc enforces a universal
+0-9 scale. If you select a codec with a wider range like Zstd, Blosc
+internally maps this 0-9 value to Zstd’s 1-22 scale.</em>
+</li>
+<li>
+<strong><code>cd_values[5]</code>:</strong> Pre-filter
+(<code>0</code>=nofilter, <code>1</code>=byte shuffle,
+<code>2</code>=bit shuffle).</li>
+<li>
+<strong><code>cd_values[6]</code>:</strong> Compressor ID
+(<code>0</code>=blosclz, <code>1</code>=lz4, <code>2</code>=lz4hc,
+<code>3</code>=snappy, <code>4</code>=zlib, <code>5</code>=zstd).</li>
+</ul>
+<div class="sourceCode" id="cb8"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb8-1"><a href="#cb8-1" tabindex="-1"></a><span class="co">// Blosc v1 using LZ4 (level 5) and the standard byte shuffle pre-filter</span></span>
+<span id="cb8-2"><a href="#cb8-2" tabindex="-1"></a><span class="dt">unsigned</span> <span class="dt">int</span> cd_values<span class="op">[</span><span class="dv">7</span><span class="op">]</span> <span class="op">=</span> <span class="op">{</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">5</span><span class="op">,</span> <span class="dv">1</span><span class="op">,</span> <span class="dv">1</span> <span class="op">};</span> </span>
+<span id="cb8-3"><a href="#cb8-3" tabindex="-1"></a>H5Pset_filter<span class="op">(</span>plist_id<span class="op">,</span> <span class="dv">32001</span><span class="op">,</span> H5Z_FLAG_MANDATORY<span class="op">,</span> <span class="dv">7</span><span class="op">,</span> cd_values<span class="op">);</span></span></code></pre></div>
+</div>
+<div class="section level3">
+<h3 id="szip">8. SZIP<a class="anchor" aria-label="anchor" href="#szip"></a>
+</h3>
+<p><strong>Recommendation:</strong> <strong>Use for Backwards
+Compatibility.</strong> Historically used in legacy NASA and Earthdata
+datasets, the original SZIP algorithm carried strict licensing
+encumbrances that stifled widespread adoption. Modern tools like ZFP or
+Blosc2 are vastly superior for scientific data. This is included
+primarily for reading legacy archives (note: <code>hdf5lib</code> safely
+circumvents historical licensing issues by bundling <code>libaec</code>,
+a permissively licensed, drop-in replacement).</p>
+<blockquote>
+<p><strong>Restrictions:</strong> SZIP strictly requires numeric data
+(integers or floating-point numbers). It does not support compound
+datatypes, strings, or variable-length arrays. The chunk size (in
+elements) must also be an exact multiple of the block size.</p>
+</blockquote>
+<ul>
+<li>
+<strong>Filter ID:</strong> <code>H5Z_FILTER_SZIP</code> (4)</li>
+<li>
+<strong>Elements (<code>cd_nelmts</code>):</strong> 2</li>
+<li>
+<strong><code>cd_values[0]</code>:</strong> Options mask (e.g.,
+<code>H5_SZIP_NN_OPTION_MASK</code> or
+<code>H5_SZIP_EC_OPTION_MASK</code>).</li>
+<li>
+<strong><code>cd_values[1]</code>:</strong> Pixels per block. Must
+be even, typically <code>8</code>, <code>16</code>, or
+<code>32</code>.</li>
+</ul>
+<p>Like GZIP, SZIP has a dedicated helper function.</p>
+<div class="sourceCode" id="cb9"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb9-1"><a href="#cb9-1" tabindex="-1"></a><span class="co">// Apply SZIP compression (Entropy Coding method, 8 pixels per block)</span></span>
+<span id="cb9-2"><a href="#cb9-2" tabindex="-1"></a>H5Pset_szip<span class="op">(</span>plist_id<span class="op">,</span> H5_SZIP_EC_OPTION_MASK<span class="op">,</span> <span class="dv">8</span><span class="op">);</span></span></code></pre></div>
 </div>
 <div class="section level3">
 <h3 id="bzip2">9. BZIP2<a class="anchor" aria-label="anchor" href="#bzip2"></a>
 </h3>
+<p><strong>Recommendation:</strong> <strong>Use for Backwards
+Compatibility.</strong> While BZIP2 historically offered fantastic
+compression ratios, it is notoriously slow to compress and decompress.
+Zstd now achieves comparable or better ratios in a fraction of the time.
+Bundled strictly to allow reading of legacy archives.</p>
 <ul>
 <li>
 <strong>Filter ID:</strong> <code>307</code>
@@ -437,6 +557,12 @@ level from <code>1</code> (fastest) to <code>9</code> (best). Default is
 <div class="section level3">
 <h3 id="lzf-snappy">10. LZF &amp; Snappy<a class="anchor" aria-label="anchor" href="#lzf-snappy"></a>
 </h3>
+<p><strong>Recommendation:</strong> <strong>Use for Backwards
+Compatibility.</strong> Both LZF and Snappy were early pioneers of
+extreme-speed compression. However, LZ4 generally outperforms them in
+modern environments. LZF is included primarily because it was the
+default high-speed compressor in early versions of the Python
+<code>h5py</code> library.</p>
 <p>Both LZF and Snappy are extremely fast, low-overhead algorithms. They
 require zero configuration parameters.</p>
 <ul>
@@ -469,12 +595,14 @@ compiled with the necessary flags to enable this feature.</p>
 <h3 id="how-it-works-for-the-user">How It Works for the User<a class="anchor" aria-label="anchor" href="#how-it-works-for-the-user"></a>
 </h3>
 <ol style="list-style-type: decimal">
-<li><p><strong>Install the Filter:</strong> The user obtains and
-installs the desired filter plugin (<code>.so</code>,
-<code>.dylib</code>, or <code>.dll</code> files).</p></li>
-<li><p><strong>Set the Plugin Path:</strong> The user must tell the HDF5
+<li>
+<strong>Install the Filter:</strong> The user obtains and installs
+the desired filter plugin (<code>.so</code>, <code>.dylib</code>, or
+<code>.dll</code> files).</li>
+<li>
+<strong>Set the Plugin Path:</strong> The user must tell the HDF5
 library where to find the installed plugins by setting the
-<code>HDF5_PLUGIN_PATH</code> environment variable.</p></li>
+<code>HDF5_PLUGIN_PATH</code> environment variable.</li>
 </ol>
 <p>Once configured, any R package linking to <code>hdf5lib</code> can
 seamlessly read datasets using that external filter.</p>
