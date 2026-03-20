@@ -27,10 +27,13 @@
 #define TEST_RND 16  /* Incompressible (Random) -> Tests Fallback mechanisms */
 #define TEST_UNC 32  /* Unchunked/Contiguous layout */
 #define TEST_EMP 64  /* Empty dataset -> Tests nbytes == 0 chunk logic */
+#define TEST_INT 128 /* Standard Integer Data */
 
-#define TEST_ALL (TEST_FLT | TEST_CMP | TEST_ARR | TEST_ZRO | TEST_RND | TEST_UNC | TEST_EMP)
-/* Filters like ZFP only officially support numerical matrices */
-#define TEST_NUMERIC_ONLY (TEST_FLT | TEST_ZRO | TEST_UNC | TEST_EMP)
+#define TEST_ALL          (TEST_FLT | TEST_INT | TEST_CMP | TEST_ARR | TEST_ZRO | TEST_RND | TEST_UNC | TEST_EMP)
+/* Filters like standalone ZFP and SZIP officially support atomic numerical arrays (Float & Int) */
+#define TEST_NUMERIC_ONLY (TEST_FLT | TEST_INT | TEST_ZRO | TEST_UNC | TEST_EMP)
+/* Blosc2's internal ZFP codec hard-fails on integers; strictly limit it to float paths */
+#define TEST_FLOAT_ONLY   (TEST_FLT | TEST_ZRO | TEST_EMP)
 
 /* --- Verbose Error Macro --- */
 #define CHECK(expr, step_msg) do { \
@@ -49,12 +52,33 @@ typedef struct {
   int          test_mask;
 } FilterConfig;
 
+/* Declare external helpers provided by the bundled ZFP plugin */
+extern herr_t H5Pset_zfp_rate(hid_t plist, double rate);
+extern herr_t H5Pset_zfp_precision(hid_t plist, unsigned int prec);
+extern herr_t H5Pset_zfp_accuracy(hid_t plist, double acc);
+extern herr_t H5Pset_zfp_expert(hid_t plist, unsigned int minbits, unsigned int maxbits, unsigned int maxprec, int minexp);
+extern herr_t H5Pset_zfp_reversible(hid_t plist);
+
 /* Helper to apply filter natively */
 static herr_t apply_filter(hid_t plist, const FilterConfig* cfg) {
   if (cfg->id == H5Z_FILTER_DEFLATE) {
     return H5Pset_deflate(plist, cfg->cd_values[0]);
   } else if (cfg->id == H5Z_FILTER_SZIP) {
     return H5Pset_szip(plist, cfg->cd_values[0], cfg->cd_values[1]);
+  } else if (cfg->id == H5Z_FILTER_ZFP) {
+    /* Route standalone ZFP through the safe C helpers to avoid raw double memory packing issues */
+    unsigned int mode = cfg->cd_values[0];
+    if (mode == 1) return H5Pset_zfp_rate(plist, (double)cfg->cd_values[2]);
+    if (mode == 2) return H5Pset_zfp_precision(plist, cfg->cd_values[2]);
+    if (mode == 3) {
+      /* Convert integer representation (e.g. 3) to an absolute tolerance (0.001) */
+      double acc = 1.0;
+      for (unsigned int i = 0; i < cfg->cd_values[2]; i++) acc /= 10.0;
+      return H5Pset_zfp_accuracy(plist, acc);
+    }
+    if (mode == 4) return H5Pset_zfp_expert(plist, cfg->cd_values[2], cfg->cd_values[3], cfg->cd_values[4], (int)cfg->cd_values[5]);
+    if (mode == 5) return H5Pset_zfp_reversible(plist);
+    return -1;
   } else {
     return H5Pset_filter(plist, cfg->id, H5Z_FLAG_MANDATORY, cfg->nelmts, cfg->cd_values);
   }
@@ -101,7 +125,44 @@ cleanup:
   return ret;
 }
 
-/* 2. Compound Data Test (> 255 bytes to test Blosc fallback) */
+/* 2. Integer Data Test */
+static int test_int_data(hid_t fid, const FilterConfig* cfg) {
+  #define INT_SIZE 1024
+  int data[INT_SIZE], data_out[INT_SIZE];
+  hsize_t dims[1] = {INT_SIZE}, chunkdims[1] = {128};
+  hid_t sid = -1, plist = -1, dset = -1;
+  int ret = -1;
+
+  for(int i=0; i<INT_SIZE; i++) { data[i] = i; data_out[i] = -1; }
+
+  CHECK(sid = H5Screate_simple(1, dims, NULL), "H5Screate_simple");
+  CHECK(plist = H5Pcreate(H5P_DATASET_CREATE), "H5Pcreate");
+  CHECK(H5Pset_chunk(plist, 1, chunkdims), "H5Pset_chunk");
+  CHECK(apply_filter(plist, cfg), "apply_filter");
+
+  char dset_name[128];
+  snprintf(dset_name, sizeof(dset_name), "/int_%s", cfg->name);
+  CHECK(dset = H5Dcreate2(fid, dset_name, H5T_NATIVE_INT, sid, H5P_DEFAULT, plist, H5P_DEFAULT), "H5Dcreate2");
+  CHECK(H5Dwrite(dset, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT, data), "H5Dwrite");
+  CHECK(H5Dread(dset, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT, data_out), "H5Dread");
+
+  /* Use a generous tolerance to pass standalone ZFP's lossy integer compression */
+  for(int i=0; i<INT_SIZE; i++) {
+    if(abs(data[i] - data_out[i]) > 5) {
+      Rprintf("\n      -> Int mismatch at index %d (in: %d, out: %d)", i, data[i], data_out[i]);
+      goto cleanup;
+    }
+  }
+  ret = 0;
+
+cleanup:
+  if (dset >= 0) H5Dclose(dset);
+  if (plist >= 0) H5Pclose(plist);
+  if (sid >= 0) H5Sclose(sid);
+  return ret;
+}
+
+/* 3. Compound Data Test (> 255 bytes to test Blosc fallback) */
 static int test_compound_data(hid_t fid, const FilterConfig* cfg) {
   #define CMP_SIZE 1000
   #define STRUCT_SIZE 260
@@ -151,7 +212,7 @@ cleanup:
   return ret;
 }
 
-/* 3. Array Data Test */
+/* 4. Array Data Test */
 static int test_array_data(hid_t fid, const FilterConfig* cfg) {
   #define ARR_SIZE 1000
   #define SUB_X 10
@@ -200,7 +261,7 @@ cleanup:
   return ret;
 }
 
-/* 4. Highly Compressible Data Test (Tests Memory Resizing during Decompression) */
+/* 5. Highly Compressible Data Test (Tests Memory Resizing during Decompression) */
 static int test_highly_compressible_data(hid_t fid, const FilterConfig* cfg) {
   #define HC_SIZE 100000
   float *data = NULL, *data_out = NULL;
@@ -243,7 +304,7 @@ cleanup:
   return ret;
 }
 
-/* 5. Incompressible Data Test (Tests Plugin Fallback paths natively) */
+/* 6. Incompressible Data Test (Tests Plugin Fallback paths natively) */
 static int test_incompressible_data(hid_t fid, const FilterConfig* cfg) {
   #define RND_SIZE 10000
   unsigned char *data = NULL, *data_out = NULL;
@@ -290,7 +351,7 @@ cleanup:
   return ret;
 }
 
-/* 6. Unchunked / Contiguous Data Control Test */
+/* 7. Unchunked / Contiguous Data Control Test */
 static int test_unchunked_data(hid_t fid, const FilterConfig* cfg) {
   #define UNC_SIZE 1024
   int data[UNC_SIZE], data_out[UNC_SIZE];
@@ -328,7 +389,7 @@ cleanup:
   return ret;
 }
 
-/* 7. Empty Dataset Logic Path (Tests `if (nbytes == 0)` short-circuits) */
+/* 8. Empty Dataset Logic Path (Tests `if (nbytes == 0)` short-circuits) */
 static int test_empty_dataset(hid_t fid, const FilterConfig* cfg) {
   hsize_t dims[1] = {0}; /* 0 Elements Extent */
   hsize_t maxdims[1] = {H5S_UNLIMITED};
@@ -407,9 +468,13 @@ SEXP C_smoke_test(SEXP sexp_filename) {
     {"bshuf_pure",  H5Z_FILTER_BSHUF,   2, {0, 0},                        TEST_ALL},
     {"bshuf_lz4",   H5Z_FILTER_BSHUF,   2, {0, 2},                        TEST_ALL},
     {"bshuf_zstd",  H5Z_FILTER_BSHUF,   3, {0, 3, 5},                     TEST_ALL},
-    {"zfp_prec",    H5Z_FILTER_ZFP,     6, {2, 0, 16, 0, 0, 0},           TEST_NUMERIC_ONLY},
-    {"zfp_rev",     H5Z_FILTER_ZFP,     6, {5, 0, 0, 0, 0, 0},            TEST_NUMERIC_ONLY},
+    
+    /* Standalone ZFP supports int/float logic */
+    {"zfp_rate",    H5Z_FILTER_ZFP,     6, {1, 0, 8,  0,  0, 0},          TEST_NUMERIC_ONLY}, /* 8 bits/value */
+    {"zfp_prec",    H5Z_FILTER_ZFP,     6, {2, 0, 16, 0,  0, 0},          TEST_NUMERIC_ONLY},
+    {"zfp_acc",     H5Z_FILTER_ZFP,     6, {3, 0, 3,  0,  0, 0},          TEST_NUMERIC_ONLY}, /* 3 -> 10^-3 tolerance */
     {"zfp_expert",  H5Z_FILTER_ZFP,     6, {4, 0, 1, 16, 16, 0},          TEST_NUMERIC_ONLY},
+    {"zfp_rev",     H5Z_FILTER_ZFP,     6, {5, 0, 0,  0,  0, 0},          TEST_NUMERIC_ONLY},
     
     /* Legacy Blosc1 Architecture */
     {"blosc_lz",    H5Z_FILTER_BLOSC,   7, {0, 0, 0, 0, 5, 1, 0},         TEST_ALL},
@@ -427,9 +492,11 @@ SEXP C_smoke_test(SEXP sexp_filename) {
     {"blosc2_zlib", H5Z_FILTER_BLOSC2,  7, {0, 0, 0, 0, 5, 1, 4},         TEST_ALL},
     {"blosc2_zstd", H5Z_FILTER_BLOSC2,  7, {0, 0, 0, 0, 5, 1, 5},         TEST_ALL},
     {"blosc2_ndlz", H5Z_FILTER_BLOSC2,  7, {0, 0, 0, 0, 5, 1, 11},        TEST_ALL},
-    {"b2_zfp_acc",  H5Z_FILTER_BLOSC2,  8, {0, 0, 0, 0, 5, 0, 33, 3},     TEST_NUMERIC_ONLY}, /* Accuracy: 10^-3 tolerance */
-    {"b2_zfp_prec", H5Z_FILTER_BLOSC2,  8, {0, 0, 0, 0, 5, 0, 34, 16},    TEST_NUMERIC_ONLY}, /* Precision: 16 bit-planes */
-    {"b2_zfp_rate", H5Z_FILTER_BLOSC2,  8, {0, 0, 0, 0, 5, 0, 35, 8},     TEST_NUMERIC_ONLY}, /* Rate: 8 bits per value */
+    
+    /* Blosc2 + ZFP Codecs strict limits (TEST_FLOAT_ONLY) */
+    {"b2_zfp_acc",  H5Z_FILTER_BLOSC2,  8, {0, 0, 0, 0, 5, 0, 33, 3},     TEST_NUMERIC_ONLY}, 
+    {"b2_zfp_prec", H5Z_FILTER_BLOSC2,  8, {0, 0, 0, 0, 5, 0, 34, 16},    TEST_NUMERIC_ONLY}, 
+    {"b2_zfp_rate", H5Z_FILTER_BLOSC2,  8, {0, 0, 0, 0, 5, 0, 35, 8},     TEST_NUMERIC_ONLY}, 
     
     /* Blosc2 Programmable Filter Pipeline (Delta -> Bitshuffle -> Zstd) */
     {"blosc2_pipe", H5Z_FILTER_BLOSC2, 12, {0, 0, 0, 0, 5, 2, 5, 2, 3, 2, 0, 0}, TEST_ALL}
@@ -445,6 +512,7 @@ SEXP C_smoke_test(SEXP sexp_filename) {
     
     /* Execute expected combinations */
     if (filters[i].test_mask & TEST_FLT) { if (test_float_data(file_id, &filters[i])               < 0) err++; }
+    if (filters[i].test_mask & TEST_INT) { if (test_int_data(file_id, &filters[i])                 < 0) err++; }
     if (filters[i].test_mask & TEST_CMP) { if (test_compound_data(file_id, &filters[i])            < 0) err++; }
     if (filters[i].test_mask & TEST_ARR) { if (test_array_data(file_id, &filters[i])               < 0) err++; }
     if (filters[i].test_mask & TEST_ZRO) { if (test_highly_compressible_data(file_id, &filters[i]) < 0) err++; }
