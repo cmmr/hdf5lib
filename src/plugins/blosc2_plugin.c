@@ -23,6 +23,12 @@
 /* Max possible size: Base(9) + MaxDims(8) = 17 */
 #define MAX_FILTER_VALUES (9 + BLOSC2_MAX_DIM) 
 
+#ifdef WORDS_BIGENDIAN
+  #define B2ND_ENDIAN_PREFIX ">"
+#else
+  #define B2ND_ENDIAN_PREFIX "<"
+#endif
+
 #define B2ND_OPAQUE_NPDTYPE_FORMAT "|V%zd"
 #define B2ND_OPAQUE_NPDTYPE_MAXLEN (2 + 20 + 1)
 
@@ -249,7 +255,13 @@ static size_t blosc2_filter_function(
       for (int i = 0; i < ndim; i++) chunkshape_l[i] = chunkshape[i];
 
       char dtype[B2ND_OPAQUE_NPDTYPE_MAXLEN];
-      snprintf(dtype, sizeof(dtype), B2ND_OPAQUE_NPDTYPE_FORMAT, typesize);
+      
+      if (compcode >= 33 && compcode <= 35) {
+          /* ZFP strictly requires a numerical dtype descriptor matching the host byte order */
+          snprintf(dtype, sizeof(dtype), "%sf%u", B2ND_ENDIAN_PREFIX, (unsigned int)typesize);
+      } else {
+          snprintf(dtype, sizeof(dtype), B2ND_OPAQUE_NPDTYPE_FORMAT, (unsigned int)typesize);
+      }
       
       if (!(ctx = b2nd_create_ctx(&storage, ndim, chunkshape_l, chunkshape, blockdims, dtype, DTYPE_NUMPY_FORMAT, NULL, 0))) {
         PUSH_ERR("blosc2_filter: Cannot create B2ND context");
