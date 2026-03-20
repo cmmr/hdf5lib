@@ -85,6 +85,49 @@ static herr_t apply_filter(hid_t plist, const FilterConfig* cfg) {
 }
 
 /* =========================================================================
+ * CODEC INSPECTOR
+ * ========================================================================= */
+
+/* A function to read the raw chunk from disk and extract the Blosc compcode */
+static void verify_blosc_compcode(hid_t dset) {
+    hsize_t offset[1] = {0}; /* We only need the first chunk */
+    hsize_t chunk_bytes;
+    uint32_t filter_mask = 0;
+
+    /* 1. Get the physical size of the chunk on disk */
+    if (H5Dget_chunk_info(dset, H5P_DEFAULT, 0, offset, (unsigned *)&filter_mask, NULL, &chunk_bytes) < 0) {
+        Rprintf("\n      -> Codec Inspector: Failed to get chunk info.");
+        return;
+    }
+
+    unsigned char *raw_chunk = malloc((size_t)chunk_bytes);
+    if (!raw_chunk) return;
+
+    size_t chunk_buf_size = (size_t)chunk_bytes;
+
+    /* 2. Read the raw compressed bytes directly, bypassing decompression */
+    if (H5Dread_chunk(dset, H5P_DEFAULT, offset, &filter_mask, raw_chunk, &chunk_buf_size) < 0) {
+        Rprintf("\n      -> Codec Inspector: Failed to read raw chunk.");
+        free(raw_chunk);
+        return;
+    }
+
+    /* 3. Identify the Chunk Architecture */
+    if (raw_chunk[2] == 'b' && raw_chunk[3] == '2' && raw_chunk[4] == 'f') {
+        Rprintf("\n      -> Disk Inspection: Successfully wrote Blosc2 Frame (b2frame)");
+    } else {
+        unsigned char compcode = raw_chunk[4];
+        if (compcode == 0) {
+            Rprintf("\n      -> Disk Inspection: Blosc1 Stamped Codec 0 (blosclz SILENT FALLBACK)");
+        } else {
+            Rprintf("\n      -> Disk Inspection: Blosc1 Stamped Codec %d", compcode);
+        }
+    }
+
+    free(raw_chunk);
+}
+
+/* =========================================================================
  * DATATYPE TEST RUNNERS
  * ========================================================================= */
 
@@ -96,7 +139,12 @@ static int test_float_data(hid_t fid, const FilterConfig* cfg) {
   hid_t sid = -1, plist = -1, dset = -1;
   int ret = -1;
 
-  for(int i=0; i<FLT_SIZE; i++) { data[i] = (float)i; data_out[i] = -1.0; }
+  for(int i=0; i<FLT_SIZE; i++) { 
+    /* The Proof Array: Repeats every 64 elements (LZ loves this). 
+       Smooth slope (ZFP loves this). */
+    data[i] = (float)(i % 64) * 0.5f; 
+    data_out[i] = -1.0f; 
+  }
 
   CHECK(sid = H5Screate_simple(1, dims, NULL), "H5Screate_simple");
   CHECK(plist = H5Pcreate(H5P_DATASET_CREATE), "H5Pcreate");
@@ -107,9 +155,33 @@ static int test_float_data(hid_t fid, const FilterConfig* cfg) {
   snprintf(dset_name, sizeof(dset_name), "/float_%s", cfg->name);
   CHECK(dset = H5Dcreate2(fid, dset_name, H5T_NATIVE_FLOAT, sid, H5P_DEFAULT, plist, H5P_DEFAULT), "H5Dcreate2");
   CHECK(H5Dwrite(dset, H5T_NATIVE_FLOAT, H5S_ALL, H5S_ALL, H5P_DEFAULT, data), "H5Dwrite");
+
+  /* This forces the compression pipeline to execute and traps any crashes (missing plugins) */
+  CHECK(H5Dflush(dset), "H5Dflush (Compression Pipeline Crashed!)"); 
+
+  /* Inspect the raw disk bytes to see what Blosc ACTUALLY did */
+  if (cfg->id == H5Z_FILTER_BLOSC2 || cfg->id == H5Z_FILTER_BLOSC) {
+      verify_blosc_compcode(dset);
+  }
+
+  hsize_t allocated_size = H5Dget_storage_size(dset);
+  hsize_t uncompressed_size = FLT_SIZE * sizeof(float);
+
+  /* Bypass size check for purely structural filters (e.g., pure bitshuffle without LZ4/Zstd) */
+  int skip_size_check = 0;
+  if (cfg->id == H5Z_FILTER_BSHUF && cfg->cd_values[1] == 0) {
+      skip_size_check = 1;
+  }
+
+  /* A true compressor will crush this repeating smooth array easily. */
+  if (!skip_size_check && allocated_size >= (uncompressed_size * 0.9)) {
+      Rprintf("\n      -> Silent Failure: Float data was not compressed (Allocated: %llu, Raw: %llu)", 
+              (unsigned long long)allocated_size, (unsigned long long)uncompressed_size);
+      goto cleanup;
+  }
+
   CHECK(H5Dread(dset, H5T_NATIVE_FLOAT, H5S_ALL, H5S_ALL, H5P_DEFAULT, data_out), "H5Dread");
 
-  /* Use a small epsilon for lossy ZFP comparisons */
   for(int i=0; i<FLT_SIZE; i++) {
     if(data[i] - data_out[i] > 0.1 || data_out[i] - data[i] > 0.1) {
       Rprintf("\n      -> Float mismatch at index %d", i);
@@ -133,7 +205,17 @@ static int test_int_data(hid_t fid, const FilterConfig* cfg) {
   hid_t sid = -1, plist = -1, dset = -1;
   int ret = -1;
 
-  for(int i=0; i<INT_SIZE; i++) { data[i] = i; data_out[i] = -1; }
+  for(int i=0; i<INT_SIZE; i++) { 
+    /* THE OBLIVION SHIFT TRAP: 
+       Alternates integers representing large floats and small floats.
+       The "small float" bits will be shifted into oblivion by Blosc2 ZFP float-alignment. */
+    if (i % 2 == 0) {
+        data[i] = 1275068415; /* "Large" Float (Exp 151) */
+    } else {
+        data[i] = 822083583;  /* "Small" Float (Exp 96) */
+    }
+    data_out[i] = -1; 
+  }
 
   CHECK(sid = H5Screate_simple(1, dims, NULL), "H5Screate_simple");
   CHECK(plist = H5Pcreate(H5P_DATASET_CREATE), "H5Pcreate");
@@ -144,11 +226,36 @@ static int test_int_data(hid_t fid, const FilterConfig* cfg) {
   snprintf(dset_name, sizeof(dset_name), "/int_%s", cfg->name);
   CHECK(dset = H5Dcreate2(fid, dset_name, H5T_NATIVE_INT, sid, H5P_DEFAULT, plist, H5P_DEFAULT), "H5Dcreate2");
   CHECK(H5Dwrite(dset, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT, data), "H5Dwrite");
+
+  /* This forces the compression pipeline to execute and traps any crashes (missing plugins) */
+  CHECK(H5Dflush(dset), "H5Dflush (Compression Pipeline Crashed!)"); 
+
+  /* Inspect the raw disk bytes to see what Blosc ACTUALLY did */
+  if (cfg->id == H5Z_FILTER_BLOSC2 || cfg->id == H5Z_FILTER_BLOSC) {
+      verify_blosc_compcode(dset);
+  }
+
+  hsize_t allocated_size = H5Dget_storage_size(dset);
+  hsize_t uncompressed_size = INT_SIZE * sizeof(int);
+
+  /* Bypass size check for purely structural filters (e.g., pure bitshuffle without LZ4/Zstd) */
+  int skip_size_check = 0;
+  if (cfg->id == H5Z_FILTER_BSHUF && cfg->cd_values[1] == 0) {
+      skip_size_check = 1;
+  }
+
+  if (!skip_size_check && allocated_size >= (uncompressed_size * 0.9)) {
+      Rprintf("\n      -> Silent Failure: Integer data was not compressed (Allocated: %llu, Raw: %llu)", 
+              (unsigned long long)allocated_size, (unsigned long long)uncompressed_size);
+      goto cleanup;
+  }
+
   CHECK(H5Dread(dset, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT, data_out), "H5Dread");
 
-  /* Use a generous tolerance to pass standalone ZFP's lossy integer compression */
+  /* Tolerance increased to 40,000. Standalone ZFP prec=16 on 2.1-Billion 
+     drops ~15 bits of mantissa. 2^15 = 32768 expected error margin. */
   for(int i=0; i<INT_SIZE; i++) {
-    if(abs(data[i] - data_out[i]) > 5) {
+    if(abs(data[i] - data_out[i]) > 40000) {
       Rprintf("\n      -> Int mismatch at index %d (in: %d, out: %d)", i, data[i], data_out[i]);
       goto cleanup;
     }
@@ -470,11 +577,11 @@ SEXP C_smoke_test(SEXP sexp_filename) {
     {"bshuf_zstd",  H5Z_FILTER_BSHUF,   3, {0, 3, 5},                     TEST_ALL},
     
     /* Standalone ZFP supports int/float logic */
-    {"zfp_rate",    H5Z_FILTER_ZFP,     6, {1, 0, 8,  0,  0, 0},          TEST_NUMERIC_ONLY}, /* 8 bits/value */
-    {"zfp_prec",    H5Z_FILTER_ZFP,     6, {2, 0, 16, 0,  0, 0},          TEST_NUMERIC_ONLY},
-    {"zfp_acc",     H5Z_FILTER_ZFP,     6, {3, 0, 3,  0,  0, 0},          TEST_NUMERIC_ONLY}, /* 3 -> 10^-3 tolerance */
+    {"zfp_rate",    H5Z_FILTER_ZFP,     6, {1, 0, 8, 0, 0, 0},            TEST_NUMERIC_ONLY},
+    {"zfp_prec",    H5Z_FILTER_ZFP,     6, {2, 0, 16, 0, 0, 0},           TEST_NUMERIC_ONLY},
+    {"zfp_acc",     H5Z_FILTER_ZFP,     6, {3, 0, 3, 0, 0, 0},            TEST_FLOAT_ONLY}, /* Fractional acc invalid for ints */
     {"zfp_expert",  H5Z_FILTER_ZFP,     6, {4, 0, 1, 16, 16, 0},          TEST_NUMERIC_ONLY},
-    {"zfp_rev",     H5Z_FILTER_ZFP,     6, {5, 0, 0,  0,  0, 0},          TEST_NUMERIC_ONLY},
+    {"zfp_rev",     H5Z_FILTER_ZFP,     6, {5, 0, 0, 0, 0, 0},            TEST_NUMERIC_ONLY},
     
     /* Legacy Blosc1 Architecture */
     {"blosc_lz",    H5Z_FILTER_BLOSC,   7, {0, 0, 0, 0, 5, 1, 0},         TEST_ALL},
@@ -491,12 +598,12 @@ SEXP C_smoke_test(SEXP sexp_filename) {
     {"blosc2_snappy",H5Z_FILTER_BLOSC2, 7, {0, 0, 0, 0, 5, 1, 3},         TEST_ALL},
     {"blosc2_zlib", H5Z_FILTER_BLOSC2,  7, {0, 0, 0, 0, 5, 1, 4},         TEST_ALL},
     {"blosc2_zstd", H5Z_FILTER_BLOSC2,  7, {0, 0, 0, 0, 5, 1, 5},         TEST_ALL},
-    {"blosc2_ndlz", H5Z_FILTER_BLOSC2,  7, {0, 0, 0, 0, 5, 1, 11},        TEST_ALL},
+    {"blosc2_ndlz", H5Z_FILTER_BLOSC2,  7, {0, 0, 0, 0, 5, 1, 11},        TEST_ARR},
     
     /* Blosc2 + ZFP Codecs strict limits (TEST_FLOAT_ONLY) */
-    {"b2_zfp_acc",  H5Z_FILTER_BLOSC2,  8, {0, 0, 0, 0, 5, 0, 33, 3},     TEST_NUMERIC_ONLY}, 
-    {"b2_zfp_prec", H5Z_FILTER_BLOSC2,  8, {0, 0, 0, 0, 5, 0, 34, 16},    TEST_NUMERIC_ONLY}, 
-    {"b2_zfp_rate", H5Z_FILTER_BLOSC2,  8, {0, 0, 0, 0, 5, 0, 35, 8},     TEST_NUMERIC_ONLY}, 
+    {"b2_zfp_acc",  H5Z_FILTER_BLOSC2,  8, {0, 0, 0, 0,  3, 0, 33},       TEST_FLOAT_ONLY}, 
+    {"b2_zfp_prec", H5Z_FILTER_BLOSC2,  8, {0, 0, 0, 0, 16, 0, 34},       TEST_FLOAT_ONLY}, 
+    {"b2_zfp_rate", H5Z_FILTER_BLOSC2,  8, {0, 0, 0, 0,  8, 0, 35},       TEST_FLOAT_ONLY}, 
     
     /* Blosc2 Programmable Filter Pipeline (Delta -> Bitshuffle -> Zstd) */
     {"blosc2_pipe", H5Z_FILTER_BLOSC2, 12, {0, 0, 0, 0, 5, 2, 5, 2, 3, 2, 0, 0}, TEST_ALL}

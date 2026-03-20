@@ -1,7 +1,7 @@
 /**
  * @file blosc2_plugin.c
  * @brief Standalone HDF5 Filter Plugin for Blosc2 (Filter ID 32026)
- * Supports Programmable Filter Pipelines while maintaining 100% 
+ * Supports Bitmask Pre-Filter Pipelines while maintaining 100% 
  * forward and backward compatibility with h5py and community plugins.
  * * Includes ZFP Safety Overrides to prevent bit-corruption from pre-filters.
  */
@@ -20,8 +20,8 @@
 #define DEFAULT_SHUFFLE 1
 #define DEFAULT_COMPCODE BLOSC_BLOSCLZ
 
-/* Max possible size: Base(8) + MaxDims(8) + NumFilters(1) + Filters(6) + Metas(6) = 29 */
-#define MAX_FILTER_VALUES (9 + BLOSC2_MAX_DIM + (2 * BLOSC2_MAX_FILTERS)) 
+/* Max possible size: Base(9) + MaxDims(8) = 17 */
+#define MAX_FILTER_VALUES (9 + BLOSC2_MAX_DIM) 
 
 #define B2ND_OPAQUE_NPDTYPE_FORMAT "|V%zd"
 #define B2ND_OPAQUE_NPDTYPE_MAXLEN (2 + 20 + 1)
@@ -48,24 +48,10 @@ static herr_t blosc2_set_local(hid_t dcpl, hid_t type, hid_t space) {
   if (r < 0) return -1;
 
   /* 1. Extract User Inputs */
-  unsigned int user_clevel = (nelements >= 5) ? values[4] : DEFAULT_CLEVEL;
-  unsigned int user_shuffle = (nelements >= 6) ? values[5] : DEFAULT_SHUFFLE;
-  unsigned int user_compcode = (nelements >= 7) ? values[6] : DEFAULT_COMPCODE;
-  
-  int num_filters = 0;
-  unsigned int pl_filters[BLOSC2_MAX_FILTERS] = {0};
-  unsigned int pl_metas[BLOSC2_MAX_FILTERS] = {0};
-
-  /* If user passed pipeline info (expecting num_filters at index 7) */
-  if (nelements >= 8) {
-      num_filters = values[7];
-      if (num_filters > BLOSC2_MAX_FILTERS) num_filters = BLOSC2_MAX_FILTERS;
-      
-      for (int i = 0; i < num_filters; i++) {
-          pl_filters[i] = (nelements > 8 + i) ? values[8 + i] : 0;
-          pl_metas[i] = (nelements > 8 + num_filters + i) ? values[8 + num_filters + i] : 0;
-      }
-  }
+  unsigned int user_clevel_or_meta = (nelements >= 5) ? values[4] : DEFAULT_CLEVEL;
+  unsigned int user_filter_mask    = (nelements >= 6) ? values[5] : DEFAULT_SHUFFLE;
+  unsigned int user_compcode       = (nelements >= 7) ? values[6] : DEFAULT_COMPCODE;
+  unsigned int truncprec_meta      = (nelements >= 8) ? values[7] : 0;
 
   /* 2. Calculate Data Geometry */
   ndim = H5Pget_chunk(dcpl, H5S_MAX_RANK, chunkshape);
@@ -91,19 +77,15 @@ static herr_t blosc2_set_local(hid_t dcpl, hid_t type, hid_t space) {
   // values[1] remains the user-provided blocksize or 0
   values[2] = basetypesize;
   values[3] = bufsize;
-  values[4] = user_clevel;
-  values[5] = user_shuffle; // Legacy fallback for last filter
+  values[4] = user_clevel_or_meta;
+  values[5] = user_filter_mask; 
   values[6] = user_compcode;
+  values[7] = truncprec_meta;
   
-  /* CRITICAL: ndim must be at 7, and chunkshape must immediately follow */
-  size_t idx = 7;
+  /* CRITICAL: ndim is shifted to 8, and chunkshape must immediately follow */
+  size_t idx = 8;
   values[idx++] = ndim;
   for (int i = 0; i < ndim; i++) values[idx++] = (unsigned int)chunkshape[i];
-
-  /* 4. Append Custom Pipeline Data at the end */
-  values[idx++] = num_filters;
-  for (int i = 0; i < num_filters; i++) values[idx++] = pl_filters[i];
-  for (int i = 0; i < num_filters; i++) values[idx++] = pl_metas[i];
 
   nelements = idx;
   if (H5Pmodify_filter(dcpl, FILTER_BLOSC2, flags, nelements, values) < 0) return -1;
@@ -176,29 +158,20 @@ static size_t blosc2_filter_function(
   size_t blocksize = cd_values[1]; 
   size_t typesize = cd_values[2]; 
   size_t outbuf_size = cd_values[3]; 
-  int clevel = (cd_nelmts >= 5) ? cd_values[4] : DEFAULT_CLEVEL;
-  int doshuffle = (cd_nelmts >= 6) ? cd_values[5] : DEFAULT_SHUFFLE;
-  int compcode = (cd_nelmts >= 7) ? cd_values[6] : DEFAULT_COMPCODE;
+  
+  int clevel_or_meta = (cd_nelmts >= 5) ? cd_values[4] : DEFAULT_CLEVEL;
+  int filter_mask    = (cd_nelmts >= 6) ? cd_values[5] : DEFAULT_SHUFFLE;
+  int compcode       = (cd_nelmts >= 7) ? cd_values[6] : DEFAULT_COMPCODE;
+  int truncprec_meta = (cd_nelmts >= 8) ? cd_values[7] : 0;
   
   int ndim = -1;
   int32_t chunkshape[BLOSC2_MAX_DIM];
-  size_t idx = 7;
+  size_t idx = 8; /* 7 is now strictly reserved for truncprec_meta */
 
   /* H5PY standard reading of ndim and chunkshape */
-  if (cd_nelmts >= 8) {
+  if (cd_nelmts >= 9) {
       ndim = cd_values[idx++];
       for (int i = 0; i < ndim; i++) chunkshape[i] = (int32_t)cd_values[idx++];
-  }
-
-  /* Extract Pipeline Data appended to the end */
-  int num_filters = 0;
-  int pl_filters[BLOSC2_MAX_FILTERS] = {0};
-  int pl_metas[BLOSC2_MAX_FILTERS] = {0};
-  
-  if (cd_nelmts > idx) {
-      num_filters = cd_values[idx++];
-      for (int i = 0; i < num_filters; i++) pl_filters[i] = cd_values[idx++];
-      for (int i = 0; i < num_filters; i++) pl_metas[i] = cd_values[idx++];
   }
 
   /* ----- Compression Path ----- */
@@ -215,35 +188,53 @@ static size_t blosc2_filter_function(
     blosc2_cparams cparams = BLOSC2_CPARAMS_DEFAULTS;
     cparams.compcode = compcode;
     cparams.typesize = (int32_t)typesize;
-    cparams.clevel = clevel;
 
-    /* Apply Pipeline if present, else fallback to legacy shuffle */
-    if (num_filters > 0) {
-        for (int i = 0; i < BLOSC2_MAX_FILTERS; i++) {
-            cparams.filters[i] = 0; 
-            cparams.filters_meta[i] = 0;
-        }
-        for (int i = 0; i < num_filters; i++) {
-            cparams.filters[i] = pl_filters[i];
-            cparams.filters_meta[i] = pl_metas[i];
-        }
-        cparams.compcode_meta = pl_metas[num_filters - 1]; 
+    /* Parameter Overload: ZFP Metadata vs Encoder Clevel */
+    if (compcode == 33 || compcode == 34 || compcode == 35) {
+        cparams.clevel = DEFAULT_CLEVEL;       /* Provide a generic valid clevel to Blosc2 internals */
+        cparams.compcode_meta = clevel_or_meta; /* Inject ZFP meta from cd_values[4] */
     } else {
-        cparams.filters[BLOSC_LAST_FILTER] = doshuffle;
-        /* Single-filter meta usually passed in cd_values[7], but we leave compcode_meta 
-           untouched here as our set_local strictly parses it for pipelines. */
+        cparams.clevel = clevel_or_meta;
+        cparams.compcode_meta = 0;
+    }
+
+    /* Initialize filters to off */
+    for (int i = 0; i < BLOSC2_MAX_FILTERS; i++) {
+        cparams.filters[i] = 0; 
+        cparams.filters_meta[i] = 0;
     }
 
     /* ==========================================================
-     * ZFP SAFETY OVERRIDE
+     * PIPELINE BITMASK & ZFP SAFETY OVERRIDE
      * ZFP performs lossy compression directly on numerical values.
-     * If bytes are shuffled before ZFP, it compresses the rearranged 
-     * byte stream, causing catastrophic bit-level corruption.
-     * We forcibly wipe all pre-filters if a ZFP codec is detected.
+     * If bytes are shuffled before ZFP, it corrupts the mantissa.
+     * We strictly skip the bitmask parsing if ZFP is active.
      * ========================================================== */
-    if (compcode == 33 || compcode == 34 || compcode == 35) {
-        for (int i = 0; i < BLOSC2_MAX_FILTERS; i++) {
-            cparams.filters[i] = 0; /* BLOSC_NOSHUFFLE */
+    if (compcode != 33 && compcode != 34 && compcode != 35) {
+        
+        int f_idx = 0;
+        
+        /* 1. Truncate Precision (Highest priority, must run first) */
+        if (filter_mask & 8) {
+            cparams.filters[f_idx] = BLOSC_TRUNCPREC;
+            cparams.filters_meta[f_idx] = truncprec_meta;
+            f_idx++;
+        }
+        
+        /* 2. Delta */
+        if (filter_mask & 4) {
+            cparams.filters[f_idx] = BLOSC_DELTA;
+            f_idx++;
+        }
+        
+        /* 3. Shuffle (Mutually exclusive with Bitshuffle typically, 
+              but we prioritize Bitshuffle if both are requested) */
+        if (filter_mask & 2) {
+            cparams.filters[f_idx] = BLOSC_BITSHUFFLE;
+            f_idx++;
+        } else if (filter_mask & 1) {
+            cparams.filters[f_idx] = BLOSC_SHUFFLE;
+            f_idx++;
         }
     }
 
@@ -255,7 +246,7 @@ static size_t blosc2_filter_function(
       b2nd_array_t *array = NULL;
 
       if (blocksize == 0) {
-        int32_t sugg = compute_blosc2_blocksize((int32_t)outbuf_size, (int32_t)typesize, clevel, compcode);
+        int32_t sugg = compute_blosc2_blocksize((int32_t)outbuf_size, (int32_t)typesize, cparams.clevel, compcode);
         if (sugg < 0) PUSH_ERR("blosc2_filter: Failed to compute suggested blocksize");
         blocksize = sugg;
       }

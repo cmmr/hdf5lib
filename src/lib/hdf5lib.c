@@ -46,7 +46,8 @@ extern int register_codec_private(blosc2_codec *codec);
 herr_t hdf5lib_register_all_filters(void) {
     herr_t err = 0;
 
-    /* 1. Initialize Blosc2 engine globally */
+    /* 1. Initialize Blosc engines globally */
+    blosc_init();
     blosc2_init();
 
     /* 2. Shoehorn custom static codecs into Blosc2 natively */
@@ -94,7 +95,8 @@ herr_t hdf5lib_destroy_all_filters(void) {
   H5Zunregister(zfp_class.id);
   H5Zunregister(zstd_class.id);
 
-  /* Safely tear down the Blosc thread pool and TLS memory */
+  /* Safely tear down the Blosc thread pools and TLS memory */
+  blosc_destroy();
   blosc2_destroy();
   
   return 0;
