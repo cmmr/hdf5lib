@@ -159,7 +159,7 @@ echo "  ./find_byte_widths$EXE | tr -d '\r' > H5_byte_widths.h"
 echo "  c_build -c r_compat.c -o r_compat.o"
 c_build -c r_compat.c -o r_compat.o
 
-echo "  c_build -I../hdf5/src -I../blosc2/include -c hdf5lib.c -o hdf5lib.o"
+echo "  c_build -I../hdf5/src -I../blosc1/blosc -I../blosc2/include -c hdf5lib.c -o hdf5lib.o"
 c_build -I../hdf5/src -I../blosc2/include -c hdf5lib.c -o hdf5lib.o
 
 cd ..
