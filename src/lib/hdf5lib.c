@@ -16,7 +16,6 @@ extern const H5Z_class2_t zfp_class;
 extern const H5Z_class2_t zstd_class;
 
 /* --- Declare C-Blosc2 Globals & Codecs --- */
-extern uint8_t      g_ncodecs;
 extern blosc2_codec g_codecs[256];
 extern blosc2_codec snappy_codec;
 extern blosc2_codec ndlz_codec;
@@ -54,12 +53,7 @@ herr_t hdf5lib_register_all_filters(void) {
     /* 2. Shoehorn custom static codecs into Blosc2 natively */
     
     /* BYPASS GUARD: Manually inject legacy Snappy (compcode 3) safely */
-    if (g_ncodecs < 255) {
-        g_codecs[g_ncodecs++] = snappy_codec;
-    } else {
-        Rf_warning("[HDF5LIB ERROR]: Blosc2 codec registry is full (>= 256). Cannot register Snappy.");
-        err = -1;
-    }
+    g_codecs[3] = snappy_codec;
 
     /* Use the standard API for modern codecs (IDs >= 32) and verify success */
     REG_BLOSC2_CODEC(&ndlz_codec, "ndlz");

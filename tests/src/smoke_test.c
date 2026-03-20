@@ -116,11 +116,14 @@ static void verify_blosc_compcode(hid_t dset) {
     if (raw_chunk[2] == 'b' && raw_chunk[3] == '2' && raw_chunk[4] == 'f') {
         Rprintf("\n      -> Disk Inspection: Successfully wrote Blosc2 Frame (b2frame)");
     } else {
-        unsigned char compcode = raw_chunk[4];
-        if (compcode == 0) {
-            Rprintf("\n      -> Disk Inspection: Blosc1 Stamped Codec 0 (blosclz SILENT FALLBACK)");
+        /* Blosc1 stores the compformat in the top 3 bits of byte 2 */
+        unsigned char flags = raw_chunk[2];
+        unsigned char compformat = (flags >> 5) & 7;
+        
+        if (compformat == 0) {
+            Rprintf("\n      -> Disk Inspection: Blosc1 Stamped Codec 0 (blosclz)");
         } else {
-            Rprintf("\n      -> Disk Inspection: Blosc1 Stamped Codec %d", compcode);
+            Rprintf("\n      -> Disk Inspection: Blosc1 Stamped Codec %d", compformat);
         }
     }
 
