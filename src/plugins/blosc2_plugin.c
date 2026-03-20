@@ -176,14 +176,6 @@ static size_t blosc2_filter_function(
 
   /* ----- Compression Path ----- */
   if (!(flags & H5Z_FLAG_REVERSE)) {
-    
-    if (compcode < 6) {
-        const char *compname;
-        if (blosc2_compcode_to_compname(compcode, &compname) == -1) {
-            snprintf(errmsg, sizeof(errmsg), "blosc2_filter: Compressor %d not supported.", compcode);
-            PUSH_ERR(errmsg);
-        }
-    }
 
     blosc2_cparams cparams = BLOSC2_CPARAMS_DEFAULTS;
     cparams.compcode = compcode;
