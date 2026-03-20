@@ -215,7 +215,7 @@ static size_t blosc2_filter_function(
         
         /* 1. Truncate Precision (Highest priority, must run first) */
         if (filter_mask & 8) {
-            cparams.filters[f_idx] = BLOSC_TRUNCPREC;
+            cparams.filters[f_idx] = BLOSC_TRUNC_PREC;
             cparams.filters_meta[f_idx] = meta_value; /* Dual use of meta_value */
             f_idx++;
         }
