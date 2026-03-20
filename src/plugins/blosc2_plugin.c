@@ -255,12 +255,14 @@ static size_t blosc2_filter_function(
       for (int i = 0; i < ndim; i++) chunkshape_l[i] = chunkshape[i];
 
       char dtype[B2ND_OPAQUE_NPDTYPE_MAXLEN];
-      
+
       if (compcode >= 33 && compcode <= 35) {
-          /* ZFP strictly requires a numerical dtype descriptor matching the host byte order */
+          /* ZFP strictly requires a numerical dtype descriptor matching the host byte order.
+             Uses %u, so it requires an unsigned int cast. */
           snprintf(dtype, sizeof(dtype), "%sf%u", B2ND_ENDIAN_PREFIX, (unsigned int)typesize);
       } else {
-          snprintf(dtype, sizeof(dtype), B2ND_OPAQUE_NPDTYPE_FORMAT, (unsigned int)typesize);
+          /* Uses the macro containing %zd, so it requires a size_t. */
+          snprintf(dtype, sizeof(dtype), B2ND_OPAQUE_NPDTYPE_FORMAT, (size_t)typesize);
       }
       
       if (!(ctx = b2nd_create_ctx(&storage, ndim, chunkshape_l, chunkshape, blockdims, dtype, DTYPE_NUMPY_FORMAT, NULL, 0))) {
