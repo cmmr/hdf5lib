@@ -20,8 +20,8 @@
 #define DEFAULT_SHUFFLE 1
 #define DEFAULT_COMPCODE BLOSC_BLOSCLZ
 
-/* Max possible size: Base(7) + MaxDims(8) + Meta(1) = 16 */
-#define MAX_FILTER_VALUES (7 + BLOSC2_MAX_DIM + 1) 
+/* Max possible size: Base(8) + MaxDims(8) + Meta(1) = 17 */
+#define MAX_FILTER_VALUES (8 + BLOSC2_MAX_DIM + 1) 
 
 #ifdef WORDS_BIGENDIAN
   #define B2ND_ENDIAN_PREFIX ">"
@@ -81,22 +81,21 @@ static herr_t blosc2_set_local(hid_t dcpl, hid_t type, hid_t space) {
 
   /* 3. Reconstruct cd_values: Strict Python Base Layout */
   values[0] = FILTER_BLOSC2_VERSION;
-  values[1] = basetypesize;
-  values[2] = bufsize; 
-  values[3] = user_clevel;
-  values[4] = user_filter_mask; 
-  values[5] = user_compcode;
+  values[1] = 0; /* Blocksize: 0 tells Python/Blosc to calculate it automatically */
+  values[2] = basetypesize;
+  values[3] = bufsize; 
+  values[4] = user_clevel;
+  values[5] = user_filter_mask; 
+  values[6] = user_compcode;
   
-  /* CRITICAL: Index 6 MUST be 0 (Python's blocksize). If this is not 0, Python crashes. */
-  values[6] = 0; 
-  
-  /* 4. Safely Append C-specific Geometry & Meta values out of Python's reach */
+  /* 4. Append ndim and shape starting precisely at index 7 */
   size_t idx = 7;
   values[idx++] = ndim;
   for (int i = 0; i < ndim; i++) {
       values[idx++] = (unsigned int)chunkshape[i];
   }
 
+  /* 5. Append Custom Meta Value out of Python's reach */
   values[idx++] = user_meta;
 
   nelements = idx;
@@ -164,15 +163,15 @@ static size_t blosc2_filter_function(
   void *outbuf = NULL;
   int64_t status = 0;
 
-  if (cd_nelmts < 6) PUSH_ERR("blosc2_filter: Filter parameters corrupted");
+  if (cd_nelmts < 7) PUSH_ERR("blosc2_filter: Filter parameters corrupted");
 
-  /* Match the strict Python layout indices */
-  size_t typesize    = cd_values[1]; 
-  size_t outbuf_size = cd_values[2]; 
-  int clevel         = cd_values[3];
-  int filter_mask    = cd_values[4];
-  int compcode       = cd_values[5];
-  size_t blocksize   = cd_values[6]; 
+  /* Match the strict Python layout indices exactly */
+  size_t blocksize   = cd_values[1]; 
+  size_t typesize    = cd_values[2]; 
+  size_t outbuf_size = cd_values[3]; 
+  int clevel         = cd_values[4];
+  int filter_mask    = cd_values[5];
+  int compcode       = cd_values[6];
   
   int ndim = -1;
   int32_t chunkshape[BLOSC2_MAX_DIM];
