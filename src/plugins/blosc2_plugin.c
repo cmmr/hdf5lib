@@ -20,8 +20,8 @@
 #define DEFAULT_SHUFFLE 1
 #define DEFAULT_COMPCODE BLOSC_BLOSCLZ
 
-/* Max possible size: Base(9) + MaxDims(8) = 17 */
-#define MAX_FILTER_VALUES (9 + BLOSC2_MAX_DIM) 
+/* Max possible size: Base(7) + MaxDims(8) + Meta(1) = 16 */
+#define MAX_FILTER_VALUES (7 + BLOSC2_MAX_DIM + 1) 
 
 #ifdef WORDS_BIGENDIAN
   #define B2ND_ENDIAN_PREFIX ">"
@@ -48,11 +48,13 @@ static herr_t blosc2_set_local(hid_t dcpl, hid_t type, hid_t space) {
   unsigned int flags;
   
   size_t nelements = MAX_FILTER_VALUES;
-  unsigned int values[MAX_FILTER_VALUES] = {0};
+  unsigned int values[MAX_FILTER_VALUES];
+  memset(values, 0, sizeof(values));
+
   r = H5Pget_filter_by_id(dcpl, FILTER_BLOSC2, &flags, &nelements, values, 0, NULL, NULL);
   if (r < 0) return -1;
 
-  /* 1. Extract User Inputs (Assuming user array: [0, 0, 0, 0, clevel, filter, compcode, meta]) */
+  /* 1. Extract User Inputs (Assuming user array: [0,0,0,0, clevel, filter, compcode, meta]) */
   unsigned int user_clevel      = (nelements >= 5) ? values[4] : DEFAULT_CLEVEL;
   unsigned int user_filter_mask = (nelements >= 6) ? values[5] : DEFAULT_SHUFFLE;
   unsigned int user_compcode    = (nelements >= 7) ? values[6] : DEFAULT_COMPCODE;
@@ -77,7 +79,7 @@ static herr_t blosc2_set_local(hid_t dcpl, hid_t type, hid_t space) {
   bufsize = typesize;
   for (int i = 0; i < ndim; i++) bufsize *= (unsigned int)chunkshape[i];
 
-  /* 3. Reconstruct cd_values: Python Base Layout */
+  /* 3. Reconstruct cd_values: Strict Python Base Layout */
   values[0] = FILTER_BLOSC2_VERSION;
   values[1] = basetypesize;
   values[2] = bufsize; 
@@ -85,14 +87,16 @@ static herr_t blosc2_set_local(hid_t dcpl, hid_t type, hid_t space) {
   values[4] = user_filter_mask; 
   values[5] = user_compcode;
   
-  /* 4. Append ndim and shape */
-  size_t idx = 6;
+  /* CRITICAL: Index 6 MUST be 0 (Python's blocksize). If this is not 0, Python crashes. */
+  values[6] = 0; 
+  
+  /* 4. Safely Append C-specific Geometry & Meta values out of Python's reach */
+  size_t idx = 7;
   values[idx++] = ndim;
   for (int i = 0; i < ndim; i++) {
       values[idx++] = (unsigned int)chunkshape[i];
   }
 
-  /* 5. Append Custom Meta Value at the very end */
   values[idx++] = user_meta;
 
   nelements = idx;
@@ -160,28 +164,29 @@ static size_t blosc2_filter_function(
   void *outbuf = NULL;
   int64_t status = 0;
 
-  if (cd_nelmts < 4) PUSH_ERR("blosc2_filter: Filter parameters corrupted");
+  if (cd_nelmts < 6) PUSH_ERR("blosc2_filter: Filter parameters corrupted");
 
-  /* Match the standard hdf5plugin layout */
-  size_t typesize  = cd_values[1]; 
+  /* Match the strict Python layout indices */
+  size_t typesize    = cd_values[1]; 
   size_t outbuf_size = cd_values[2]; 
-  int clevel      = cd_values[3];
-  int filter_mask = cd_values[4];
-  int compcode    = cd_values[5];
+  int clevel         = cd_values[3];
+  int filter_mask    = cd_values[4];
+  int compcode       = cd_values[5];
+  size_t blocksize   = cd_values[6]; 
   
   int ndim = -1;
   int32_t chunkshape[BLOSC2_MAX_DIM];
-  size_t idx = 6; 
+  size_t idx = 7; 
 
-  /* Read Python's geometry data */
-  if (cd_nelmts >= 7) {
+  /* Only extract appended C geometry if the writer included it */
+  if (cd_nelmts >= 8) {
       ndim = (int)cd_values[idx++];
       for (int i = 0; i < ndim; i++) {
           chunkshape[i] = (int32_t)cd_values[idx++];
       }
   }
 
-  /* Safely extract the custom meta byte if it was appended */
+  /* Extract custom meta byte if it was appended */
   int meta_value = 0;
   if (cd_nelmts > idx) {
       meta_value = cd_values[idx];
@@ -195,44 +200,32 @@ static size_t blosc2_filter_function(
     cparams.typesize = (int32_t)typesize;
     cparams.clevel   = clevel;
 
-    /* Codec-level Metadata (e.g., ZFP target values) */
     if (compcode == 33 || compcode == 34 || compcode == 35) {
         cparams.compcode_meta = meta_value;
     } else {
         cparams.compcode_meta = 0;
     }
 
-    /* Initialize filters to off */
     for (int i = 0; i < BLOSC2_MAX_FILTERS; i++) {
         cparams.filters[i] = 0; 
         cparams.filters_meta[i] = 0;
     }
 
-    /* ==========================================================
-     * PIPELINE BITMASK & ZFP SAFETY OVERRIDE
-     * ZFP performs lossy compression directly on numerical values.
-     * If bytes are shuffled before ZFP, it corrupts the mantissa.
-     * We strictly skip the bitmask parsing if ZFP is active.
-     * ========================================================== */
+    /* ZFP strictly bypasses Bitmask pre-filters to prevent mantissa corruption */
     if (compcode != 33 && compcode != 34 && compcode != 35) {
-        
         int f_idx = 0;
         
-        /* 1. Truncate Precision (Highest priority, must run first) */
         if (filter_mask & 8) {
             cparams.filters[f_idx] = BLOSC_TRUNC_PREC;
-            cparams.filters_meta[f_idx] = meta_value; /* Dual use of meta_value */
+            cparams.filters_meta[f_idx] = meta_value; 
             f_idx++;
         }
         
-        /* 2. Delta */
         if (filter_mask & 4) {
             cparams.filters[f_idx] = BLOSC_DELTA;
             f_idx++;
         }
         
-        /* 3. Shuffle (Mutually exclusive with Bitshuffle typically, 
-              but we prioritize Bitshuffle if both are requested) */
         if (filter_mask & 2) {
             cparams.filters[f_idx] = BLOSC_BITSHUFFLE;
             f_idx++;
@@ -243,9 +236,6 @@ static size_t blosc2_filter_function(
     }
 
     blosc2_storage storage = {.cparams = &cparams, .contiguous = false};
-    
-    /* We don't read blocksize from cd_values anymore, rely on Blosc heuristics */
-    size_t blocksize = 0; 
 
     /* Multi-Dimensional (B2ND) Chunking */
     if (ndim > 1 || (compcode >= 33 && compcode <= 35)) {
@@ -267,7 +257,6 @@ static size_t blosc2_filter_function(
       char dtype[B2ND_OPAQUE_NPDTYPE_MAXLEN];
 
       if (compcode >= 33 && compcode <= 35) {
-          /* ZFP strictly requires a numerical dtype descriptor matching the host byte order. */
           snprintf(dtype, sizeof(dtype), "%sf%u", B2ND_ENDIAN_PREFIX, (unsigned int)typesize);
       } else {
           snprintf(dtype, sizeof(dtype), B2ND_OPAQUE_NPDTYPE_FORMAT, (size_t)typesize);
@@ -353,7 +342,7 @@ static size_t blosc2_filter_function(
       int64_t start[BLOSC2_MAX_DIM] = {0};
       int64_t stop[BLOSC2_MAX_DIM] = {0};
       
-      /* Trust the B2ND header entirely. Ignore cd_values chunkshape. */
+      /* Trust the B2ND header entirely. Ignore cd_values chunkshape perfectly. */
       int64_t size = schunk->typesize; 
       for (int i = 0; i < array->ndim; i++) {
         start[i] = 0;
@@ -361,7 +350,6 @@ static size_t blosc2_filter_function(
         size *= array->shape[i];
       }
 
-      /* Override the outbuf_size to reflect the safely parsed header */
       outbuf_size = (size_t)size;
 
       outbuf = H5allocate_memory(outbuf_size, 0);
