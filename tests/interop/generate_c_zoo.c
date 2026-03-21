@@ -167,7 +167,7 @@ SEXP C_write_zoo(SEXP sexp_filename) {
     const char* b2_codecs[] = {"blosclz", "lz4", "lz4hc", "zlib", "zstd"};
     int b2_compcodes[] = {0, 1, 2, 4, 5};
     const char* b2_filters[] = {"nofilter", "shuffle", "bitshuffle", "delta", "truncprec"};
-    int b2_filter_ids[] = {0, 1, 2, 4, 8};
+    int b2_filter_ids[] = {0, 1, 2, 3, 4};
 
     for (int c = 0; c < 5; c++) {
         for (int f = 0; f < 5; f++) {

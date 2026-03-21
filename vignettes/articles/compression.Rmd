@@ -111,7 +111,10 @@ Blosc2 pipelines are defined by summing the bit values of your desired pre-filte
 * **`cd_values[6]`:** Compressor ID (`0`=blosclz, `1`=lz4, `2`=lz4hc, `4`=zlib, `5`=zstd, `11`=ndlz, `33`=zfp_acc, `34`=zfp_prec, `35`=zfp_rate).
 * **`cd_values[7]`:** Metadata Value. This serves a dual purpose based on your configuration:
     * *Truncate Precision:* If the `truncprec` pre-filter is active (bitmask in `cd_values[5]` includes `8`), this integer defines the number of bits of precision to keep.
-    * *ZFP Metadata:* If using a ZFP compressor (`cd_values[6]` is 33, 34, or 35), this integer sets the specific lossy parameter based on the chosen mode (e.g., the exact bits of precision to keep).
+    * *ZFP Metadata:* Because `cd_values` are strictly passed as unsigned integers, Blosc2 applies specific internal formulas to map this 8-bit integer (`uint8_t`) to ZFP's required floating-point parameters:
+        * **Precision (`34`):** Passed directly as an integer. For 16 bits of precision, pass `16`.
+        * **Accuracy (`33`):** Interpreted as a base-10 exponent (`10^meta`). To pass a negative exponent like `-3` (for an accuracy tolerance of `0.001`), you must pass its 8-bit unsigned equivalent: `256 - 3 = 253`.
+        * **Rate (`35`):** Interpreted as a *percentage* of the original data size. For example, to achieve a rate of 8 bits per value on 32-bit floats, the compressed output must be exactly 25% of the original size (`8 / 32 = 0.25`), so you pass `25`.
     * Otherwise, pass `0`.
 
 #### Example 1: Standard Compression
@@ -139,12 +142,28 @@ unsigned int cd_values[8] = { 0, 0, 0, 0, 5, 10, 1, 16 };
 H5Pset_filter(plist_id, 32026, H5Z_FLAG_MANDATORY, 8, cd_values);
 ```
 
-#### Example 4: Blosc2 + ZFP
+#### Example 4: Blosc2 + ZFP Precision
 Using Blosc2's meta-compressor to run ZFP in Fixed Precision mode, keeping exactly 16 bits of precision. 
 ```c
-// We pass the ZFP precision metadata (16) in cd_values[7].
+// We pass the ZFP precision metadata (16) directly in cd_values[7].
 // Any pre-filters requested in cd_values[5] are safely ignored by the plugin.
 unsigned int cd_values[8] = { 0, 0, 0, 0, 5, 0, 34, 16 }; 
+H5Pset_filter(plist_id, 32026, H5Z_FLAG_MANDATORY, 8, cd_values);
+```
+
+#### Example 5: Blosc2 + ZFP Accuracy
+Using ZFP Accuracy mode to enforce an absolute error tolerance of `0.001` (`10^-3`).
+```c
+// ZFP Accuracy uses an exponent. The unsigned 8-bit equivalent of -3 is 253.
+unsigned int cd_values[8] = { 0, 0, 0, 0, 5, 0, 33, 253 }; 
+H5Pset_filter(plist_id, 32026, H5Z_FLAG_MANDATORY, 8, cd_values);
+```
+
+#### Example 6: Blosc2 + ZFP Rate
+Using ZFP Rate mode to compress 32-bit floats down to exactly 8 bits per value.
+```c
+// ZFP Rate requires a percentage of the original size. 8 / 32 = 0.25 (25%).
+unsigned int cd_values[8] = { 0, 0, 0, 0, 5, 0, 35, 25 }; 
 H5Pset_filter(plist_id, 32026, H5Z_FLAG_MANDATORY, 8, cd_values);
 ```
 
