@@ -46,18 +46,17 @@ static herr_t blosc2_set_local(hid_t dcpl, hid_t type, hid_t space) {
   unsigned int typesize, basetypesize, bufsize;
   hsize_t chunkshape[H5S_MAX_RANK];
   unsigned int flags;
+  
   size_t nelements = MAX_FILTER_VALUES;
-  unsigned int values[MAX_FILTER_VALUES];
-
-  memset(values, 0, sizeof(values));
+  unsigned int values[MAX_FILTER_VALUES] = {0};
   r = H5Pget_filter_by_id(dcpl, FILTER_BLOSC2, &flags, &nelements, values, 0, NULL, NULL);
   if (r < 0) return -1;
 
-  /* 1. Extract User Inputs */
+  /* 1. Extract User Inputs (Assuming user array: [0, 0, 0, 0, clevel, filter, compcode, meta]) */
   unsigned int user_clevel      = (nelements >= 5) ? values[4] : DEFAULT_CLEVEL;
   unsigned int user_filter_mask = (nelements >= 6) ? values[5] : DEFAULT_SHUFFLE;
   unsigned int user_compcode    = (nelements >= 7) ? values[6] : DEFAULT_COMPCODE;
-  unsigned int user_meta        = (nelements >= 8) ? values[7] : 0;
+  unsigned int user_meta        = (nelements >= 8) ? values[7] : 0; /* Capture the meta byte */
 
   /* 2. Calculate Data Geometry */
   ndim = H5Pget_chunk(dcpl, H5S_MAX_RANK, chunkshape);
@@ -78,20 +77,23 @@ static herr_t blosc2_set_local(hid_t dcpl, hid_t type, hid_t space) {
   bufsize = typesize;
   for (int i = 0; i < ndim; i++) bufsize *= (unsigned int)chunkshape[i];
 
-  /* 3. Reconstruct cd_values for H5PY Compatibility */
+  /* 3. Reconstruct cd_values: Python Base Layout */
   values[0] = FILTER_BLOSC2_VERSION;
-  // values[1] remains the user-provided blocksize or 0
-  values[2] = basetypesize;
-  values[3] = bufsize;
-  values[4] = user_clevel;
-  values[5] = user_filter_mask; 
-  values[6] = user_compcode;
-  values[7] = user_meta;
+  values[1] = basetypesize;
+  values[2] = bufsize; 
+  values[3] = user_clevel;
+  values[4] = user_filter_mask; 
+  values[5] = user_compcode;
   
-  /* CRITICAL: ndim is shifted to 8, and chunkshape must immediately follow */
-  size_t idx = 8;
+  /* 4. Append ndim and shape */
+  size_t idx = 6;
   values[idx++] = ndim;
-  for (int i = 0; i < ndim; i++) values[idx++] = (unsigned int)chunkshape[i];
+  for (int i = 0; i < ndim; i++) {
+      values[idx++] = (unsigned int)chunkshape[i];
+  }
+
+  /* 5. Append Custom Meta Value at the very end */
+  values[idx++] = user_meta;
 
   nelements = idx;
   if (H5Pmodify_filter(dcpl, FILTER_BLOSC2, flags, nelements, values) < 0) return -1;
@@ -149,279 +151,30 @@ static int32_t compute_b2nd_block_shape(size_t block_size, size_t type_size, con
 /* =========================================================================
  * CORE FILTER IMPLEMENTATION
  * ========================================================================= */
-static size_t blosc2_filter_function(
-    unsigned int flags, size_t cd_nelmts, const unsigned int cd_values[], 
-    size_t nbytes, size_t *buf_size, void **buf) {
-
-  if (nbytes == 0) return 0;
-
-  void *outbuf = NULL;
-  int64_t status = 0;
-  char errmsg[256];
-
-  if (cd_nelmts < 4) PUSH_ERR("blosc2_filter: Filter parameters corrupted");
-
-  size_t blocksize = cd_values[1]; 
-  size_t typesize  = cd_values[2]; 
-  size_t outbuf_size = cd_values[3]; 
-  
-  int clevel      = (cd_nelmts >= 5) ? cd_values[4] : DEFAULT_CLEVEL;
-  int filter_mask = (cd_nelmts >= 6) ? cd_values[5] : DEFAULT_SHUFFLE;
-  int compcode    = (cd_nelmts >= 7) ? cd_values[6] : DEFAULT_COMPCODE;
-  int meta_value  = (cd_nelmts >= 8) ? cd_values[7] : 0;
+/* Match the standard hdf5plugin layout */
+  size_t typesize  = cd_values[1]; 
+  size_t outbuf_size = cd_values[2]; 
+  int clevel      = cd_values[3];
+  int filter_mask = cd_values[4];
+  int compcode    = cd_values[5];
   
   int ndim = -1;
   int32_t chunkshape[BLOSC2_MAX_DIM];
-  size_t idx = 8; 
+  size_t idx = 6; 
 
-  /* H5PY standard reading of ndim and chunkshape */
-  if (cd_nelmts >= 9) {
-      ndim = cd_values[idx++];
-      for (int i = 0; i < ndim; i++) chunkshape[i] = (int32_t)cd_values[idx++];
+  /* Read Python's geometry data */
+  if (cd_nelmts >= 7) {
+      ndim = (int)cd_values[idx++];
+      for (int i = 0; i < ndim; i++) {
+          chunkshape[i] = (int32_t)cd_values[idx++];
+      }
   }
 
-  /* ----- Compression Path ----- */
-  if (!(flags & H5Z_FLAG_REVERSE)) {
-
-    blosc2_cparams cparams = BLOSC2_CPARAMS_DEFAULTS;
-    cparams.compcode = compcode;
-    cparams.typesize = (int32_t)typesize;
-    cparams.clevel   = clevel;
-
-    /* Codec-level Metadata (e.g., ZFP target values) */
-    if (compcode == 33 || compcode == 34 || compcode == 35) {
-        cparams.compcode_meta = meta_value;
-    } else {
-        cparams.compcode_meta = 0;
-    }
-
-    /* Initialize filters to off */
-    for (int i = 0; i < BLOSC2_MAX_FILTERS; i++) {
-        cparams.filters[i] = 0; 
-        cparams.filters_meta[i] = 0;
-    }
-
-    /* ==========================================================
-     * PIPELINE BITMASK & ZFP SAFETY OVERRIDE
-     * ZFP performs lossy compression directly on numerical values.
-     * If bytes are shuffled before ZFP, it corrupts the mantissa.
-     * We strictly skip the bitmask parsing if ZFP is active.
-     * ========================================================== */
-    if (compcode != 33 && compcode != 34 && compcode != 35) {
-        
-        int f_idx = 0;
-        
-        /* 1. Truncate Precision (Highest priority, must run first) */
-        if (filter_mask & 8) {
-            cparams.filters[f_idx] = BLOSC_TRUNC_PREC;
-            cparams.filters_meta[f_idx] = meta_value; /* Dual use of meta_value */
-            f_idx++;
-        }
-        
-        /* 2. Delta */
-        if (filter_mask & 4) {
-            cparams.filters[f_idx] = BLOSC_DELTA;
-            f_idx++;
-        }
-        
-        /* 3. Shuffle (Mutually exclusive with Bitshuffle typically, 
-              but we prioritize Bitshuffle if both are requested) */
-        if (filter_mask & 2) {
-            cparams.filters[f_idx] = BLOSC_BITSHUFFLE;
-            f_idx++;
-        } else if (filter_mask & 1) {
-            cparams.filters[f_idx] = BLOSC_SHUFFLE;
-            f_idx++;
-        }
-    }
-
-    blosc2_storage storage = {.cparams = &cparams, .contiguous = false};
-
-    /* Multi-Dimensional (B2ND) Chunking */
-    if (ndim > 1 || (compcode >= 33 && compcode <= 35)) {
-      b2nd_context_t *ctx = NULL;
-      b2nd_array_t *array = NULL;
-
-      if (blocksize == 0) {
-        int32_t sugg = compute_blosc2_blocksize((int32_t)outbuf_size, (int32_t)typesize, cparams.clevel, compcode);
-        if (sugg < 0) PUSH_ERR("blosc2_filter: Failed to compute suggested blocksize");
-        blocksize = sugg;
-      }
-      
-      int32_t blockdims[BLOSC2_MAX_DIM];
-      cparams.blocksize = compute_b2nd_block_shape(blocksize, typesize, ndim, chunkshape, blockdims);
-
-      int64_t chunkshape_l[BLOSC2_MAX_DIM];
-      for (int i = 0; i < ndim; i++) chunkshape_l[i] = chunkshape[i];
-
-      char dtype[B2ND_OPAQUE_NPDTYPE_MAXLEN];
-
-      if (compcode >= 33 && compcode <= 35) {
-          /* ZFP strictly requires a numerical dtype descriptor matching the host byte order.
-             Uses %u, so it requires an unsigned int cast. */
-          snprintf(dtype, sizeof(dtype), "%sf%u", B2ND_ENDIAN_PREFIX, (unsigned int)typesize);
-      } else {
-          /* Uses the macro containing %zd, so it requires a size_t. */
-          snprintf(dtype, sizeof(dtype), B2ND_OPAQUE_NPDTYPE_FORMAT, (size_t)typesize);
-      }
-      
-      if (!(ctx = b2nd_create_ctx(&storage, ndim, chunkshape_l, chunkshape, blockdims, dtype, DTYPE_NUMPY_FORMAT, NULL, 0))) {
-        PUSH_ERR("blosc2_filter: Cannot create B2ND context");
-      }
-
-      if (b2nd_from_cbuffer(ctx, &array, *buf, (int32_t)nbytes) < 0) {
-        b2nd_free_ctx(ctx);
-        PUSH_ERR("blosc2_filter: Cannot compress buffer into B2ND array");
-      }
-
-      bool needs_free = false;
-      uint8_t *tmp_out = NULL;
-      if (b2nd_to_cframe(array, &tmp_out, &status, &needs_free) < 0) {
-        b2nd_free(array); b2nd_free_ctx(ctx);
-        PUSH_ERR("blosc2_filter: Cannot convert B2ND array to buffer");
-      }
-
-      if (status <= 0) {
-          if (needs_free && tmp_out) free(tmp_out);
-          b2nd_free(array); 
-          b2nd_free_ctx(ctx);
-          PUSH_ERR("blosc2_filter: B2ND compression failed");
-      }
-
-      outbuf = H5allocate_memory((size_t)status, 0);
-      memcpy(outbuf, tmp_out, (size_t)status);
-      
-      if (needs_free && tmp_out) free(tmp_out);
-      b2nd_free(array);
-      b2nd_free_ctx(ctx);
-    } 
-    /* 1D Linear Chunking */
-    else {
-      cparams.blocksize = (int32_t)blocksize;
-
-      blosc2_context *cctx = blosc2_create_cctx(cparams);
-      blosc2_schunk *schunk = blosc2_schunk_new(&storage);
-      if (!schunk) { blosc2_free_ctx(cctx); PUSH_ERR("blosc2_filter: Cannot create super-chunk"); }
-
-      if (blosc2_schunk_append_buffer(schunk, *buf, (int32_t)nbytes) < 0) {
-        blosc2_schunk_free(schunk); blosc2_free_ctx(cctx);
-        PUSH_ERR("blosc2_filter: Cannot append buffer to super-chunk");
-      }
-
-      bool needs_free = false;
-      uint8_t *tmp_out = NULL;
-      status = blosc2_schunk_to_buffer(schunk, &tmp_out, &needs_free);
-      
-      if (status <= 0) {
-          if (needs_free && tmp_out) free(tmp_out);
-          blosc2_schunk_free(schunk); 
-          blosc2_free_ctx(cctx);
-          PUSH_ERR("blosc2_filter: Super-chunk compression failed");
-      }
-
-      outbuf = H5allocate_memory((size_t)status, 0);
-      memcpy(outbuf, tmp_out, (size_t)status);
-      
-      if (needs_free && tmp_out) free(tmp_out);
-      blosc2_schunk_free(schunk);
-      blosc2_free_ctx(cctx);
-    }
-  } 
-  
-  /* ----- Decompression Path ----- */
-  else {
-    blosc2_schunk *schunk = blosc2_schunk_from_buffer(*buf, (int64_t)nbytes, false);
-    if (!schunk) PUSH_ERR("blosc2_filter: Cannot get super-chunk from buffer");
-
-    /* B2ND Array Decompression */
-    if (blosc2_meta_exists(schunk, "b2nd") >= 0 || blosc2_meta_exists(schunk, "caterva") >= 0) {
-      b2nd_array_t *array = NULL;
-
-      if (b2nd_from_schunk(schunk, &array) < 0) {
-        blosc2_schunk_free(schunk);
-        PUSH_ERR("blosc2_filter: Cannot create B2ND array");
-      }
-      
-      int64_t start[BLOSC2_MAX_DIM] = {0};
-      int64_t stop[BLOSC2_MAX_DIM] = {0};
-      int64_t size = schunk->typesize; 
-      
-      /* Trust the B2ND header entirely. Ignore cd_values chunkshape. */
-      for (int i = 0; i < array->ndim; i++) {
-        start[i] = 0;
-        stop[i] = array->shape[i];
-        size *= array->shape[i];
-      }
-
-      outbuf_size = (size_t)size;
-
-      outbuf = H5allocate_memory(outbuf_size, 0);
-      if (!outbuf) { 
-        b2nd_free(array); 
-        PUSH_ERR("blosc2_filter: Cannot allocate decompression buffer"); 
-      }
-
-      if (b2nd_get_slice_cbuffer(array, start, stop, outbuf, stop, (int32_t)size) < 0) {
-        H5free_memory(outbuf); 
-        b2nd_free(array);
-        PUSH_ERR("blosc2_filter: Cannot decompress B2ND array");
-      }
-      
-      status = size;
-      b2nd_free(array);
-      schunk = NULL;
-    }
-    /* 1D Linear Decompression */
-    else {
-      uint8_t *chunk = NULL;
-      bool needs_free = false;
-      int32_t cbytes = blosc2_schunk_get_lazychunk(schunk, 0, &chunk, &needs_free);
-      
-      if (cbytes < 0) { 
-        blosc2_schunk_free(schunk); 
-        PUSH_ERR("blosc2_filter: Cannot get chunk from super-chunk"); 
-      }
-
-      int32_t exact_bytes;
-      blosc2_cbuffer_sizes(chunk, &exact_bytes, NULL, NULL);
-      outbuf_size = (size_t)exact_bytes;
-
-      outbuf = H5allocate_memory(outbuf_size, 0);
-      if (!outbuf) { 
-        if (needs_free && chunk) free(chunk);
-        blosc2_schunk_free(schunk);
-        PUSH_ERR("blosc2_filter: Cannot allocate decompression buffer"); 
-      }
-
-      blosc2_dparams dparams = BLOSC2_DPARAMS_DEFAULTS;
-      dparams.schunk = schunk;
-      blosc2_context *dctx = blosc2_create_dctx(dparams);
-      
-      status = blosc2_decompress_ctx(dctx, chunk, cbytes, outbuf, (int32_t)outbuf_size);
-      
-      blosc2_free_ctx(dctx);
-      if (needs_free && chunk) free(chunk);
-
-      if (status <= 0) {
-        H5free_memory(outbuf);
-        blosc2_schunk_free(schunk);
-        PUSH_ERR("blosc2_filter: Cannot decompress chunk into buffer");
-      }
-    }
-    
-    if (schunk) blosc2_schunk_free(schunk);
+  /* Safely extract the custom meta byte if it was appended */
+  int meta_value = 0;
+  if (cd_nelmts > idx) {
+      meta_value = cd_values[idx];
   }
-
-  if (status > 0 && outbuf) {
-    H5free_memory(*buf);
-    *buf = outbuf;
-    *buf_size = (flags & H5Z_FLAG_REVERSE) ? outbuf_size : (size_t)status;
-    return (size_t)status;
-  }
-
-  if (outbuf) H5free_memory(outbuf);
-  return 0;
-}
 
 const H5Z_class2_t blosc2_class = { 
   H5Z_CLASS_T_VERS, 
