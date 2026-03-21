@@ -138,87 +138,128 @@ H5Pset_filter(plist_id, 32004, H5Z_FLAG_MANDATORY, 2, cd_values);
 **Recommendation:** **Use for Parallel Compression and Complex
 Pipelines.** Blosc2 utilizes internal thread pools to compress blocks of
 data in parallel. It also features a Programmable Filter Pipeline,
-allowing you to chain up to 6 distinct pre-filters (e.g., Delta followed
-by Bitshuffle) before the data hits the final compressor. Our plugin
-implementation ensures that even these complex multi-filter pipelines
-remain 100% decodable by standard `h5py` and community plugins.
+allowing you to easily chain multiple pre-filters (like Delta followed
+by Bitshuffle) before the data hits the final compressor.
 
-> **Restrictions:** When using a ZFP compressor codec (`33`, `34`,
-> `35`), you **must** pass floating-point data (`float32` or `float64`).
-> Furthermore, any filter applied to the data before it reaches ZFP will
-> completely corrupt the dataset. You **must not** apply upstream
-> filters natively in HDF5 (e.g., `H5Pset_shuffle`), nor chain
-> pre-filters internally within the Blosc2 pipeline, when ZFP is the
-> target codec.
+Our plugin implementation uses a highly efficient **bitmask
+architecture** to specify these complex pipelines while strictly
+maintaining a standard 8-element configuration, ensuring 100% layout
+compatibility with standard `h5py` and community plugins.
 
-#### Standard (Single Filter) Format
+> **Restrictions on ZFP:** When using a ZFP compressor codec (`33`,
+> `34`, `35`), you **must** pass floating-point data (`float32` or
+> `float64`). ZFP performs lossy compression directly on numerical
+> values; if bytes are shuffled before ZFP, it corrupts the dataset. To
+> ensure safety, **this plugin automatically disables all Blosc2
+> pre-filters if a ZFP codec is selected**. You must also ensure no
+> upstream native HDF5 filters (e.g., `H5Pset_shuffle`) are applied
+> before Blosc2 in your property list.
 
-If you only need one pre-filter, use the standard 8-element
-configuration:
+#### Plugin Configuration
+
+Blosc2 pipelines are defined by summing the bit values of your desired
+pre-filters into a single mask.
 
 - **Filter ID:** `32026`
 - **Elements (`cd_nelmts`):** 8
 - **`cd_values[0-3]`:** Reserved (Pass `0`).
-- **`cd_values[4]`:** Compression level (`0` to `9`). *Note: Blosc2
-  enforces a universal 0-9 scale. If you select a codec with a wider
-  range like Zstd, Blosc2 internally maps this 0-9 value to Zstd’s 1-22
-  scale.*
-- **`cd_values[5]`:** Pre-filter (`0`=nofilter, `1`=shuffle,
-  `2`=bitshuffle, `3`=delta, `4`=truncprec).
+- **`cd_values[4]`:** Compression level (`0` to `9`).
+- **`cd_values[5]`:** Pre-filter Bitmask. Sum the following values to
+  chain filters (they will automatically execute in the optimal order:
+  Truncprec -\> Delta -\> Bitshuffle/Shuffle):
+  - `0` = No Filter
+  - `1` = Byte Shuffle
+  - `2` = Bitshuffle (Prioritized if both 1 and 2 are passed)
+  - `4` = Delta
+  - `8` = Truncate Precision
 - **`cd_values[6]`:** Compressor ID (`0`=blosclz, `1`=lz4, `2`=lz4hc,
-  `3`=snappy, `4`=zlib, `5`=zstd, `11`=ndlz, `33`=zfp_acc,
-  `34`=zfp_prec, `35`=zfp_rate).
-- **`cd_values[7]`:** Metadata. Usually `0`.
-  - If using the `truncprec` pre-filter (`cd_values[5]=4`), this defines
-    the number of bits of precision to keep (e.g., `16`).
-  - If using a ZFP compressor (`cd_values[6]` is 33, 34, or 35), this
-    integer sets the specific lossy parameter based on the chosen mode.
-    **See the ZFP section below for a guide on how to choose your mode
-    and set this value.**
+  `4`=zlib, `5`=zstd, `11`=ndlz, `33`=zfp_acc, `34`=zfp_prec,
+  `35`=zfp_rate).
+- **`cd_values[7]`:** Metadata Value. This serves a dual purpose based
+  on your configuration:
+  - *Truncate Precision:* If the `truncprec` pre-filter is active
+    (bitmask in `cd_values[5]` includes `8`), this integer defines the
+    number of bits of precision to keep.
+  - *ZFP Metadata:* Because `cd_values` are strictly passed as unsigned
+    integers, Blosc2 applies specific internal formulas to map this
+    8-bit integer (`uint8_t`) to ZFP’s required floating-point
+    parameters:
+    - **Precision (`34`):** Passed directly as an integer. For 16 bits
+      of precision, pass `16`.
+    - **Accuracy (`33`):** Interpreted as a base-10 exponent
+      (`10^meta`). To pass a negative exponent like `-3` (for an
+      accuracy tolerance of `0.001`), you must pass its 8-bit unsigned
+      equivalent: `256 - 3 = 253`.
+    - **Rate (`35`):** Interpreted as a *percentage* of the original
+      data size. For example, to achieve a rate of 8 bits per value on
+      32-bit floats, the compressed output must be exactly 25% of the
+      original size (`8 / 32 = 0.25`), so you pass `25`.
+  - Otherwise, pass `0`.
+
+#### Example 1: Standard Compression
+
+Using Zstd (level 5) with the standard Bitshuffle pre-filter.
 
 ``` c
-// Blosc2 using ZFP Fixed Precision mode, keeping exactly 16 bits of precision
+// Mask for Bitshuffle is 2
+unsigned int cd_values[8] = { 0, 0, 0, 0, 5, 2, 5, 0 }; 
+H5Pset_filter(plist_id, 32026, H5Z_FLAG_MANDATORY, 8, cd_values);
+```
+
+#### Example 2: Multi-Filter Pipeline
+
+Chaining the Delta filter and Bitshuffle before hitting Zstd (level 5).
+
+``` c
+// Mask for Delta (4) + Bitshuffle (2) = 6
+unsigned int cd_values[8] = { 0, 0, 0, 0, 5, 6, 5, 0 }; 
+H5Pset_filter(plist_id, 32026, H5Z_FLAG_MANDATORY, 8, cd_values);
+```
+
+#### Example 3: Truncate Precision Pipeline
+
+Truncating floats to 16 bits of precision, applying Bitshuffle, and
+compressing with LZ4.
+
+``` c
+// Mask for Truncprec (8) + Bitshuffle (2) = 10.
+// We pass the 16-bit metadata requirement in cd_values[7].
+unsigned int cd_values[8] = { 0, 0, 0, 0, 5, 10, 1, 16 }; 
+H5Pset_filter(plist_id, 32026, H5Z_FLAG_MANDATORY, 8, cd_values);
+```
+
+#### Example 4: Blosc2 + ZFP Precision
+
+Using Blosc2’s meta-compressor to run ZFP in Fixed Precision mode,
+keeping exactly 16 bits of precision.
+
+``` c
+// We pass the ZFP precision metadata (16) directly in cd_values[7].
+// Any pre-filters requested in cd_values[5] are safely ignored by the plugin.
 unsigned int cd_values[8] = { 0, 0, 0, 0, 5, 0, 34, 16 }; 
 H5Pset_filter(plist_id, 32026, H5Z_FLAG_MANDATORY, 8, cd_values);
 ```
 
-#### Multi-Filter Pipeline Format
+#### Example 5: Blosc2 + ZFP Accuracy
 
-To chain multiple pre-filters, expand the `cd_values` array. The plugin
-will automatically parse this array and dynamically translate it during
-dataset creation to preserve strict layout compatibility.
-
-- **Elements (`cd_nelmts`):** `8 + (2 * N)`, where `N` is the number of
-  filters.
-- **`cd_values[0-3]`:** Reserved (Pass `0`).
-- **`cd_values[4]`:** Compression level (`0` to `9`).
-- **`cd_values[5]`:** Legacy fallback pre-filter (Typically matches your
-  last filter, e.g., `2` for bitshuffle. Required for legacy fallback).
-- **`cd_values[6]`:** Compressor ID.
-- **`cd_values[7]`:** Number of pipeline filters `N` (maximum of 6).
-- **`cd_values[8 ... 8+N-1]`:** The sequence of Filter IDs (e.g., `3`
-  for Delta, then `2` for Bitshuffle).
-- **`cd_values[8+N ... 8+2N-1]`:** Metadata for each respective filter
-  (usually `0`).
+Using ZFP Accuracy mode to enforce an absolute error tolerance of
+`0.001` (`10^-3`).
 
 ``` c
-// Blosc2 Pipeline: Delta -> Bitshuffle -> Zstd (level 5)
-unsigned int cd_pipeline[12] = {0};
-cd_pipeline[4] = 1; // Compression level (~3 on Zstd range)
-cd_pipeline[5] = 2; // Legacy fallback (Bitshuffle)
-cd_pipeline[6] = 5; // Compressor (Zstd)
+// ZFP Accuracy uses an exponent. The unsigned 8-bit equivalent of -3 is 253.
+unsigned int cd_values[8] = { 0, 0, 0, 0, 5, 0, 33, 253 }; 
+H5Pset_filter(plist_id, 32026, H5Z_FLAG_MANDATORY, 8, cd_values);
+```
 
-cd_pipeline[7] = 2; // Number of pipeline filters
+#### Example 6: Blosc2 + ZFP Rate
 
-// Filter IDs
-cd_pipeline[8] = 3; // Filter 1: Delta
-cd_pipeline[9] = 2; // Filter 2: Bitshuffle
+Using ZFP Rate mode to compress 32-bit floats down to exactly 8 bits per
+value.
 
-// Filter Metadata
-cd_pipeline[10] = 0; // Meta for Delta
-cd_pipeline[11] = 0; // Meta for Bitshuffle
-
-H5Pset_filter(plist_id, 32026, H5Z_FLAG_MANDATORY, 12, cd_pipeline);
+``` c
+// ZFP Rate requires a percentage of the original size. 8 / 32 = 0.25 (25%).
+unsigned int cd_values[8] = { 0, 0, 0, 0, 5, 0, 35, 25 }; 
+H5Pset_filter(plist_id, 32026, H5Z_FLAG_MANDATORY, 8, cd_values);
 ```
 
 ### 5. ZFP
