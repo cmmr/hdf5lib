@@ -238,7 +238,7 @@ static size_t blosc2_filter_function(
     blosc2_storage storage = {.cparams = &cparams, .contiguous = false};
 
     /* Multi-Dimensional (B2ND) Chunking */
-    if (ndim > 1) {
+    if (ndim > 1 || (compcode >= 33 && compcode <= 35)) {
       b2nd_context_t *ctx = NULL;
       b2nd_array_t *array = NULL;
 
