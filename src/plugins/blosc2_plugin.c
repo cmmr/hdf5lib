@@ -344,26 +344,15 @@ static size_t blosc2_filter_function(
       
       int64_t start[BLOSC2_MAX_DIM] = {0};
       int64_t stop[BLOSC2_MAX_DIM] = {0};
-      
-      /* FIX 1: Rely on the authoritative typesize inside the schunk header,
-         NOT the untrusted cd_values from the Python writer. */
       int64_t size = schunk->typesize; 
       
+      /* Trust the B2ND header entirely. Ignore cd_values chunkshape. */
       for (int i = 0; i < array->ndim; i++) {
         start[i] = 0;
         stop[i] = array->shape[i];
         size *= array->shape[i];
-        
-        /* H5PY dimension padding check */
-        if (ndim >= 0 && array->shape[i] != chunkshape[i]) {
-            snprintf(errmsg, sizeof(errmsg), "blosc2_filter: B2ND shape[%d] != chunkshape[%d]", i, i);
-            b2nd_free(array); 
-            PUSH_ERR(errmsg);
-        }
       }
 
-      /* FIX 2: Override the outbuf_size variable so the HDF5 pipeline 
-         correctly registers the newly allocated memory size upon returning. */
       outbuf_size = (size_t)size;
 
       outbuf = H5allocate_memory(outbuf_size, 0);
