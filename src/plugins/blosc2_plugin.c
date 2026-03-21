@@ -344,7 +344,10 @@ static size_t blosc2_filter_function(
       
       int64_t start[BLOSC2_MAX_DIM] = {0};
       int64_t stop[BLOSC2_MAX_DIM] = {0};
-      int64_t size = typesize;
+      
+      /* FIX 1: Rely on the authoritative typesize inside the schunk header,
+         NOT the untrusted cd_values from the Python writer. */
+      int64_t size = schunk->typesize; 
       
       for (int i = 0; i < array->ndim; i++) {
         start[i] = 0;
@@ -359,7 +362,11 @@ static size_t blosc2_filter_function(
         }
       }
 
-      outbuf = H5allocate_memory((size_t)size, 0);
+      /* FIX 2: Override the outbuf_size variable so the HDF5 pipeline 
+         correctly registers the newly allocated memory size upon returning. */
+      outbuf_size = (size_t)size;
+
+      outbuf = H5allocate_memory(outbuf_size, 0);
       if (!outbuf) { 
         b2nd_free(array); 
         PUSH_ERR("blosc2_filter: Cannot allocate decompression buffer"); 
@@ -374,7 +381,7 @@ static size_t blosc2_filter_function(
       status = size;
       b2nd_free(array);
       schunk = NULL;
-    } 
+    }
     /* 1D Linear Decompression */
     else {
       uint8_t *chunk = NULL;
