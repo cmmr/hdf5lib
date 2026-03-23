@@ -15,6 +15,10 @@ extern const H5Z_class2_t snappy_class;
 extern const H5Z_class2_t zfp_class;
 extern const H5Z_class2_t zstd_class;
 
+extern const H5Z_class2_t bitgroom_shim_class;
+extern const H5Z_class2_t bitshave_shim_class;
+extern const H5Z_class2_t bitround_shim_class;
+
 /* --- Declare C-Blosc2 Globals & Codecs --- */
 extern blosc2_codec ndlz_codec;
 extern blosc2_codec zfp_prec_codec;
@@ -64,6 +68,10 @@ herr_t hdf5lib_register_all_filters(void) {
     REG_HDF5_FILTER(&snappy_class, "snappy");
     REG_HDF5_FILTER(&zfp_class, "zfp");
     REG_HDF5_FILTER(&zstd_class, "zstd");
+
+    REG_HDF5_FILTER(&bitgroom_shim_class, "bitgroom_read_shim");
+    REG_HDF5_FILTER(&bitshave_shim_class, "bitshave_read_shim");
+    REG_HDF5_FILTER(&bitround_shim_class, "bitround_read_shim");
 
     return err;
 }
