@@ -388,11 +388,11 @@ cd plugins
 PLUGIN_FLAGS="-I../hdf5/src -D__USE_MINGW_ANSI_STDIO=1"
 echo "  PLUGIN_FLAGS: $PLUGIN_FLAGS"
 
-for plugin in blosc1 blosc2 bshuf bzip2 lz4 lzf snappy zfp zstd; do
+for plugin in blosc1 blosc2 bshuf bzip2 lz4 lzf noop snappy zfp zstd; do
   src="${plugin}_plugin.c"
   dest="${plugin}_plugin.o"
-  echo "  c_build \$PLUGIN_FLAGS -I../$plugin -c $src -o $dest"
-  c_build $PLUGIN_FLAGS -I../$plugin -c $src -o $dest
+  echo "  c_build -I../$plugin \$PLUGIN_FLAGS -c $src -o $dest"
+  c_build -I../$plugin $PLUGIN_FLAGS -c $src -o $dest
 done
 
 cd ..
