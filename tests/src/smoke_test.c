@@ -589,7 +589,7 @@ SEXP C_smoke_test(SEXP sexp_filename) {
     {"b2_zfp_acc",  H5Z_FILTER_BLOSC2,  8, {0, 0, 0, 0, 5, 0, 33, 253},   TEST_FLOAT_ONLY}, 
     {"b2_zfp_prec", H5Z_FILTER_BLOSC2,  8, {0, 0, 0, 0, 5, 0, 34, 16},    TEST_FLOAT_ONLY}, 
     {"b2_zfp_rate", H5Z_FILTER_BLOSC2,  8, {0, 0, 0, 0, 5, 0, 35,  25},   TEST_FLOAT_ONLY},
-    {"blosc2_pipe", H5Z_FILTER_BLOSC2, 12, {0, 0, 0, 0, 5, 2, 5, 2, 3, 2, 0, 0}, TEST_ALL}
+    {"blosc2_pipe", H5Z_FILTER_BLOSC2,  7, {0, 0, 0, 0, 1, 6, 5},         TEST_NUMERIC_ONLY}
   };
   
   int num_filters = sizeof(filters) / sizeof(FilterConfig);

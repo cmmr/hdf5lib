@@ -1,0 +1,14 @@
+on:
+  workflow_dispatch:
+
+name: Reverse dependency check
+
+jobs:
+  revdep_check:
+    name: Reverse check most dependents
+    uses: r-devel/recheck/.github/workflows/recheck.yml@v1
+    with:
+      which: most
+      subdirectory: '' # set if your R package is in a subdir of the git repo
+      repository: '' # set to recheck an R package from another git repo
+      ref: '' # set to recheck a custom tag/branch from another repo
