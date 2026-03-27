@@ -1,4 +1,3 @@
-
 local({
   
   tmp_dir <- tempfile("hdf5lib_smoke_")
@@ -22,9 +21,14 @@ local({
   # Compile `smoke_test.c`: system() returns 0 on success.
   compile_cmd <- paste(shQuote(file.path(R.home("bin"), "R")), 'CMD SHLIB smoke_test.c')
   exit_status <- system(compile_cmd)
-  expect_true(exit_status == 0, info = "R CMD SHLIB failed to compile smoke_test.c")
   
-  expect_true(file.exists(so_file), info = paste("Shared object missing at:", so_file))
+  if (exit_status != 0) {
+    stop("R CMD SHLIB failed to compile smoke_test.c")
+  }
+  
+  if (!file.exists(so_file)) {
+    stop(paste("Shared object missing at:", so_file))
+  }
   
   # Load and Run the Smoke Test
   if (file.exists(so_file)) {
@@ -36,9 +40,17 @@ local({
     version_str <- .Call("C_smoke_test", tmp_h5)
     
     # Verify results
-    expect_inherits(version_str, "character")
-    expect_true(file.exists(tmp_h5), info = "HDF5 file was not created by C code.")
-    expect_true(grepl("^[0-9]+\\.[0-9]+\\.[0-9]+$", version_str))
+    if (!inherits(version_str, "character")) {
+      stop("version_str is not a character")
+    }
+    
+    if (!file.exists(tmp_h5)) {
+      stop("HDF5 file was not created by C code.")
+    }
+    
+    if (!grepl("^[0-9]+\\.[0-9]+\\.[0-9]+$", version_str)) {
+      stop(paste("version_str did not match the expected pattern. Got:", version_str))
+    }
   }
-
+  
 })
