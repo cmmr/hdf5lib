@@ -85,16 +85,16 @@ ld_flags <- function(api = "latest") {
   
   api <- validate_api(api)
 
-  # Find the static library (e.g., /path/to/R/library/hdf5lib/libs/x64/libhdf5z.a)
-  # This corresponds to the 'inst/libs${R_ARCH}' directory in the configure script.
+  # Find the static library (e.g., /path/to/R/library/hdf5lib/lib/libhdf5z.a)
+  # This corresponds to the 'inst/lib' directory in the configure script.
   static_lib <- list.files(
-    path       = system.file("libs", package = "hdf5lib"),
+    path       = system.file("lib", package = "hdf5lib"),
     pattern    = "libhdf5z\\.a",
     full.names = TRUE,
     recursive  = TRUE )
   
   if (length(static_lib) != 1)
-    stop("Static library not found: 'libs/libhdf5z.a' is missing from hdf5lib.")
+    stop("Static library not found: 'lib/libhdf5z.a' is missing from hdf5lib.")
   
   # Quote if the path contains spaces or other shell-special characters.
   # Don't quote by default, as that can sometimes cause other problems.
