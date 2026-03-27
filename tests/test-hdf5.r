@@ -8,6 +8,9 @@ local({
   so_file <- paste0("smoke_test", .Platform$dynlib.ext)
   tmp_h5  <- tempfile(fileext = ".h5")
   
+  old_r_tests <- Sys.getenv("R_TESTS")
+  Sys.setenv(R_TESTS = "")
+  
   on.exit({
     if (so_file %in% names(getLoadedDLLs())) {
       dyn.unload(so_file)
@@ -15,6 +18,7 @@ local({
       Sys.sleep(0.2)
     }
     setwd(old_wd)
+    Sys.setenv(R_TESTS = old_r_tests)
     try(silent = TRUE, unlink(tmp_dir, recursive = TRUE))
   }, add = TRUE)
   
