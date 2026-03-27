@@ -1,7 +1,7 @@
 # These functions perform several internal 
 # tests and call `stop()` on invalid states. 
-x <- c_flags()
-y <- ld_flags()
+x <- hdf5lib::c_flags()
+y <- hdf5lib::ld_flags()
 
 # Expect a string. Not NA or "".
 

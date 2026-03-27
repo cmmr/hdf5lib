@@ -22,35 +22,27 @@ local({
   compile_cmd <- paste(shQuote(file.path(R.home("bin"), "R")), 'CMD SHLIB smoke_test.c')
   exit_status <- system(compile_cmd)
   
-  if (exit_status != 0) {
+  if (exit_status != 0)
     stop("R CMD SHLIB failed to compile smoke_test.c")
-  }
   
-  if (!file.exists(so_file)) {
+  if (!file.exists(so_file))
     stop(paste("Shared object missing at:", so_file))
-  }
   
-  # Load and Run the Smoke Test
-  if (file.exists(so_file)) {
-    
-    # Load the shared object
-    dyn.load(so_file)
-    
-    # Call the C function (from smoke_test.c)
-    version_str <- .Call("C_smoke_test", tmp_h5)
-    
-    # Verify results
-    if (!inherits(version_str, "character")) {
-      stop("version_str is not a character")
-    }
-    
-    if (!file.exists(tmp_h5)) {
-      stop("HDF5 file was not created by C code.")
-    }
-    
-    if (!grepl("^[0-9]+\\.[0-9]+\\.[0-9]+$", version_str)) {
-      stop(paste("version_str did not match the expected pattern. Got:", version_str))
-    }
-  }
+  
+  # Load the shared object
+  dyn.load(so_file)
+  
+  # Call the C function (from smoke_test.c)
+  version_str <- .Call("C_smoke_test", tmp_h5)
+  
+  # Verify results
+  if (!inherits(version_str, "character"))
+    stop("version_str is not a character")
+  
+  if (!file.exists(tmp_h5))
+    stop("HDF5 file was not created by C code.")
+  
+  if (!grepl("^[0-9]+\\.[0-9]+\\.[0-9]+$", version_str))
+    stop(paste("version_str did not match the expected pattern. Got:", version_str))
   
 })
