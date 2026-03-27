@@ -1,0 +1,44 @@
+
+local({
+  
+  tmp_dir <- tempfile("hdf5lib_smoke_")
+  dir.create(tmp_dir)
+  file.copy("smoke_test.c", file.path(tmp_dir, "smoke_test.c"))
+  file.copy("Makevars",     file.path(tmp_dir, "Makevars"))
+  old_wd  <- setwd(tmp_dir)
+  so_file <- paste0("smoke_test", .Platform$dynlib.ext)
+  tmp_h5  <- tempfile(fileext = ".h5")
+  
+  on.exit({
+    if (so_file %in% names(getLoadedDLLs())) {
+      dyn.unload(so_file)
+      gc()
+      Sys.sleep(0.2)
+    }
+    setwd(old_wd)
+    try(silent = TRUE, unlink(tmp_dir, recursive = TRUE))
+  }, add = TRUE)
+  
+  # Compile `smoke_test.c`: system() returns 0 on success.
+  compile_cmd <- paste(shQuote(file.path(R.home("bin"), "R")), 'CMD SHLIB smoke_test.c')
+  exit_status <- system(compile_cmd)
+  expect_true(exit_status == 0, info = "R CMD SHLIB failed to compile smoke_test.c")
+  
+  expect_true(file.exists(so_file), info = paste("Shared object missing at:", so_file))
+  
+  # Load and Run the Smoke Test
+  if (file.exists(so_file)) {
+    
+    # Load the shared object
+    dyn.load(so_file)
+    
+    # Call the C function (from smoke_test.c)
+    version_str <- .Call("C_smoke_test", tmp_h5)
+    
+    # Verify results
+    expect_inherits(version_str, "character")
+    expect_true(file.exists(tmp_h5), info = "HDF5 file was not created by C code.")
+    expect_true(grepl("^[0-9]+\\.[0-9]+\\.[0-9]+$", version_str))
+  }
+
+})

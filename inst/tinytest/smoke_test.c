@@ -7,7 +7,7 @@
 
 #include <hdf5.h>
 #include <hdf5_hl.h>
-#include "hdf5lib.h"
+#include <hdf5lib.h>
 
 #define H5Z_FILTER_BZIP2     307
 #define H5Z_FILTER_SZIP      4
