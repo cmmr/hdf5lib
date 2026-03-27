@@ -44,6 +44,5 @@ Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 Depends: R (>= 4.2.0)
 NeedsCompilation: yes
-Suggests: knitr, rmarkdown, tinytest
+Suggests: tinytest
 RoxygenNote: 7.3.3
-Config/Needs/website: rmarkdown
