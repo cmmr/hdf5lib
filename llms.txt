@@ -5,7 +5,7 @@
 
 `hdf5lib` is an R package that provides a self-contained, static build
 of the [HDF5 C library](https://www.hdfgroup.org/solutions/hdf5/)
-([release 2.0.0](https://github.com/HDFGroup/hdf5)). Its **sole
+([release 2.1.1](https://github.com/HDFGroup/hdf5)). Its **sole
 purpose** is to allow other R packages to easily link against HDF5
 without requiring users to install system-level dependencies, thereby
 ensuring a consistent and reliable build process across all major

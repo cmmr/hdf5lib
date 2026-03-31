@@ -94,10 +94,10 @@ The table below summarizes the key differences between the two packages.
 
 - **`hdf5lib`** offers a predictable dependency. The version of the
   `hdf5lib` package itself tells you the version of the underlying HDF5
-  C library. For example, `hdf5lib` version `2.1.0.x` bundles HDF5
-  version `2.1.0`. This allows a downstream package developer to specify
+  C library. For example, `hdf5lib` version `2.1.1.x` bundles HDF5
+  version `2.1.1`. This allows a downstream package developer to specify
   a minimum `hdf5lib` version in their `DESCRIPTION` file (e.g.,
-  `hdf5lib (>= 2.1.0)`) and be certain that they are working with at
+  `hdf5lib (>= 2.1.1)`) and be certain that they are working with at
   least HDF5 v2.1.0 and that key features like thread-safety are
   enabled.
 

@@ -151,5 +151,5 @@ Now, you can use your new function from R:
 ``` r
 library(myhdf5package)
 get_hdf5_version()
-#> "2.1.0"
+#> "2.1.1"
 ```

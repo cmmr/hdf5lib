@@ -1,8 +1,8 @@
 # Changelog
 
-## hdf5lib 2.1.0.0
+## hdf5lib 2.1.1.0
 
-- Updated HDF5 to 2.1.0.
+- Updated HDF5 to 2.1.1.
 - Migrated from `zlib` to `zlib-ng` for gzip/deflate compression.
 - Added Szip (`libaec`), Bzip2, LZF, LZ4, Zstandard (Zstd), Snappy,
   Bitshuffle, ZFP, Blosc, and Blosc2.
