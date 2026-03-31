@@ -2,7 +2,7 @@
 # The output of this script should be saved to src/hdf5-VER.tar.gz and bundled
 # with the hdf5lib source package.
 
-VER <- "2.1.0"
+VER <- "2.1.1"
 
 # Download and extract the HDF5 codebase
 baseurl <- "https://github.com/HDFGroup/hdf5/releases/download/"

@@ -1,6 +1,6 @@
-diff -ru src/hdf5-orig/src/H5.c src/hdf5-2.1.0/src/H5.c
+diff -ru src/hdf5-orig/src/H5.c src/hdf5-2.1.1/src/H5.c
 --- src/hdf5-orig/src/H5.c	2025-11-11 00:00:49.000000000 +0000
-+++ src/hdf5-2.1.0/src/H5.c	2025-11-21 20:55:41.322324700 +0000
++++ src/hdf5-2.1.1/src/H5.c	2025-11-21 20:55:41.322324700 +0000
 @@ -33,6 +33,111 @@
  #include "H5Tprivate.h"  /* Datatypes                                */
  #include "H5TSprivate.h" /* Threadsafety                             */
@@ -137,9 +137,9 @@ diff -ru src/hdf5-orig/src/H5.c src/hdf5-2.1.0/src/H5.c
                  case 1:
                      /* continue with a warning */
                      /* Note that the warning message is embedded in the format string.*/
-diff -ru src/hdf5-orig/src/H5private.h src/hdf5-2.1.0/src/H5private.h
+diff -ru src/hdf5-orig/src/H5private.h src/hdf5-2.1.1/src/H5private.h
 --- src/hdf5-orig/src/H5private.h	2025-11-11 00:00:49.000000000 +0000
-+++ src/hdf5-2.1.0/src/H5private.h	2025-11-21 20:53:55.987358300 +0000
++++ src/hdf5-2.1.1/src/H5private.h	2025-11-21 20:53:55.987358300 +0000
 @@ -46,6 +46,45 @@
  #include <complex.h>
  #endif
@@ -186,9 +186,9 @@ diff -ru src/hdf5-orig/src/H5private.h src/hdf5-2.1.0/src/H5private.h
  /* POSIX headers */
  #ifdef H5_HAVE_SYS_TIME_H
  #include <sys/time.h>
-diff -ru src/hdf5-orig/src/H5VLpassthru.c src/hdf5-2.1.0/src/H5VLpassthru.c
+diff -ru src/hdf5-orig/src/H5VLpassthru.c src/hdf5-2.1.1/src/H5VLpassthru.c
 --- src/hdf5-orig/src/H5VLpassthru.c	2025-11-11 00:00:34.000000000 +0000
-+++ src/hdf5-2.1.0/src/H5VLpassthru.c	2025-11-21 01:33:12.302210500 +0000
++++ src/hdf5-2.1.1/src/H5VLpassthru.c	2025-11-21 01:33:12.302210500 +0000
 @@ -41,6 +41,11 @@
  /* This connector's header */
  #include "H5VLpassthru.h"

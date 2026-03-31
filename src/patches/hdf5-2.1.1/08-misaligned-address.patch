@@ -1,6 +1,6 @@
-diff -ru src/hdf5-orig/src/H5Tconv_enum.c src/hdf5-2.1.0/src/H5Tconv_enum.c
+diff -ru src/hdf5-orig/src/H5Tconv_enum.c src/hdf5-2.1.1/src/H5Tconv_enum.c
 --- src/hdf5-orig/src/H5Tconv_enum.c	2025-11-11 00:00:49.000000000 +0000
-+++ src/hdf5-2.1.0/src/H5Tconv_enum.c	2026-01-14 00:44:18.347807000 +0000
++++ src/hdf5-2.1.1/src/H5Tconv_enum.c	2026-01-14 00:44:18.347807000 +0000
 @@ -391,12 +391,17 @@
                       * an optimization code. Please also see the comment in the H5T__conv_enum_init()
                       * function. SLU - 2011/5/24)
@@ -24,9 +24,9 @@ diff -ru src/hdf5-orig/src/H5Tconv_enum.c src/hdf5-2.1.0/src/H5Tconv_enum.c
                      n -= priv->base;
                      if (n < 0 || (unsigned)n >= priv->length || priv->src2dst[n] < 0) {
                          /*overflow*/
-diff -ru src/hdf5-orig/src/H5Tvlen.c src/hdf5-2.1.0/src/H5Tvlen.c
+diff -ru src/hdf5-orig/src/H5Tvlen.c src/hdf5-2.1.1/src/H5Tvlen.c
 --- src/hdf5-orig/src/H5Tvlen.c	2026-01-14 00:34:41.402571800 +0000
-+++ src/hdf5-2.1.0/src/H5Tvlen.c	2026-01-14 00:38:35.619061200 +0000
++++ src/hdf5-2.1.1/src/H5Tvlen.c	2026-01-14 00:38:35.619061200 +0000
 @@ -1013,10 +1013,15 @@
              }
              else if (dt->shared->u.vlen.type == H5T_VLEN_STRING) {

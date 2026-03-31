@@ -73,13 +73,13 @@
 /* ========================================================================== */
 /* These settings define package info and enable core library policies. */
 #define H5_PACKAGE_NAME                 "HDF5"
-#define H5_PACKAGE_VERSION              "2.0.0"
-#define H5_PACKAGE_STRING               "HDF5 2.0.0"
+#define H5_PACKAGE_VERSION              "2.1.1"
+#define H5_PACKAGE_STRING               "HDF5 2.1.1"
 #define H5_PACKAGE_BUGREPORT            "help@hdfgroup.org"
 #define H5_PACKAGE                      "hdf5"
 #define H5_PACKAGE_TARNAME              "hdf5"
 #define H5_PACKAGE_URL                  "https://www.hdfgroup.org"
-#define H5_VERSION                      "2.0.0"
+#define H5_VERSION                      "2.1.1"
 
 #define H5_USE_FILE_LOCKING             1
 #define H5_IGNORE_DISABLED_FILE_LOCKS   1

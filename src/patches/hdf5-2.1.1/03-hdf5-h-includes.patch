@@ -1,6 +1,6 @@
-diff -ru src/hdf5-orig/src/hdf5.h src/hdf5-2.1.0/src/hdf5.h
+diff -ru src/hdf5-orig/src/hdf5.h src/hdf5-2.1.1/src/hdf5.h
 --- src/hdf5-orig/src/hdf5.h	2025-11-11 00:00:49.000000000 +0000
-+++ src/hdf5-2.1.0/src/hdf5.h	2025-11-21 21:13:48.761485100 +0000
++++ src/hdf5-2.1.1/src/hdf5.h	2025-11-21 21:13:48.761485100 +0000
 @@ -56,23 +56,17 @@
  
  /* Predefined file drivers */

@@ -1,7 +1,7 @@
 Package: hdf5lib
 Type: Package
 Title: Headers and Static Libraries for 'HDF5'
-Version: 2.1.0.0
+Version: 2.1.1.0
 Authors@R: c(
     person(
       "Daniel P.", "Smith",
@@ -31,7 +31,7 @@ Authors@R: c(
 Description: 'HDF5' (Hierarchical Data Format 5) is a high-performance
     library and file format for storing and managing large, complex
     data. This package provides the static libraries and headers for
-    the 'HDF5' 'C' library (release 2.1.0). It is intended for R
+    the 'HDF5' 'C' library (release 2.1.1). It is intended for R
     package developers to use in the 'LinkingTo' field, which
     eliminates the need for users to install system-level 'HDF5'
     dependencies. This build is compiled with thread-safety enabled

@@ -1,6 +1,6 @@
-diff -ru src/hdf5-orig/src/H5Aint.c src/hdf5-2.1.0/src/H5Aint.c
+diff -ru src/hdf5-orig/src/H5Aint.c src/hdf5-2.1.1/src/H5Aint.c
 --- src/hdf5-orig/src/H5Aint.c	2025-11-11 00:00:34.000000000 +0000
-+++ src/hdf5-2.1.0/src/H5Aint.c	2025-11-24 00:29:48.047585500 +0000
++++ src/hdf5-2.1.1/src/H5Aint.c	2025-11-24 00:29:48.047585500 +0000
 @@ -72,7 +72,7 @@
  /* Local Prototypes */
  /********************/
@@ -21,9 +21,9 @@ diff -ru src/hdf5-orig/src/H5Aint.c src/hdf5-2.1.0/src/H5Aint.c
      herr_t ret_value = SUCCEED; /* Return value */
  
      FUNC_ENTER_PACKAGE
-diff -ru src/hdf5-orig/src/H5Dint.c src/hdf5-2.1.0/src/H5Dint.c
+diff -ru src/hdf5-orig/src/H5Dint.c src/hdf5-2.1.1/src/H5Dint.c
 --- src/hdf5-orig/src/H5Dint.c	2025-11-11 00:00:34.000000000 +0000
-+++ src/hdf5-2.1.0/src/H5Dint.c	2025-11-24 00:29:48.062300100 +0000
++++ src/hdf5-2.1.1/src/H5Dint.c	2025-11-24 00:29:48.062300100 +0000
 @@ -84,7 +84,7 @@
  static herr_t H5D__open_oid(H5D_t *dataset, hid_t dapl_id);
  static herr_t H5D__init_storage(H5D_t *dset, bool full_overwrite, hsize_t old_dim[]);
@@ -44,9 +44,9 @@ diff -ru src/hdf5-orig/src/H5Dint.c src/hdf5-2.1.0/src/H5Dint.c
      herr_t ret_value = SUCCEED; /* Return value */
  
      FUNC_ENTER_PACKAGE
-diff -ru src/hdf5-orig/src/H5Eint.c src/hdf5-2.1.0/src/H5Eint.c
+diff -ru src/hdf5-orig/src/H5Eint.c src/hdf5-2.1.1/src/H5Eint.c
 --- src/hdf5-orig/src/H5Eint.c	2025-11-11 00:00:34.000000000 +0000
-+++ src/hdf5-2.1.0/src/H5Eint.c	2025-11-24 00:30:53.395116600 +0000
++++ src/hdf5-2.1.1/src/H5Eint.c	2025-11-24 00:30:53.395116600 +0000
 @@ -68,7 +68,7 @@
  static herr_t H5E__set_stack_entry(H5E_error2_t *err_entry, const char *file, const char *func, unsigned line,
                                     hid_t cls_id, hid_t maj_id, hid_t min_id, const char *desc, va_list *ap);
@@ -67,9 +67,9 @@ diff -ru src/hdf5-orig/src/H5Eint.c src/hdf5-2.1.0/src/H5Eint.c
      herr_t ret_value = SUCCEED; /* Return value */
  
      FUNC_ENTER_PACKAGE
-diff -ru src/hdf5-orig/src/H5FD.c src/hdf5-2.1.0/src/H5FD.c
+diff -ru src/hdf5-orig/src/H5FD.c src/hdf5-2.1.1/src/H5FD.c
 --- src/hdf5-orig/src/H5FD.c	2025-11-11 00:00:34.000000000 +0000
-+++ src/hdf5-2.1.0/src/H5FD.c	2025-11-24 00:29:48.076054100 +0000
++++ src/hdf5-2.1.1/src/H5FD.c	2025-11-24 00:29:48.076054100 +0000
 @@ -52,7 +52,7 @@
  /********************/
  /* Local Prototypes */
@@ -90,9 +90,9 @@ diff -ru src/hdf5-orig/src/H5FD.c src/hdf5-2.1.0/src/H5FD.c
      herr_t ret_value = SUCCEED;
  
      FUNC_ENTER_PACKAGE
-diff -ru src/hdf5-orig/src/H5Fint.c src/hdf5-2.1.0/src/H5Fint.c
+diff -ru src/hdf5-orig/src/H5Fint.c src/hdf5-2.1.1/src/H5Fint.c
 --- src/hdf5-orig/src/H5Fint.c	2025-11-11 00:00:34.000000000 +0000
-+++ src/hdf5-2.1.0/src/H5Fint.c	2025-11-24 00:29:48.090039800 +0000
++++ src/hdf5-2.1.1/src/H5Fint.c	2025-11-24 00:29:48.090039800 +0000
 @@ -71,7 +71,7 @@
  /* Local Prototypes */
  /********************/
@@ -113,9 +113,9 @@ diff -ru src/hdf5-orig/src/H5Fint.c src/hdf5-2.1.0/src/H5Fint.c
      herr_t ret_value = SUCCEED; /* Return value */
  
      FUNC_ENTER_PACKAGE
-diff -ru src/hdf5-orig/src/H5Gint.c src/hdf5-2.1.0/src/H5Gint.c
+diff -ru src/hdf5-orig/src/H5Gint.c src/hdf5-2.1.1/src/H5Gint.c
 --- src/hdf5-orig/src/H5Gint.c	2025-11-11 00:00:34.000000000 +0000
-+++ src/hdf5-2.1.0/src/H5Gint.c	2025-11-24 00:29:48.108066500 +0000
++++ src/hdf5-2.1.1/src/H5Gint.c	2025-11-24 00:29:48.108066500 +0000
 @@ -83,7 +83,7 @@
  
  static herr_t H5G__open_oid(H5G_t *grp);
@@ -136,9 +136,9 @@ diff -ru src/hdf5-orig/src/H5Gint.c src/hdf5-2.1.0/src/H5Gint.c
      herr_t ret_value = SUCCEED; /* Return value */
  
      FUNC_ENTER_PACKAGE
-diff -ru src/hdf5-orig/src/H5M.c src/hdf5-2.1.0/src/H5M.c
+diff -ru src/hdf5-orig/src/H5M.c src/hdf5-2.1.1/src/H5M.c
 --- src/hdf5-orig/src/H5M.c	2025-11-11 00:00:34.000000000 +0000
-+++ src/hdf5-2.1.0/src/H5M.c	2025-11-24 00:29:48.121391100 +0000
++++ src/hdf5-2.1.1/src/H5M.c	2025-11-24 00:29:48.121391100 +0000
 @@ -38,7 +38,7 @@
  /********************/
  /* Local Prototypes */
@@ -159,9 +159,9 @@ diff -ru src/hdf5-orig/src/H5M.c src/hdf5-2.1.0/src/H5M.c
      H5VL_optional_args_t vol_cb_args;         /* Arguments to VOL callback */
      herr_t               ret_value = SUCCEED; /* Return value */
  
-diff -ru src/hdf5-orig/src/H5T.c src/hdf5-2.1.0/src/H5T.c
+diff -ru src/hdf5-orig/src/H5T.c src/hdf5-2.1.1/src/H5T.c
 --- src/hdf5-orig/src/H5T.c	2025-11-11 00:00:34.000000000 +0000
-+++ src/hdf5-2.1.0/src/H5T.c	2025-11-24 00:29:48.175219300 +0000
++++ src/hdf5-2.1.1/src/H5T.c	2025-11-24 00:29:48.175219300 +0000
 @@ -440,7 +440,7 @@
  static herr_t H5T__register(H5T_pers_t pers, const char *name, H5T_t *src, H5T_t *dst, H5T_conv_func_t *conv);
  static htri_t H5T__compiler_conv(H5T_t *src, H5T_t *dst);
@@ -182,9 +182,9 @@ diff -ru src/hdf5-orig/src/H5T.c src/hdf5-2.1.0/src/H5T.c
      herr_t ret_value = SUCCEED; /* Return value */
  
      FUNC_ENTER_PACKAGE
-diff -ru src/hdf5-orig/src/H5VLint.c src/hdf5-2.1.0/src/H5VLint.c
+diff -ru src/hdf5-orig/src/H5VLint.c src/hdf5-2.1.1/src/H5VLint.c
 --- src/hdf5-orig/src/H5VLint.c	2025-11-11 00:00:34.000000000 +0000
-+++ src/hdf5-2.1.0/src/H5VLint.c	2025-11-24 00:29:48.202695700 +0000
++++ src/hdf5-2.1.1/src/H5VLint.c	2025-11-24 00:29:48.202695700 +0000
 @@ -92,12 +92,12 @@
  /********************/
  /* Local Prototypes */

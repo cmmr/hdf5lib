@@ -1,6 +1,6 @@
-diff -ru src/hdf5-orig/src/H5Bdbg.c src/hdf5-2.1.0/src/H5Bdbg.c
+diff -ru src/hdf5-orig/src/H5Bdbg.c src/hdf5-2.1.1/src/H5Bdbg.c
 --- src/hdf5-orig/src/H5Bdbg.c	2025-11-11 00:00:49.000000000 +0000
-+++ src/hdf5-2.1.0/src/H5Bdbg.c	2025-11-27 00:01:48.601815400 +0000
++++ src/hdf5-2.1.1/src/H5Bdbg.c	2025-11-27 00:01:48.601815400 +0000
 @@ -86,8 +86,8 @@
              ((shared->type->id) == H5B_SNODE_ID
                   ? "H5B_SNODE_ID"
@@ -12,9 +12,9 @@ diff -ru src/hdf5-orig/src/H5Bdbg.c src/hdf5-2.1.0/src/H5Bdbg.c
      fprintf(stream, "%*s%-*s %s\n", indent, "", fwidth,
              "Dirty flag:", bt->cache_info.is_dirty ? "True" : "False");
      fprintf(stream, "%*s%-*s %u\n", indent, "", fwidth, "Level:", bt->level);
-diff -ru src/hdf5-orig/src/H5Cdbg.c src/hdf5-2.1.0/src/H5Cdbg.c
+diff -ru src/hdf5-orig/src/H5Cdbg.c src/hdf5-2.1.1/src/H5Cdbg.c
 --- src/hdf5-orig/src/H5Cdbg.c	2025-11-11 00:00:49.000000000 +0000
-+++ src/hdf5-2.1.0/src/H5Cdbg.c	2025-11-27 00:19:33.689795200 +0000
++++ src/hdf5-2.1.1/src/H5Cdbg.c	2025-11-27 00:19:33.689795200 +0000
 @@ -260,7 +260,7 @@
      fprintf(stdout, "\n\nDumping metadata cache skip list from %s.\n", calling_fcn);
      fprintf(stdout, " slist %s.\n", cache_ptr->slist_enabled ? "enabled" : "disabled");
@@ -63,9 +63,9 @@ diff -ru src/hdf5-orig/src/H5Cdbg.c src/hdf5-2.1.0/src/H5Cdbg.c
              break;
  
          case at_max_size:
-diff -ru src/hdf5-orig/src/H5Clog_trace.c src/hdf5-2.1.0/src/H5Clog_trace.c
+diff -ru src/hdf5-orig/src/H5Clog_trace.c src/hdf5-2.1.1/src/H5Clog_trace.c
 --- src/hdf5-orig/src/H5Clog_trace.c	2025-11-11 00:00:49.000000000 +0000
-+++ src/hdf5-2.1.0/src/H5Clog_trace.c	2025-11-27 00:13:51.275918100 +0000
++++ src/hdf5-2.1.1/src/H5Clog_trace.c	2025-11-27 00:13:51.275918100 +0000
 @@ -852,7 +852,7 @@
      /* Create the log message string */
      snprintf(trace_udata->message, H5C_MAX_TRACE_LOG_MSG_SIZE,
@@ -84,9 +84,9 @@ diff -ru src/hdf5-orig/src/H5Clog_trace.c src/hdf5-2.1.0/src/H5Clog_trace.c
  
      /* Write the log message to the file */
      if (H5C__trace_write_log_message(trace_udata) < 0)
-diff -ru src/hdf5-orig/src/H5EAdbg.c src/hdf5-2.1.0/src/H5EAdbg.c
+diff -ru src/hdf5-orig/src/H5EAdbg.c src/hdf5-2.1.1/src/H5EAdbg.c
 --- src/hdf5-orig/src/H5EAdbg.c	2025-11-11 00:00:49.000000000 +0000
-+++ src/hdf5-2.1.0/src/H5EAdbg.c	2025-11-27 00:02:51.772622700 +0000
++++ src/hdf5-2.1.1/src/H5EAdbg.c	2025-11-27 00:02:51.772622700 +0000
 @@ -108,11 +108,11 @@
  
      /* Print the values */
@@ -145,9 +145,9 @@ diff -ru src/hdf5-orig/src/H5EAdbg.c src/hdf5-2.1.0/src/H5EAdbg.c
  
      /* Print the elements in the index block */
      fprintf(stream, "%*sElements:\n", indent, "");
-diff -ru src/hdf5-orig/src/H5ES.c src/hdf5-2.1.0/src/H5ES.c
+diff -ru src/hdf5-orig/src/H5ES.c src/hdf5-2.1.1/src/H5ES.c
 --- src/hdf5-orig/src/H5ES.c	2025-11-11 00:00:49.000000000 +0000
-+++ src/hdf5-2.1.0/src/H5ES.c	2025-11-27 00:06:20.732702600 +0000
++++ src/hdf5-2.1.1/src/H5ES.c	2025-11-27 00:06:20.732702600 +0000
 @@ -503,7 +503,7 @@
          H5MM_xfree(err_info[u].app_file_name);
          H5MM_xfree(err_info[u].app_func_name);
@@ -157,9 +157,9 @@ diff -ru src/hdf5-orig/src/H5ES.c src/hdf5-2.1.0/src/H5ES.c
      } /* end for */
  
  done:
-diff -ru src/hdf5-orig/src/H5FAdbg.c src/hdf5-2.1.0/src/H5FAdbg.c
+diff -ru src/hdf5-orig/src/H5FAdbg.c src/hdf5-2.1.1/src/H5FAdbg.c
 --- src/hdf5-orig/src/H5FAdbg.c	2025-11-11 00:00:49.000000000 +0000
-+++ src/hdf5-2.1.0/src/H5FAdbg.c	2025-11-27 00:06:20.732702600 +0000
++++ src/hdf5-2.1.1/src/H5FAdbg.c	2025-11-27 00:06:20.732702600 +0000
 @@ -109,11 +109,11 @@
  
      /* Print the values */
@@ -206,9 +206,9 @@ diff -ru src/hdf5-orig/src/H5FAdbg.c src/hdf5-2.1.0/src/H5FAdbg.c
                  for (u = 0; u < dblk_page_nelmts; u++) {
                      /* Call the class's 'debug' callback */
                      if ((hdr->cparam.cls->debug)(stream, (indent + 3), MAX(0, (fwidth - 3)), (hsize_t)u,
-diff -ru src/hdf5-orig/src/H5FAdblkpage.c src/hdf5-2.1.0/src/H5FAdblkpage.c
+diff -ru src/hdf5-orig/src/H5FAdblkpage.c src/hdf5-2.1.1/src/H5FAdblkpage.c
 --- src/hdf5-orig/src/H5FAdblkpage.c	2025-11-11 00:00:49.000000000 +0000
-+++ src/hdf5-2.1.0/src/H5FAdblkpage.c	2025-11-27 00:07:32.505168500 +0000
++++ src/hdf5-2.1.1/src/H5FAdblkpage.c	2025-11-27 00:07:32.505168500 +0000
 @@ -155,7 +155,7 @@
      dblk_page->addr = addr;
      dblk_page->size = H5FA_DBLK_PAGE_SIZE(hdr, nelmts);
@@ -218,9 +218,9 @@ diff -ru src/hdf5-orig/src/H5FAdblkpage.c src/hdf5-2.1.0/src/H5FAdblkpage.c
  #endif /* H5FA_DEBUG */
  
      /* Clear any elements in data block page to fill value */
-diff -ru src/hdf5-orig/src/H5FDsec2.c src/hdf5-2.1.0/src/H5FDsec2.c
+diff -ru src/hdf5-orig/src/H5FDsec2.c src/hdf5-2.1.1/src/H5FDsec2.c
 --- src/hdf5-orig/src/H5FDsec2.c	2025-11-11 00:00:49.000000000 +0000
-+++ src/hdf5-2.1.0/src/H5FDsec2.c	2025-11-27 00:08:07.961984900 +0000
++++ src/hdf5-2.1.1/src/H5FDsec2.c	2025-11-27 00:08:07.961984900 +0000
 @@ -658,10 +658,10 @@
  
              HGOTO_ERROR(H5E_IO, H5E_READERROR, FAIL,
@@ -249,9 +249,9 @@ diff -ru src/hdf5-orig/src/H5FDsec2.c src/hdf5-2.1.0/src/H5FDsec2.c
          } /* end if */
  
          assert(bytes_wrote > 0);
-diff -ru src/hdf5-orig/src/H5FDsubfiling/H5FDsubfiling.h src/hdf5-2.1.0/src/H5FDsubfiling/H5FDsubfiling.h
+diff -ru src/hdf5-orig/src/H5FDsubfiling/H5FDsubfiling.h src/hdf5-2.1.1/src/H5FDsubfiling/H5FDsubfiling.h
 --- src/hdf5-orig/src/H5FDsubfiling/H5FDsubfiling.h	2025-11-11 00:00:49.000000000 +0000
-+++ src/hdf5-2.1.0/src/H5FDsubfiling/H5FDsubfiling.h	2025-11-27 00:18:05.574523000 +0000
++++ src/hdf5-2.1.1/src/H5FDsubfiling/H5FDsubfiling.h	2025-11-27 00:18:05.574523000 +0000
 @@ -494,7 +494,7 @@
   * // Get subfile mapping
   * ret = H5FDsubfiling_get_file_mapping(file_id, &subfile_names, &num_subfiles);
@@ -261,9 +261,9 @@ diff -ru src/hdf5-orig/src/H5FDsubfiling/H5FDsubfiling.h src/hdf5-2.1.0/src/H5FD
   *     for (size_t i = 0; i < num_subfiles; i++) {
   *         printf("  %s\n", subfile_names[i]);
   *         H5free_memory(subfile_names[i]);  // Free each string
-diff -ru src/hdf5-orig/src/H5FS.c src/hdf5-2.1.0/src/H5FS.c
+diff -ru src/hdf5-orig/src/H5FS.c src/hdf5-2.1.1/src/H5FS.c
 --- src/hdf5-orig/src/H5FS.c	2025-11-11 00:00:49.000000000 +0000
-+++ src/hdf5-2.1.0/src/H5FS.c	2025-11-27 00:08:30.198578600 +0000
++++ src/hdf5-2.1.1/src/H5FS.c	2025-11-27 00:08:30.198578600 +0000
 @@ -94,7 +94,7 @@
  
      FUNC_ENTER_NOAPI(NULL)
@@ -284,9 +284,9 @@ diff -ru src/hdf5-orig/src/H5FS.c src/hdf5-2.1.0/src/H5FS.c
  #endif /* H5FS_DEBUG */
  
      /* Check arguments. */
-diff -ru src/hdf5-orig/src/H5HFdbg.c src/hdf5-2.1.0/src/H5HFdbg.c
+diff -ru src/hdf5-orig/src/H5HFdbg.c src/hdf5-2.1.1/src/H5HFdbg.c
 --- src/hdf5-orig/src/H5HFdbg.c	2025-11-11 00:00:49.000000000 +0000
-+++ src/hdf5-2.1.0/src/H5HFdbg.c	2025-11-27 00:09:52.677158200 +0000
++++ src/hdf5-2.1.1/src/H5HFdbg.c	2025-11-27 00:09:52.677158200 +0000
 @@ -146,8 +146,8 @@
          HGOTO_ERROR(H5E_HEAP, H5E_CANTGET, FAIL, "can't retrieve heap ID length");
  
@@ -351,9 +351,9 @@ diff -ru src/hdf5-orig/src/H5HFdbg.c src/hdf5-2.1.0/src/H5HFdbg.c
  
          /* Print parent's information */
          fprintf(stream, "%*s%-*s %p\n", indent + 3, "", MAX(0, fwidth - 3),
-diff -ru src/hdf5-orig/src/H5HFdblock.c src/hdf5-2.1.0/src/H5HFdblock.c
+diff -ru src/hdf5-orig/src/H5HFdblock.c src/hdf5-2.1.1/src/H5HFdblock.c
 --- src/hdf5-orig/src/H5HFdblock.c	2025-11-11 00:00:49.000000000 +0000
-+++ src/hdf5-2.1.0/src/H5HFdblock.c	2025-11-27 00:10:25.336833100 +0000
++++ src/hdf5-2.1.1/src/H5HFdblock.c	2025-11-27 00:10:25.336833100 +0000
 @@ -385,8 +385,8 @@
          /* Check for skipping over blocks */
          if (min_dblock_size > next_size) {
@@ -365,9 +365,9 @@ diff -ru src/hdf5-orig/src/H5HFdblock.c src/hdf5-2.1.0/src/H5HFdblock.c
              HGOTO_ERROR(H5E_HEAP, H5E_UNSUPPORTED, FAIL, "skipping direct block sizes not supported yet");
          } /* end if */
  
-diff -ru src/hdf5-orig/src/H5HG.c src/hdf5-2.1.0/src/H5HG.c
+diff -ru src/hdf5-orig/src/H5HG.c src/hdf5-2.1.1/src/H5HG.c
 --- src/hdf5-orig/src/H5HG.c	2025-11-11 00:00:49.000000000 +0000
-+++ src/hdf5-2.1.0/src/H5HG.c	2025-11-27 00:11:16.951774200 +0000
++++ src/hdf5-2.1.1/src/H5HG.c	2025-11-27 00:11:16.951774200 +0000
 @@ -561,18 +561,18 @@
  
      /* Heap object idx 0 is the free space in the heap and should never be given out */
@@ -480,9 +480,9 @@ diff -ru src/hdf5-orig/src/H5HG.c src/hdf5-2.1.0/src/H5HG.c
  
      obj_start = heap->obj[hobj->idx].begin;
      /* Include object header size */
-diff -ru src/hdf5-orig/src/H5HLdbg.c src/hdf5-2.1.0/src/H5HLdbg.c
+diff -ru src/hdf5-orig/src/H5HLdbg.c src/hdf5-2.1.1/src/H5HLdbg.c
 --- src/hdf5-orig/src/H5HLdbg.c	2025-11-11 00:00:49.000000000 +0000
-+++ src/hdf5-2.1.0/src/H5HLdbg.c	2025-11-27 00:11:36.156691700 +0000
++++ src/hdf5-2.1.1/src/H5HLdbg.c	2025-11-27 00:11:36.156691700 +0000
 @@ -61,9 +61,9 @@
          HGOTO_ERROR(H5E_HEAP, H5E_CANTPROTECT, FAIL, "unable to load/protect local heap");
  
@@ -495,9 +495,9 @@ diff -ru src/hdf5-orig/src/H5HLdbg.c src/hdf5-2.1.0/src/H5HLdbg.c
  
      /* Traverse the free list and check that all free blocks fall within
       * the heap and that no two free blocks point to the same region of
-diff -ru src/hdf5-orig/src/H5Lexternal.c src/hdf5-2.1.0/src/H5Lexternal.c
+diff -ru src/hdf5-orig/src/H5Lexternal.c src/hdf5-2.1.1/src/H5Lexternal.c
 --- src/hdf5-orig/src/H5Lexternal.c	2025-11-11 00:00:49.000000000 +0000
-+++ src/hdf5-2.1.0/src/H5Lexternal.c	2025-11-27 00:11:52.535523000 +0000
++++ src/hdf5-2.1.1/src/H5Lexternal.c	2025-11-27 00:11:52.535523000 +0000
 @@ -184,7 +184,7 @@
          if (group_name_len > sizeof(local_group_name)) {
              if (NULL == (parent_group_name = (char *)H5MM_malloc(group_name_len)))
@@ -507,9 +507,9 @@ diff -ru src/hdf5-orig/src/H5Lexternal.c src/hdf5-2.1.0/src/H5Lexternal.c
          } /* end if */
          else
              parent_group_name = local_group_name;
-diff -ru src/hdf5-orig/src/H5Oalloc.c src/hdf5-2.1.0/src/H5Oalloc.c
+diff -ru src/hdf5-orig/src/H5Oalloc.c src/hdf5-2.1.1/src/H5Oalloc.c
 --- src/hdf5-orig/src/H5Oalloc.c	2025-11-11 00:00:49.000000000 +0000
-+++ src/hdf5-2.1.0/src/H5Oalloc.c	2025-11-27 00:12:38.429397000 +0000
++++ src/hdf5-2.1.1/src/H5Oalloc.c	2025-11-27 00:12:38.429397000 +0000
 @@ -890,7 +890,7 @@
          H5O_chunk_t *x;
  
@@ -528,9 +528,9 @@ diff -ru src/hdf5-orig/src/H5Oalloc.c src/hdf5-2.1.0/src/H5Oalloc.c
      oh->chunk[chunkno].chunk_proxy = NULL;
  
      /* If this is a later version of the object header format, put the magic
-diff -ru src/hdf5-orig/src/H5Odbg.c src/hdf5-2.1.0/src/H5Odbg.c
+diff -ru src/hdf5-orig/src/H5Odbg.c src/hdf5-2.1.1/src/H5Odbg.c
 --- src/hdf5-orig/src/H5Odbg.c	2025-11-11 00:00:49.000000000 +0000
-+++ src/hdf5-2.1.0/src/H5Odbg.c	2025-11-27 00:13:38.900472700 +0000
++++ src/hdf5-2.1.1/src/H5Odbg.c	2025-11-27 00:13:38.900472700 +0000
 @@ -336,10 +336,10 @@
          } /* end if */
      }     /* end if */
@@ -571,9 +571,9 @@ diff -ru src/hdf5-orig/src/H5Odbg.c src/hdf5-2.1.0/src/H5Odbg.c
  
          /* check the size */
          if ((oh->mesg[i].raw + oh->mesg[i].raw_size > oh->chunk[chunkno].image + oh->chunk[chunkno].size) ||
-diff -ru src/hdf5-orig/src/H5Odrvinfo.c src/hdf5-2.1.0/src/H5Odrvinfo.c
+diff -ru src/hdf5-orig/src/H5Odrvinfo.c src/hdf5-2.1.1/src/H5Odrvinfo.c
 --- src/hdf5-orig/src/H5Odrvinfo.c	2025-11-11 00:00:49.000000000 +0000
-+++ src/hdf5-2.1.0/src/H5Odrvinfo.c	2025-11-27 00:14:06.963114100 +0000
++++ src/hdf5-2.1.1/src/H5Odrvinfo.c	2025-11-27 00:14:06.963114100 +0000
 @@ -285,7 +285,7 @@
      assert(fwidth >= 0);
  
@@ -583,9 +583,9 @@ diff -ru src/hdf5-orig/src/H5Odrvinfo.c src/hdf5-2.1.0/src/H5Odrvinfo.c
  
      FUNC_LEAVE_NOAPI(SUCCEED)
  } /* end H5O__drvinfo_debug() */
-diff -ru src/hdf5-orig/src/H5Odtype.c src/hdf5-2.1.0/src/H5Odtype.c
+diff -ru src/hdf5-orig/src/H5Odtype.c src/hdf5-2.1.1/src/H5Odtype.c
 --- src/hdf5-orig/src/H5Odtype.c	2025-11-11 00:00:49.000000000 +0000
-+++ src/hdf5-2.1.0/src/H5Odtype.c	2025-11-27 00:14:20.846011200 +0000
++++ src/hdf5-2.1.1/src/H5Odtype.c	2025-11-27 00:14:20.846011200 +0000
 @@ -891,9 +891,9 @@
          if (!(*ioflags & H5O_DECODEIO_RFIC_UNUBNT))
              HGOTO_ERROR(
@@ -598,9 +598,9 @@ diff -ru src/hdf5-orig/src/H5Odtype.c src/hdf5-2.1.0/src/H5Odtype.c
  
  done:
      /* Cleanup on error */
-diff -ru src/hdf5-orig/src/H5Oefl.c src/hdf5-2.1.0/src/H5Oefl.c
+diff -ru src/hdf5-orig/src/H5Oefl.c src/hdf5-2.1.1/src/H5Oefl.c
 --- src/hdf5-orig/src/H5Oefl.c	2025-11-11 00:00:49.000000000 +0000
-+++ src/hdf5-2.1.0/src/H5Oefl.c	2025-11-26 23:48:53.602600400 +0000
++++ src/hdf5-2.1.1/src/H5Oefl.c	2025-11-26 23:48:53.602600400 +0000
 @@ -535,19 +535,19 @@
  
      fprintf(stream, "%*s%-*s %" PRIuHADDR "\n", indent, "", fwidth, "Heap address:", mesg->heap_addr);
@@ -626,9 +626,9 @@ diff -ru src/hdf5-orig/src/H5Oefl.c src/hdf5-2.1.0/src/H5Oefl.c
  
          fprintf(stream, "%*s%-*s %" PRIdMAX "\n", indent + 3, "", MAX(fwidth - 3, 0),
                  "Offset of data in file:", (intmax_t)(mesg->slot[u].offset));
-diff -ru src/hdf5-orig/src/H5Ofsinfo.c src/hdf5-2.1.0/src/H5Ofsinfo.c
+diff -ru src/hdf5-orig/src/H5Ofsinfo.c src/hdf5-2.1.1/src/H5Ofsinfo.c
 --- src/hdf5-orig/src/H5Ofsinfo.c	2025-11-11 00:00:49.000000000 +0000
-+++ src/hdf5-2.1.0/src/H5Ofsinfo.c	2025-11-27 00:14:29.818352400 +0000
++++ src/hdf5-2.1.1/src/H5Ofsinfo.c	2025-11-27 00:14:29.818352400 +0000
 @@ -403,8 +403,8 @@
      fprintf(stream, "%*s%-*s %" PRIuHSIZE "\n", indent, "", fwidth,
              "File space page size:", fsinfo->page_size);
@@ -640,9 +640,9 @@ diff -ru src/hdf5-orig/src/H5Ofsinfo.c src/hdf5-2.1.0/src/H5Ofsinfo.c
  
      fprintf(stream, "%*s%-*s %" PRIuHADDR "\n", indent, "", fwidth,
              "eoa_pre_fsm_fsalloc:", fsinfo->eoa_pre_fsm_fsalloc);
-diff -ru src/hdf5-orig/src/H5Olayout.c src/hdf5-2.1.0/src/H5Olayout.c
+diff -ru src/hdf5-orig/src/H5Olayout.c src/hdf5-2.1.1/src/H5Olayout.c
 --- src/hdf5-orig/src/H5Olayout.c	2025-11-11 00:00:49.000000000 +0000
-+++ src/hdf5-2.1.0/src/H5Olayout.c	2025-11-27 00:14:48.152161600 +0000
++++ src/hdf5-2.1.1/src/H5Olayout.c	2025-11-27 00:14:48.152161600 +0000
 @@ -1196,17 +1196,17 @@
  
          case H5D_COMPACT:
@@ -665,9 +665,9 @@ diff -ru src/hdf5-orig/src/H5Olayout.c src/hdf5-2.1.0/src/H5Olayout.c
                  fprintf(stream, "%*s%-*s %s\n", indent + 3, "", fwidth - 3,
                          "Virtual selection:", "<Not yet implemented>");
                  fprintf(stream, "%*s%-*s %s\n", indent + 3, "", fwidth - 3,
-diff -ru src/hdf5-orig/src/H5Olink.c src/hdf5-2.1.0/src/H5Olink.c
+diff -ru src/hdf5-orig/src/H5Olink.c src/hdf5-2.1.1/src/H5Olink.c
 --- src/hdf5-orig/src/H5Olink.c	2025-11-11 00:00:49.000000000 +0000
-+++ src/hdf5-2.1.0/src/H5Olink.c	2025-11-27 00:14:56.243367600 +0000
++++ src/hdf5-2.1.1/src/H5Olink.c	2025-11-27 00:14:56.243367600 +0000
 @@ -829,8 +829,8 @@
                      fprintf(stream, "%*s%-*s %s\n", indent, "", fwidth, "External Object Name:", objname);
                  } /* end if */
@@ -679,9 +679,9 @@ diff -ru src/hdf5-orig/src/H5Olink.c src/hdf5-2.1.0/src/H5Olink.c
                  } /* end else */
              }     /* end if */
              else
-diff -ru src/hdf5-orig/src/H5Opline.c src/hdf5-2.1.0/src/H5Opline.c
+diff -ru src/hdf5-orig/src/H5Opline.c src/hdf5-2.1.1/src/H5Opline.c
 --- src/hdf5-orig/src/H5Opline.c	2025-11-11 00:00:49.000000000 +0000
-+++ src/hdf5-2.1.0/src/H5Opline.c	2025-11-27 00:22:59.486755200 +0000
++++ src/hdf5-2.1.1/src/H5Opline.c	2025-11-27 00:22:59.486755200 +0000
 @@ -647,8 +647,8 @@
      assert(indent >= 0);
      assert(fwidth >= 0);
@@ -713,9 +713,9 @@ diff -ru src/hdf5-orig/src/H5Opline.c src/hdf5-2.1.0/src/H5Opline.c
  
          /* Filter parameters */
          for (size_t j = 0; j < pline->filter[i].cd_nelmts; j++) {
-diff -ru src/hdf5-orig/src/H5SM.c src/hdf5-2.1.0/src/H5SM.c
+diff -ru src/hdf5-orig/src/H5SM.c src/hdf5-2.1.1/src/H5SM.c
 --- src/hdf5-orig/src/H5SM.c	2025-11-11 00:00:49.000000000 +0000
-+++ src/hdf5-2.1.0/src/H5SM.c	2025-11-27 00:15:38.200396400 +0000
++++ src/hdf5-2.1.1/src/H5SM.c	2025-11-27 00:15:38.200396400 +0000
 @@ -2516,14 +2516,14 @@
                  "Address of index's heap:", table->indexes[x].heap_addr);
          fprintf(stream, "%*s%-*s 0x%08x\n", indent + 3, "", fwidth,
@@ -739,9 +739,9 @@ diff -ru src/hdf5-orig/src/H5SM.c src/hdf5-2.1.0/src/H5SM.c
      } /* end for */
  
  done:
-diff -ru src/hdf5-orig/src/H5Tconv_macros.h src/hdf5-2.1.0/src/H5Tconv_macros.h
+diff -ru src/hdf5-orig/src/H5Tconv_macros.h src/hdf5-2.1.1/src/H5Tconv_macros.h
 --- src/hdf5-orig/src/H5Tconv_macros.h	2025-11-11 00:00:49.000000000 +0000
-+++ src/hdf5-2.1.0/src/H5Tconv_macros.h	2025-11-27 00:17:11.486205700 +0000
++++ src/hdf5-2.1.1/src/H5Tconv_macros.h	2025-11-27 00:17:11.486205700 +0000
 @@ -1891,12 +1891,14 @@
  #define CI_PRINT_STATS(STYPE, DTYPE)                                                                         \
      do {                                                                                                     \
@@ -761,9 +761,9 @@ diff -ru src/hdf5-orig/src/H5Tconv_macros.h src/hdf5-2.1.0/src/H5Tconv_macros.h
          }                                                                                                    \
      } while (0)
  
-diff -ru src/hdf5-orig/src/H5trace.c src/hdf5-2.1.0/src/H5trace.c
+diff -ru src/hdf5-orig/src/H5trace.c src/hdf5-2.1.1/src/H5trace.c
 --- src/hdf5-orig/src/H5trace.c	2025-11-11 00:00:49.000000000 +0000
-+++ src/hdf5-2.1.0/src/H5trace.c	2025-11-27 00:17:53.660407000 +0000
++++ src/hdf5-2.1.1/src/H5trace.c	2025-11-27 00:17:53.660407000 +0000
 @@ -392,7 +392,7 @@
  
                              H5RS_acat(rs, " {");

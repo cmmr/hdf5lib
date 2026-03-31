@@ -1,6 +1,6 @@
-diff -ru src/hdf5-orig/src/H5.c src/hdf5-2.1.0/src/H5.c
+diff -ru src/hdf5-orig/src/H5.c src/hdf5-2.1.1/src/H5.c
 --- src/hdf5-orig/src/H5.c	2025-11-11 00:00:49.000000000 +0000
-+++ src/hdf5-2.1.0/src/H5.c	2025-11-26 22:00:55.459870300 +0000
++++ src/hdf5-2.1.1/src/H5.c	2025-11-26 22:00:55.459870300 +0000
 @@ -366,8 +366,8 @@
       */
  #define DOWN(F)                                                                                              \
@@ -12,9 +12,9 @@ diff -ru src/hdf5-orig/src/H5.c src/hdf5-2.1.0/src/H5.c
                                                : n))
  
      do {
-diff -ru src/hdf5-orig/src/H5Eint.c src/hdf5-2.1.0/src/H5Eint.c
+diff -ru src/hdf5-orig/src/H5Eint.c src/hdf5-2.1.1/src/H5Eint.c
 --- src/hdf5-orig/src/H5Eint.c	2025-11-11 00:00:49.000000000 +0000
-+++ src/hdf5-2.1.0/src/H5Eint.c	2025-11-26 21:39:35.278794100 +0000
++++ src/hdf5-2.1.1/src/H5Eint.c	2025-11-26 21:39:35.278794100 +0000
 @@ -1474,7 +1474,7 @@
  H5E_get_default_auto_func(H5E_auto2_t *func)
  {
@@ -24,9 +24,9 @@ diff -ru src/hdf5-orig/src/H5Eint.c src/hdf5-2.1.0/src/H5Eint.c
      herr_t        ret_value = SUCCEED; /* Return value */
  
      FUNC_ENTER_NOAPI(FAIL)
-diff -ru src/hdf5-orig/src/H5FDmulti.c src/hdf5-2.1.0/src/H5FDmulti.c
+diff -ru src/hdf5-orig/src/H5FDmulti.c src/hdf5-2.1.1/src/H5FDmulti.c
 --- src/hdf5-orig/src/H5FDmulti.c	2025-11-11 00:00:49.000000000 +0000
-+++ src/hdf5-2.1.0/src/H5FDmulti.c	2025-11-26 21:52:25.486878400 +0000
++++ src/hdf5-2.1.1/src/H5FDmulti.c	2025-11-26 21:52:25.486878400 +0000
 @@ -26,12 +26,14 @@
  
  #include "H5warnings.h"
@@ -42,9 +42,9 @@ diff -ru src/hdf5-orig/src/H5FDmulti.c src/hdf5-2.1.0/src/H5FDmulti.c
  
  /* Windows doesn't like some POSIX names and redefines them with an
   * underscore
-diff -ru src/hdf5-orig/src/H5system.c src/hdf5-2.1.0/src/H5system.c
+diff -ru src/hdf5-orig/src/H5system.c src/hdf5-2.1.1/src/H5system.c
 --- src/hdf5-orig/src/H5system.c	2025-11-11 00:00:49.000000000 +0000
-+++ src/hdf5-2.1.0/src/H5system.c	2025-11-26 21:41:43.161208800 +0000
++++ src/hdf5-2.1.1/src/H5system.c	2025-11-26 21:41:43.161208800 +0000
 @@ -316,7 +316,7 @@
      return (int)_putenv_s(name, value);
  } /* end Wsetenv() */
