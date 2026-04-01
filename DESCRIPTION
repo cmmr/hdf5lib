@@ -35,7 +35,9 @@ Description: 'HDF5' (Hierarchical Data Format 5) is a high-performance
     package developers to use in the 'LinkingTo' field, which
     eliminates the need for users to install system-level 'HDF5'
     dependencies. This build is compiled with thread-safety enabled
-    and supports dynamic loading of external compression filters.
+    and bundles an extensive suite of compression filters:
+    gzip/deflate (zlib-ng), szip (libaec), Zstd, LZ4, Blosc/Blosc2,
+    Snappy (csnappy), ZFP, Bzip2, LZF, and Bitshuffle.
     'HDF5' is developed by The HDF Group <https://www.hdfgroup.org/>.
 URL: https://github.com/cmmr/hdf5lib, https://cmmr.github.io/hdf5lib/
 BugReports: https://github.com/cmmr/hdf5lib/issues
