@@ -79,14 +79,26 @@ Instead, expose the registration functions to R and call them exactly once durin
 #include <Rinternals.h>
 #include "hdf5lib.h"
 
-SEXP r_register_hdf5_filters() {
+SEXP r_register_hdf5_filters(void) {
     hdf5lib_register_all_filters();
     return R_NilValue;
 }
 
-SEXP r_destroy_hdf5_filters() {
+SEXP r_destroy_hdf5_filters(void) {
     hdf5lib_destroy_all_filters();
     return R_NilValue;
+}
+
+static const R_CallMethodDef CallEntries[] = {
+  {"C_register_hdf5_filters", (DL_FUNC) &C_register_hdf5_filters, 0},
+  {"C_destroy_hdf5_filters",  (DL_FUNC) &C_destroy_hdf5_filters,  0},
+  // Add your package's C functions here as well
+  {NULL, NULL, 0}
+};
+
+void R_init_h5lite(DllInfo *dll) {
+  R_registerRoutines(dll, NULL, CallEntries, NULL, NULL);
+  R_useDynamicSymbols(dll, FALSE);
 }
 ```
 
