@@ -1,7 +1,7 @@
 Package: hdf5lib
 Type: Package
 Title: Headers and Static Libraries for 'HDF5'
-Version: 2.1.1.0
+Version: 2.1.1.1
 Authors@R: c(
     person(
       "Daniel P.", "Smith",

@@ -17,3 +17,5 @@
 ^vignettes$
 ^rhub_check\.r$
 ^\.Rproj\.user$
+^\.positai$
+^\.claude$

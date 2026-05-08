@@ -88,6 +88,8 @@ done
 # Construct final flags
 export CC="$R_CC"
 export AR="$R_AR"
+export LD="${LD:-ld}"
+export STRIP="${STRIP:-strip}"
 export CFLAGS="$R_CFLAGS $R_CPICFLAGS -DNDEBUG -I../lib $R_CPPFLAGS"
 
 # Mimic CRAN's strict syntax checking when calling gcc/clang directly
@@ -434,19 +436,19 @@ esac
 
 # Create the final static library
 # Logic: Use partial linking (ld -r) on non-Windows systems to reduce size.
-if [ "$WIN" -eq 0 ] && [ "$MINIFY" -eq 1 ] && command -v ld >/dev/null 2>&1; then
+if [ "$WIN" -eq 0 ] && [ "$MINIFY" -eq 1 ] && command -v "$LD" >/dev/null 2>&1; then
   echo "  Performing partial linking (ld -r)..."
   # Merge all .o files into one big object (deduplicates symbols/sections)
-  ld -r -o libhdf5z.o */*.o
+  "$LD" -r -o libhdf5z.o */*.o
   "$R_AR" -crs libhdf5z.a libhdf5z.o
 else
   "$R_AR" -crs libhdf5z.a */*.o
 fi
 
 # Strip debug symbols to reduce installed package size
-if [ "$MINIFY" -eq 1 ] && command -v strip >/dev/null 2>&1; then
+if [ "$MINIFY" -eq 1 ] && command -v "$STRIP" >/dev/null 2>&1; then
   echo "  Stripping debug symbols..."
-  strip -S libhdf5z.a || true
+  "$STRIP" -S libhdf5z.a || true
 fi
 
 
