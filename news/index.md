@@ -1,5 +1,10 @@
 # Changelog
 
+## hdf5lib 2.1.1.1
+
+- Respect `LD` and `STRIP` env vars during linking step (allows
+  cross-platform builds).
+
 ## hdf5lib 2.1.1.0
 
 CRAN release: 2026-04-02

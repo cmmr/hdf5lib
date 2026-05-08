@@ -286,8 +286,8 @@ use this standalone ZFP plugin).*
 
 - **Fixed Accuracy:** Defines a strict absolute error tolerance. Passing
   `3` ensures no decompressed value deviates from the original by more
-  than $10^{- 3}$ (`0.001`), regardless of whether the number is huge or
-  tiny.
+  than $`10^{-3}`$ (`0.001`), regardless of whether the number is huge
+  or tiny.
 
 - **Fixed Precision:** Defines a sliding scale of detail. Passing `16`
   keeps roughly 5 digits of detail scaled proportionally to the size of
@@ -476,6 +476,7 @@ Once configured, any R package linking to `hdf5lib` can seamlessly read
 datasets using that external filter.
 
 ``` r
+
 # Tell HDF5 where to find external filter plugins
 Sys.setenv(HDF5_PLUGIN_PATH = "/opt/hdf5/plugins/")
 

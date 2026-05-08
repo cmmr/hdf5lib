@@ -11,15 +11,15 @@ project.
 
 The table below summarizes the key differences between the two packages.
 
-| Feature                 | `hdf5lib` (CRAN)                                                                        | `Rhdf5lib` (Bioconductor)                |
-|-------------------------|-----------------------------------------------------------------------------------------|------------------------------------------|
-| **Installation**        | Zero-configuration                                                                      | Configurable at install-time             |
-| **HDF5 Version**        | Bundled & predictable (v2.1.0)                                                          | Variable (older bundle or system)        |
-| **Compression Plugins** | **Bundled (Blosc2, Zstd, LZ4, etc.)**                                                   | Requires external/system libraries       |
-| **Build Type**          | Static library only                                                                     | Static or shared library                 |
-| **Thread-Safety**       | **Enabled by default**                                                                  | Not supported                            |
-| **API Version Control** | Simple `api` flag in [`c_flags()`](https://cmmr.github.io/hdf5lib/reference/c_flags.md) | Requires manual `-D` flags               |
-| **Ecosystem**           | General purpose                                                                         | Primarily for the Bioconductor ecosystem |
+| Feature | `hdf5lib` (CRAN) | `Rhdf5lib` (Bioconductor) |
+|----|----|----|
+| **Installation** | Zero-configuration | Configurable at install-time |
+| **HDF5 Version** | Bundled & predictable (v2.1.0) | Variable (older bundle or system) |
+| **Compression Plugins** | **Bundled (Blosc2, Zstd, LZ4, etc.)** | Requires external/system libraries |
+| **Build Type** | Static library only | Static or shared library |
+| **Thread-Safety** | **Enabled by default** | Not supported |
+| **API Version Control** | Simple `api` flag in [`c_flags()`](https://cmmr.github.io/hdf5lib/reference/c_flags.md) | Requires manual `-D` flags |
+| **Ecosystem** | General purpose | Primarily for the Bioconductor ecosystem |
 
 ## Key Differences Explained
 

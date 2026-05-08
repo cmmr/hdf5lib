@@ -6,16 +6,19 @@ threads make calls to the HDF5 library simultaneously.
 
 #### Important Limitations of Thread-Safety
 
+-   
 - **Only Low-Level APIs are Thread-Safe:** The HDF5 library’s
   thread-safety guarantee **only applies to the low-level (LL)
   functions** (e.g., `H5F…`, `H5D…`, `H5P…`). The High-Level (HL) APIs,
   such as `H5LT`, `H5IM`, and `H5TB`, are **not** thread-safe and must
   not be called from multiple threads.
+    
 - **Threads vs. Processes:** This feature provides safety for multiple
   *threads* within a single R process. It does **not** protect against
   multiple independent *processes* writing to the same HDF5 file at the
   same time. To manage multi-process access, you must use an external
   mechanism like file locking (e.g., via the R package `flock`).
+    
 - **Filters and Compression:** If your parallel threads will be reading
   or writing compressed datasets using bundled plugins (like Blosc or
   Zstd), ensure you have registered the filters globally during package

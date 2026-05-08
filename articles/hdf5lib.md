@@ -93,6 +93,7 @@ void R_init_h5lite(DllInfo *dll) {
 **Hook into R Package Load (e.g., in `R/zzz.R`):**
 
 ``` r
+
 .onLoad <- function(libname, pkgname) {
     # Register plugins and spin up Blosc thread pools once per session
     .Call("r_register_hdf5_filters", PACKAGE = pkgname)
@@ -161,6 +162,7 @@ Rcpp::String get_hdf5_version() {
 Now, you can use your new function from R:
 
 ``` r
+
 library(myhdf5package)
 get_hdf5_version()
 #> "2.1.1"

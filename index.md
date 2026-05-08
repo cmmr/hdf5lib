@@ -50,12 +50,14 @@ developers to use in the `LinkingTo` field of their `DESCRIPTION` file.
 You can install the released version of `hdf5lib` from CRAN with:
 
 ``` r
+
 install.packages("hdf5lib")
 ```
 
 Alternatively, you can install the development version from GitHub:
 
 ``` r
+
 # install.packages("pak")  
 pak::pak("cmmr/hdf5lib")
 ```
@@ -147,6 +149,7 @@ void R_init_h5lite(DllInfo *dll) {
 **Hook into R Package Load (e.g., in `R/zzz.R`):**
 
 ``` r
+
 .onLoad <- function(libname, pkgname) {
     # Register plugins and spin up Blosc thread pools once per session
     .Call("r_register_hdf5_filters", PACKAGE = pkgname)

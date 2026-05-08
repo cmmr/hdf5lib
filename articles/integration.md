@@ -173,6 +173,7 @@ to call `R CMD SHLIB`. The key is to set the `PKG_CPPFLAGS` and
 helper functions.
 
 ``` r
+
 if (!require("hdf5lib")) install.packages("hdf5lib")
 
 c_file <- "get_version.c"
