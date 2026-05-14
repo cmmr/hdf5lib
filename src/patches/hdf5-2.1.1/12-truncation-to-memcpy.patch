@@ -1,0 +1,15 @@
+diff -ru src/hdf5-orig/src/H5L.c src/hdf5-2.1.1/src/H5L.c
+--- src/hdf5-orig/src/H5L.c	2026-03-23 18:25:34.000000000 +0000
++++ src/hdf5-2.1.1/src/H5L.c	2026-05-14 17:24:45.790307700 +0000
+@@ -651,9 +651,9 @@
+     /* Encode the external link information */
+     p    = (uint8_t *)ext_link_buf;
+     *p++ = (H5L_EXT_VERSION << 4) | H5L_EXT_FLAGS_ALL; /* External link version & flags */
+-    strncpy((char *)p, file_name, buf_size - 1);       /* Name of file containing external link's object */
++    memcpy(p, file_name, file_name_len);               /* Name of file containing external link's object */
+     p += file_name_len;
+-    strncpy((char *)p, norm_obj_name, buf_size - (file_name_len + 1)); /* External link's object */
++    memcpy(p, norm_obj_name, norm_obj_name_len);       /* External link's object */
+ 
+     loc_params.type                         = H5VL_OBJECT_BY_NAME;
+     loc_params.loc_data.loc_by_name.name    = link_name;
