@@ -1,6 +1,7 @@
 # hdf5lib 2.1.1.1
 
 * Respect `LD` and `STRIP` env vars during linking step (allows cross-platform builds).
+* Patched `strncpy` warnings introduced by GCC 16 in `src/H5FDsplitter.c`.
 
 
 

@@ -406,6 +406,7 @@ cd hdf5
 
 HDF5_FLAGS="-DH5_BUILT_AS_STATIC_LIB -DH5_DLL= -DH5HL_DLL="
 HDF5_FLAGS="$HDF5_FLAGS -Isrc -Ihl/src -I../gzip -I../szip"
+HDF5_FLAGS="$HDF5_FLAGS -Wno-unused-but-set-variable"
 echo "  HDF5_FLAGS: $HDF5_FLAGS"
 
 for src in src/*.c hl/src/*.c; do
