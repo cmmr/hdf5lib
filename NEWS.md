@@ -1,3 +1,9 @@
+# hdf5lib 2.1.1.2
+
+* Patch `c-blosc2-2.23.1/blosc/frame.c` for `strncpy` warnings on GCC 16.
+
+
+
 # hdf5lib 2.1.1.1
 
 * Respect `LD` and `STRIP` env vars during linking step (allows cross-platform builds).

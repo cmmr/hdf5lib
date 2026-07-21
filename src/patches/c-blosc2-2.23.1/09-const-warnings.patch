@@ -1,0 +1,12 @@
+diff -ru src/c-blosc2-orig/blosc/frame.c src/c-blosc2-2.23.1/blosc/frame.c
+--- src/c-blosc2-orig/blosc/frame.c	2026-07-21 17:35:23.794064900 +0000
++++ src/c-blosc2-2.23.1/blosc/frame.c	2026-07-21 17:36:38.618385300 +0000
+@@ -773,7 +773,7 @@
+ // Remove a file:/// prefix
+ // This is a temporary workaround for allowing to use proper URLs for local files/dirs
+ static char* normalize_urlpath(const char* urlpath) {
+-  char* localpath = strstr(urlpath, "file:///");
++  char* localpath = (char*)strstr(urlpath, "file:///");
+   if (localpath == urlpath) {
+     // There is a file:/// prefix.  Get rid of it.
+     localpath += strlen("file:///");
