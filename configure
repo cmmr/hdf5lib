@@ -148,7 +148,7 @@ echo "--- [hdf5lib] Building Shared Libs..."
 cp -r ../src/lib .
 cd lib
 
-"$R_EXE" -s -e "invisible(file.copy(file.path(R.home('include'), 'R_ext'), '.', recursive = TRUE))"
+"$R_EXE" -s -e "invisible(file.copy(file.path(R.home('include'), 'R_ext'), '.', recursive = TRUE, copy.mode = FALSE))"
 
 # Compile and run generator to detect system type sizes
 # Use unquoted $CC to allow arguments like -std=gnu11
@@ -464,6 +464,7 @@ cp build/hdf5/hl/src/*.h  inst/include/
 cp build/libhdf5z.a       inst/lib/
 
 # Cleanup
+chmod -R u+w build
 rm -rf build
 
 echo "  Final library size: $(du -sh inst/ | cut -f1)"
