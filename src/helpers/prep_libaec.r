@@ -3,7 +3,7 @@
 # bundled with the hdf5lib source package.
 
 
-VER <- '1.1.6'
+VER <- '1.1.7'
 
 
 # Download and extract the libaec codebase

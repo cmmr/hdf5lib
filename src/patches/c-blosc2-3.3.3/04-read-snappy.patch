@@ -1,0 +1,22 @@
+diff -ru src/c-blosc2-orig/blosc/blosc2.c src/c-blosc2-3.3.3/blosc/blosc2.c
+--- src/c-blosc2-orig/blosc/blosc2.c
++++ src/c-blosc2-3.3.3/blosc/blosc2.c
+@@ -871,6 +871,9 @@
+   if (context->compcode == BLOSC_UDCODEC_FORMAT) {
+     context->compcode = header->udcompcode;
+   }
++  else if (context->compcode == 2) {
++    context->compcode = 3; /* Route legacy format 2 to the Snappy plugin compcode */
++  }
+   if (context->blosc2_flags2 & BLOSC2_VL_BLOCKS) {
+     context->nblocks = header->blocksize;
+     context->leftover = 0;
+@@ -2077,7 +2080,7 @@
+                                       (char*)_dest, (size_t)neblock);
+       }
+   #endif /*  HAVE_ZSTD */
+-      else if (compformat == BLOSC_UDCODEC_FORMAT) {
++      else if (compformat == BLOSC_UDCODEC_FORMAT || compformat == 2) {
+         bool getcell = false;
+ 
+ #if defined(HAVE_ZFP)

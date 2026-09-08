@@ -1,0 +1,12 @@
+diff -ru src/c-blosc2-orig/blosc/blosc2-stdio.c src/c-blosc2-3.3.3/blosc/blosc2-stdio.c
+--- src/c-blosc2-orig/blosc/blosc2-stdio.c
++++ src/c-blosc2-3.3.3/blosc/blosc2-stdio.c
+@@ -305,7 +305,7 @@
+ }
+ 
+ #if defined(_WIN32)
+-void _print_last_error() {
++void _print_last_error(void) {
+     DWORD last_error = GetLastError();
+     if(last_error == 0) {
+         return;

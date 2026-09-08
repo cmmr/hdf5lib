@@ -3,7 +3,7 @@
 # bundled with the hdf5lib source package.
 
 
-VER <- '2.23.1'
+VER <- '3.3.3'
 
 
 # Download and extract the blosc2 codebase

@@ -1,7 +1,7 @@
 Package: hdf5lib
 Type: Package
 Title: Headers and Static Libraries for 'HDF5'
-Version: 2.1.1.3
+Version: 2.2.0.0
 Authors@R: c(
     person(
       "Daniel P.", "Smith",
@@ -29,7 +29,7 @@ Authors@R: c(
     person("Meta Platforms, Inc. and affiliates", role = "cph", comment = "zstd library"),
     person("Yuta", "Mori", role = "ctb", comment = "zstd library") )
 Description: Provides a self-contained, static build of the 'HDF5'
-    (Hierarchical Data Format 5) 'C' library (release 2.1.1) for R
+    (Hierarchical Data Format 5) 'C' library (release 2.2.0) for R
     package developers. Designed for use in the 'LinkingTo' field,
     it enables zero-dependency integration by building the library
     entirely from source during installation. Additionally, it compiles
