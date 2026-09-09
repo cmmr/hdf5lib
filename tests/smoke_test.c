@@ -37,8 +37,11 @@
 /* Blosc2's internal ZFP codec hard-fails on integers; strictly limit it to float paths */
 #define TEST_FLOAT_ONLY   (TEST_FLT | TEST_ZRO | TEST_EMP)
 
-/* Blosc2's NDLZ codec only works on 2-D chunks of single-byte items */
-#define TEST_ND_ONLY      (TEST_2D8)
+/* NDLZ is a 2-D pattern codec: it compresses images far better than it
+   compresses numeric arrays, and readily expands the latter, so exercise it on
+   shapes it is meant for plus the layouts that reach it through a byte-image
+   remap (1-D, multi-byte items) rather than on the ratio-checking tests. */
+#define TEST_ND_ONLY      (TEST_CMP | TEST_ARR | TEST_RND | TEST_2D8)
 
 /* --- Verbose Error Macro --- */
 #define CHECK(expr, step_msg) do { \

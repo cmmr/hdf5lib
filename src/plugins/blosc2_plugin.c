@@ -99,11 +99,25 @@ static herr_t blosc2_set_local(hid_t dcpl, hid_t type, hid_t space) {
   if (blosc2_compcode_to_compname((int)user_compcode, &compname) < 0) return -1;
 
   if (user_compcode == BLOSC_CODEC_NDLZ) {
-    /* NDLZ reads its cell grid straight out of the B2ND block shape, so it only
-       accepts 2-D chunks of single-byte items, in 4x4 or 8x8 cells. */
-    if (ndim != 2 || basetypesize != 1) return -1;
-    if (user_meta == 0) user_meta = NDLZ_DEFAULT_CELLSIZE;
-    if (user_meta != 4 && user_meta != 8) return -1;
+    /* NDLZ reads its 4x4 / 8x8 cell grid straight out of the B2ND block shape,
+       so it can only see a 2-D array of single-byte items.  Rather than refuse
+       every other chunk, hand it the chunk's raw byte image: the leading axes
+       collapse into rows and the trailing axis widens by the item size.  The
+       bytes keep their original order, so this is a relabelling rather than a
+       transform, and B2ND records the shape in the frame for the read path. */
+    hsize_t rows, cols;
+    if (ndim == 1) {
+      rows = chunkshape[0];
+      cols = basetypesize;
+    } else {
+      rows = 1;
+      for (int i = 0; i < ndim - 1; i++) rows *= chunkshape[i];
+      cols = chunkshape[ndim - 1] * basetypesize;
+    }
+    ndim          = 2;
+    chunkshape[0] = rows;
+    chunkshape[1] = cols;
+    basetypesize  = 1;
   }
 
   /* 3. Reconstruct cd_values: Strict Python Base Layout */
@@ -237,8 +251,13 @@ static size_t blosc2_filter_function(
     cparams.typesize = (int32_t)typesize;
     cparams.clevel   = clevel;
 
-    if (compcode == BLOSC_CODEC_NDLZ || IS_ZFP_CODEC(compcode)) {
+    if (IS_ZFP_CODEC(compcode)) {
         cparams.compcode_meta = meta_value;
+    } else if (compcode == BLOSC_CODEC_NDLZ) {
+        /* NDLZ reads its cell size here, and accepts only 4 or 8.  The meta slot
+           is shared with the pre-filter metadata, so fall back to the default
+           rather than handing NDLZ a value it will reject. */
+        cparams.compcode_meta = (meta_value == 8) ? 8 : NDLZ_DEFAULT_CELLSIZE;
     } else {
         cparams.compcode_meta = 0;
     }
@@ -248,8 +267,11 @@ static size_t blosc2_filter_function(
         cparams.filters_meta[i] = 0;
     }
 
-    /* ZFP strictly bypasses Bitmask pre-filters to prevent mantissa corruption */
-    if (!IS_ZFP_CODEC(compcode)) {
+    /* ZFP strictly bypasses Bitmask pre-filters to prevent mantissa corruption.
+       NDLZ sees the chunk as loose bytes, so the item-typed pre-filters have
+       nothing to work with either -- trunc-prec only handles 4- and 8-byte items
+       and fails the whole chunk if it is handed anything else. */
+    if (!IS_ZFP_CODEC(compcode) && compcode != BLOSC_CODEC_NDLZ) {
         int f_idx = 0;
         
         if (filter_mask & 8) {
