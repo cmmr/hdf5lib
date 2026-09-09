@@ -17,3 +17,19 @@ diff -ru src/c-blosc2-orig/blosc/blosclz.c src/c-blosc2-3.3.3/blosc/blosclz.c
  
  #define HASH_LOG (14U)
  
+
+diff -ru src/c-blosc2-orig/plugins/codecs/ndlz/ndlz4x4.c src/c-blosc2-3.3.3/plugins/codecs/ndlz/ndlz4x4.c
+--- src/c-blosc2-orig/plugins/codecs/ndlz/ndlz4x4.c
++++ src/c-blosc2-3.3.3/plugins/codecs/ndlz/ndlz4x4.c
+@@ -304,9 +304,9 @@
+                 token = (uint8_t) ((1U << 5U) | (j << 3U));
+                 *op++ = token;
+                 uint16_t offset_2 = (uint16_t) (anchor - obase - tab_pair[hval]);
+-                *(uint16_t *) op = offset;
++                memcpy(op, &offset, sizeof(offset));
+                 op += sizeof(offset);
+-                *(uint16_t *) op = offset_2;
++                memcpy(op, &offset_2, sizeof(offset_2));
+                 op += sizeof(offset_2);
+                 goto match;
+               }
