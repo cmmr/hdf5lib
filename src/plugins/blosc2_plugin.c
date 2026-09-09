@@ -8,6 +8,7 @@
 
 #include <hdf5.h>
 #include <blosc2.h>
+#include <blosc2/codecs-registry.h>
 #include <b2nd.h>
 #include <stdlib.h>
 #include <string.h>
@@ -36,6 +37,12 @@
 
 #define B2ND_OPAQUE_NPDTYPE_FORMAT "|V%zd"
 #define B2ND_OPAQUE_NPDTYPE_MAXLEN (2 + 20 + 1)
+
+/* Blosc2 plugin codecs that need `compcode_meta` and the B2ND layer.  ZFP takes
+   its accuracy/precision/rate there; NDLZ takes its cell size (4 or 8). */
+#define IS_ZFP_CODEC(c) ((c) >= BLOSC_CODEC_ZFP_FIXED_ACCURACY && \
+                         (c) <= BLOSC_CODEC_ZFP_FIXED_RATE)
+#define NDLZ_DEFAULT_CELLSIZE 4
 
 #define PUSH_ERR(...) do { \
     H5Epush(H5E_DEFAULT, __FILE__, __func__, __LINE__, H5E_ERR_CLS, H5E_PLINE, H5E_CANTFILTER, __VA_ARGS__); \
@@ -83,6 +90,21 @@ static herr_t blosc2_set_local(hid_t dcpl, hid_t type, hid_t space) {
 
   bufsize = typesize;
   for (int i = 0; i < ndim; i++) bufsize *= (unsigned int)chunkshape[i];
+
+  /* Reject a configuration Blosc2 cannot honour *here*, while H5Dcreate2() can
+     still report it.  A mandatory filter that only fails once a chunk is
+     compressed fails inside H5Dclose(), where HDF5 discards the chunk and most
+     callers never look at the return value: the data is lost silently. */
+  const char *compname = NULL;
+  if (blosc2_compcode_to_compname((int)user_compcode, &compname) < 0) return -1;
+
+  if (user_compcode == BLOSC_CODEC_NDLZ) {
+    /* NDLZ reads its cell grid straight out of the B2ND block shape, so it only
+       accepts 2-D chunks of single-byte items, in 4x4 or 8x8 cells. */
+    if (ndim != 2 || basetypesize != 1) return -1;
+    if (user_meta == 0) user_meta = NDLZ_DEFAULT_CELLSIZE;
+    if (user_meta != 4 && user_meta != 8) return -1;
+  }
 
   /* 3. Reconstruct cd_values: Strict Python Base Layout */
   values[0] = FILTER_BLOSC2_VERSION;
@@ -215,7 +237,7 @@ static size_t blosc2_filter_function(
     cparams.typesize = (int32_t)typesize;
     cparams.clevel   = clevel;
 
-    if (compcode == 33 || compcode == 34 || compcode == 35) {
+    if (compcode == BLOSC_CODEC_NDLZ || IS_ZFP_CODEC(compcode)) {
         cparams.compcode_meta = meta_value;
     } else {
         cparams.compcode_meta = 0;
@@ -227,7 +249,7 @@ static size_t blosc2_filter_function(
     }
 
     /* ZFP strictly bypasses Bitmask pre-filters to prevent mantissa corruption */
-    if (compcode != 33 && compcode != 34 && compcode != 35) {
+    if (!IS_ZFP_CODEC(compcode)) {
         int f_idx = 0;
         
         if (filter_mask & 8) {
@@ -253,7 +275,7 @@ static size_t blosc2_filter_function(
     blosc2_storage storage = {.cparams = &cparams, .contiguous = false};
 
     /* Multi-Dimensional (B2ND) Chunking */
-    if (ndim >= 1 && (ndim > 1 || (compcode >= 33 && compcode <= 35))) {
+    if (ndim >= 1 && (ndim > 1 || IS_ZFP_CODEC(compcode))) {
       b2nd_context_t *ctx = NULL;
       b2nd_array_t *array = NULL;
 
@@ -271,7 +293,7 @@ static size_t blosc2_filter_function(
 
       char dtype[B2ND_OPAQUE_NPDTYPE_MAXLEN];
 
-      if (compcode >= 33 && compcode <= 35) {
+      if (IS_ZFP_CODEC(compcode)) {
           snprintf(dtype, sizeof(dtype), "%sf%u", B2ND_ENDIAN_PREFIX, (unsigned int)typesize);
       } else {
           snprintf(dtype, sizeof(dtype), B2ND_OPAQUE_NPDTYPE_FORMAT, (size_t)typesize);

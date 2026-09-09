@@ -28,7 +28,7 @@ Before configuring any filter, you must understand the fundamental rules of HDF5
 
 1.  **Chunking is Mandatory:** Compression in HDF5 requires the data to be stored in "chunks." You must define a chunk size for your dataset using `H5Pset_chunk()`. Applying a filter to a contiguous dataset will fail.
 
-2.  **Filter Registration (Plugins Only):** If you are using any of the bundled plugins (Zstd, LZ4, Blosc, etc.), they must be registered globally in your R session. You should do this exactly once during your package's `.onLoad` hook using `hdf5lib_register_all_filters()` and tear them down in `.onUnload` with `hdf5lib_destroy_all_filters()`. Registering filters per-I/O operation will severely degrade performance. See the [Getting Started](hdf5lib.html) guide for the boilerplate code.
+2.  **Filter Registration (Plugins Only):** If you are using any of the bundled plugins (Zstd, LZ4, Blosc, etc.), they must be registered globally in your R session. You should do this exactly once from your package's `R_init_<pkgname>()` entry point using `hdf5lib_register_all_filters()`, and tear them down in `R_unload_<pkgname>()` with `hdf5lib_destroy_all_filters()`. Registering filters per-I/O operation will severely degrade performance. See the [Getting Started](hdf5lib.html) guide for the boilerplate code.
 
 3.  **The Reader Must Have the Plugin:** If you compress a dataset using an external plugin (like Zstd or LZ4), **any application that opens that file must also have the corresponding HDF5 plugin installed.** If you are generating files for external users and cannot guarantee they have these plugins installed, use the built-in `gzip` filter for maximum portability.
 

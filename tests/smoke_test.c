@@ -29,18 +29,34 @@
 #define TEST_UNC 32  /* Unchunked/Contiguous layout */
 #define TEST_EMP 64  /* Empty dataset -> Tests nbytes == 0 chunk logic */
 #define TEST_INT 128 /* Standard Integer Data */
+#define TEST_2D8 256 /* 2-D chunked bytes -> Tests the multidimensional path */
 
-#define TEST_ALL          (TEST_FLT | TEST_INT | TEST_CMP | TEST_ARR | TEST_ZRO | TEST_RND | TEST_UNC | TEST_EMP)
+#define TEST_ALL          (TEST_FLT | TEST_INT | TEST_CMP | TEST_ARR | TEST_ZRO | TEST_RND | TEST_UNC | TEST_EMP | TEST_2D8)
 /* Filters like standalone ZFP and SZIP officially support atomic numerical arrays (Float & Int) */
 #define TEST_NUMERIC_ONLY (TEST_FLT | TEST_INT | TEST_ZRO | TEST_UNC | TEST_EMP)
 /* Blosc2's internal ZFP codec hard-fails on integers; strictly limit it to float paths */
 #define TEST_FLOAT_ONLY   (TEST_FLT | TEST_ZRO | TEST_EMP)
+
+/* Blosc2's NDLZ codec only works on 2-D chunks of single-byte items */
+#define TEST_ND_ONLY      (TEST_2D8)
 
 /* --- Verbose Error Macro --- */
 #define CHECK(expr, step_msg) do { \
   if ((expr) < 0) { \
     Rprintf("\n      -> %s failed", step_msg); \
     goto cleanup; \
+  } \
+} while(0)
+
+/* --- Checked Dataset Close --- */
+/* H5Dclose() flushes the chunk cache, so a compression failure on a chunk that
+   is still dirty surfaces here rather than at H5Dwrite() time.  HDF5 drops the
+   chunk when the pipeline fails, so an unchecked close turns a broken filter
+   into silent data loss. */
+#define CLOSE_DSET(dset) do { \
+  if ((dset) >= 0 && H5Dclose(dset) < 0) { \
+    Rprintf("\n      -> H5Dclose failed (chunk flush/compression error)"); \
+    ret = -1; \
   } \
 } while(0)
 
@@ -206,7 +222,7 @@ static int test_float_data(hid_t fid, const FilterConfig* cfg) {
 cleanup:
   if (data) free(data);
   if (data_out) free(data_out);
-  if (dset >= 0) H5Dclose(dset);
+  CLOSE_DSET(dset);
   if (plist >= 0) H5Pclose(plist);
   if (sid >= 0) H5Sclose(sid);
   return ret;
@@ -270,7 +286,7 @@ static int test_int_data(hid_t fid, const FilterConfig* cfg) {
 cleanup:
   if (data) free(data);
   if (data_out) free(data_out);
-  if (dset >= 0) H5Dclose(dset);
+  CLOSE_DSET(dset);
   if (plist >= 0) H5Pclose(plist);
   if (sid >= 0) H5Sclose(sid);
   return ret;
@@ -319,7 +335,7 @@ static int test_compound_data(hid_t fid, const FilterConfig* cfg) {
 cleanup:
   if (data) free(data);
   if (data_out) free(data_out);
-  if (dset >= 0) H5Dclose(dset);
+  CLOSE_DSET(dset);
   if (dtype >= 0) H5Tclose(dtype);
   if (plist >= 0) H5Pclose(plist);
   if (sid >= 0) H5Sclose(sid);
@@ -368,7 +384,7 @@ static int test_array_data(hid_t fid, const FilterConfig* cfg) {
 cleanup:
   if (data) free(data);
   if (data_out) free(data_out);
-  if (dset >= 0) H5Dclose(dset);
+  CLOSE_DSET(dset);
   if (dtype >= 0) H5Tclose(dtype);
   if (plist >= 0) H5Pclose(plist);
   if (sid >= 0) H5Sclose(sid);
@@ -411,7 +427,7 @@ static int test_highly_compressible_data(hid_t fid, const FilterConfig* cfg) {
 cleanup:
   if (data) free(data);
   if (data_out) free(data_out);
-  if (dset >= 0) H5Dclose(dset);
+  CLOSE_DSET(dset);
   if (plist >= 0) H5Pclose(plist);
   if (sid >= 0) H5Sclose(sid);
   return ret;
@@ -457,7 +473,7 @@ static int test_incompressible_data(hid_t fid, const FilterConfig* cfg) {
 cleanup:
   if (data) free(data);
   if (data_out) free(data_out);
-  if (dset >= 0) H5Dclose(dset);
+  CLOSE_DSET(dset);
   if (plist >= 0) H5Pclose(plist);
   if (sid >= 0) H5Sclose(sid);
   return ret;
@@ -491,7 +507,7 @@ static int test_unchunked_data(hid_t fid, const FilterConfig* cfg) {
   ret = 0;
 
 cleanup:
-  if (dset >= 0) H5Dclose(dset);
+  CLOSE_DSET(dset);
   if (plist >= 0) H5Pclose(plist);
   if (sid >= 0) H5Sclose(sid);
   return ret;
@@ -521,7 +537,60 @@ static int test_empty_dataset(hid_t fid, const FilterConfig* cfg) {
   ret = 0;
 
 cleanup:
-  if (dset >= 0) H5Dclose(dset);
+  CLOSE_DSET(dset);
+  if (plist >= 0) H5Pclose(plist);
+  if (sid >= 0) H5Sclose(sid);
+  return ret;
+}
+
+/* 9. Two-Dimensional Chunk Logic Path */
+static int test_ndim2_data(hid_t fid, const FilterConfig* cfg) {
+  #define ND_X 64
+  #define ND_Y 64
+  unsigned char *data = NULL, *data_out = NULL;
+  hsize_t dims[2] = {ND_X, ND_Y}, chunkdims[2] = {32, 32};
+  hid_t sid = -1, plist = -1, dset = -1;
+  int ret = -1;
+
+  data = malloc(ND_X * ND_Y);
+  data_out = malloc(ND_X * ND_Y);
+  if (!data || !data_out) goto cleanup;
+
+  /* Structure the data along both axes so the multidimensional codecs have
+     something to find that a purely linear scan would miss. */
+  for(int x=0; x<ND_X; x++)
+    for(int y=0; y<ND_Y; y++) {
+      data[x*ND_Y + y] = (unsigned char)((x % 8) * 16 + (y % 8));
+      data_out[x*ND_Y + y] = 0;
+    }
+
+  CHECK(sid = H5Screate_simple(2, dims, NULL), "H5Screate_simple");
+  CHECK(plist = H5Pcreate(H5P_DATASET_CREATE), "H5Pcreate");
+  CHECK(H5Pset_chunk(plist, 2, chunkdims), "H5Pset_chunk");
+  CHECK(apply_filter(plist, cfg), "apply_filter");
+
+  char dset_name[128];
+  snprintf(dset_name, sizeof(dset_name), "/ndim2_%s", cfg->name);
+  CHECK(dset = H5Dcreate2(fid, dset_name, H5T_NATIVE_UCHAR, sid, H5P_DEFAULT, plist, H5P_DEFAULT), "H5Dcreate2");
+  CHECK(H5Dwrite(dset, H5T_NATIVE_UCHAR, H5S_ALL, H5S_ALL, H5P_DEFAULT, data), "H5Dwrite");
+
+  /* Push every chunk through the pipeline before reading it back, so the
+     verification below cannot be answered out of the chunk cache. */
+  CHECK(H5Dflush(dset), "H5Dflush (Compression Pipeline Crashed!)");
+  CHECK(H5Dread(dset, H5T_NATIVE_UCHAR, H5S_ALL, H5S_ALL, H5P_DEFAULT, data_out), "H5Dread");
+
+  for(int i=0; i < ND_X * ND_Y; i++) {
+    if(data[i] != data_out[i]) {
+      Rprintf("\n      -> 2-D data mismatch at index %d (in: %d, out: %d)", i, data[i], data_out[i]);
+      goto cleanup;
+    }
+  }
+  ret = 0;
+
+cleanup:
+  if (data) free(data);
+  if (data_out) free(data_out);
+  CLOSE_DSET(dset);
   if (plist >= 0) H5Pclose(plist);
   if (sid >= 0) H5Sclose(sid);
   return ret;
@@ -585,7 +654,7 @@ SEXP C_smoke_test(SEXP sexp_filename) {
     {"blosc2_lz4hc",H5Z_FILTER_BLOSC2,  7, {0, 0, 0, 0, 5, 1, 2},         TEST_ALL},
     {"blosc2_zlib", H5Z_FILTER_BLOSC2,  7, {0, 0, 0, 0, 5, 1, 4},         TEST_ALL},
     {"blosc2_zstd", H5Z_FILTER_BLOSC2,  7, {0, 0, 0, 0, 5, 1, 5},         TEST_ALL},
-    {"blosc2_ndlz", H5Z_FILTER_BLOSC2,  7, {0, 0, 0, 0, 5, 1, 11},        TEST_ARR},
+    {"blosc2_ndlz", H5Z_FILTER_BLOSC2,  8, {0, 0, 0, 0, 5, 0, 32, 4},     TEST_ND_ONLY},
     {"b2_zfp_acc",  H5Z_FILTER_BLOSC2,  8, {0, 0, 0, 0, 5, 0, 33, 253},   TEST_FLOAT_ONLY}, 
     {"b2_zfp_prec", H5Z_FILTER_BLOSC2,  8, {0, 0, 0, 0, 5, 0, 34, 16},    TEST_FLOAT_ONLY}, 
     {"b2_zfp_rate", H5Z_FILTER_BLOSC2,  8, {0, 0, 0, 0, 5, 0, 35,  25},   TEST_FLOAT_ONLY},
@@ -608,6 +677,7 @@ SEXP C_smoke_test(SEXP sexp_filename) {
     if (filters[i].test_mask & TEST_RND) { if (test_incompressible_data(file_id, &filters[i])      < 0) err++; }
     if (filters[i].test_mask & TEST_UNC) { if (test_unchunked_data(file_id, &filters[i])           < 0) err++; }
     if (filters[i].test_mask & TEST_EMP) { if (test_empty_dataset(file_id, &filters[i])            < 0) err++; }
+    if (filters[i].test_mask & TEST_2D8) { if (test_ndim2_data(file_id, &filters[i])               < 0) err++; }
     
     if (err > 0) {
       Rprintf(" [FAILED]\n");

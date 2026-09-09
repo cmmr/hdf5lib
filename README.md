@@ -12,7 +12,7 @@ This package provides **no R functions** and is intended for R package developer
 
 -   **Zero-Dependency & CRAN-Ready:** Builds the HDF5 library from source using only standard R build tools. This guarantees your package works "out of the box" on any operating system without requiring users to install system-level libraries or hold administrative privileges.
 
--   **Comprehensive Core API (v2.1.0):** Provides complete access to the HDF5 C API, including both the **Low-Level** and simplified **High-Level** interfaces, giving you full control over file structure, metadata, and raw I/O.
+-   **Comprehensive Core API (v2.2.0):** Provides complete access to the HDF5 C API, including both the **Low-Level** and simplified **High-Level** interfaces, giving you full control over file structure, metadata, and raw I/O.
 
 -   **State-of-the-Art Compression Built-In:** Bundles an extensive suite of compression filters directly within the package. Alongside native `gzip/deflate` and `szip`, your package gains immediate access to high-performance plugins like **Zstandard (Zstd)**, **LZ4**, **Blosc/Blosc2**, **Snappy**, **ZFP**, **Bzip2**, **LZF**, and **Bitshuffle** - all without relying on external system libraries.
 
@@ -72,46 +72,41 @@ PKG_LIBS     = `$(R_HOME)/bin/Rscript -e "cat(hdf5lib::ld_flags(api = 2.0))"`
 
 To utilize the bundled compression plugins (LZ4, Zstd, Blosc, etc.), they must be registered with the HDF5 library. Because registering filters modifies global state and spins up background thread pools (via Blosc2), you should **never** register filters on a per-I/O basis, as this will severely impact performance.
 
-Instead, expose the registration functions to R and call them exactly once during your package's load/unload cycle.
+Instead, call them exactly once from your package's DLL load/unload entry points.
 
-**Create C Wrappers (e.g., in `src/init.c`):**
+**Register in `src/init.c`:**
 ```c
 #include <Rinternals.h>
-#include "hdf5lib.h"
-
-SEXP r_register_hdf5_filters(void) {
-    hdf5lib_register_all_filters();
-    return R_NilValue;
-}
-
-SEXP r_destroy_hdf5_filters(void) {
-    hdf5lib_destroy_all_filters();
-    return R_NilValue;
-}
+#include <R_ext/Rdynload.h>
+#include <hdf5lib.h>
 
 static const R_CallMethodDef CallEntries[] = {
-  {"C_register_hdf5_filters", (DL_FUNC) &C_register_hdf5_filters, 0},
-  {"C_destroy_hdf5_filters",  (DL_FUNC) &C_destroy_hdf5_filters,  0},
-  // Add your package's C functions here as well
+  // Add your package's own .Call entry points here
   {NULL, NULL, 0}
 };
 
-void R_init_h5lite(DllInfo *dll) {
+void R_init_myhdf5package(DllInfo *dll) {
   R_registerRoutines(dll, NULL, CallEntries, NULL, NULL);
   R_useDynamicSymbols(dll, FALSE);
+
+  /* Register plugins and spin up the Blosc thread pools once, at load time */
+  hdf5lib_register_all_filters();
+}
+
+void R_unload_myhdf5package(DllInfo *dll) {
+  /* Cleanly tear down threads and free memory to prevent Valgrind warnings */
+  hdf5lib_destroy_all_filters();
 }
 ```
 
-**Hook into R Package Load (e.g., in `R/zzz.R`):**
-```r
-.onLoad <- function(libname, pkgname) {
-    # Register plugins and spin up Blosc thread pools once per session
-    .Call("r_register_hdf5_filters", PACKAGE = pkgname)
-}
+`R_init_<pkgname>()` runs the moment your shared object is loaded, so the filters
+are in place before any of your code can run. `R_unload_<pkgname>()` only runs if
+the DLL is actually unloaded, which R does not do by default -- add this to
+`R/zzz.R` if you want the teardown to happen:
 
+```r
 .onUnload <- function(libpath) {
-    # Cleanly tear down threads and free memory to prevent Valgrind warnings
-    .Call("r_destroy_hdf5_filters", PACKAGE = "myrpackage")
+    library.dynam.unload("myhdf5package", libpath)
 }
 ```
 
@@ -141,7 +136,7 @@ SEXP read_my_hdf5_data(SEXP filename) {
 
 ## **Included HDF5 APIs**
 
-This package provides access to the **complete core HDF5 C API** (v2.1.0). Developers have full access to all standard functions, macros, and types for local file I/O, metadata management, and data manipulation.
+This package provides access to the **complete core HDF5 C API** (v2.2.0). Developers have full access to all standard functions, macros, and types for local file I/O, metadata management, and data manipulation.
 
 > **Note:** To maintain a zero-dependency footprint, optional features requiring external system libraries - such as Parallel HDF5 (MPI), HDFS, and S3 support - are not included.
 
@@ -179,11 +174,11 @@ The [`Rhdf5lib`](https://doi.org/doi:10.18129/B9.bioc.Rhdf5lib) package also pro
 
 -   **Zero Configuration Installation:** `hdf5lib` is designed for simplicity. Installation via `install.packages()` requires no user configuration and reliably provides a modern HDF5 build with important features enabled by default. `Rhdf5lib`, while flexible, requires users to manage compile-time configuration options for a customized build.
 
--   **Modern HDF5 Version:** `hdf5lib` bundles HDF5 v2.1.0, providing access to the latest features and fixes, including native complex number support and improved UTF-8 handling on Windows. This is more recent than the version typically bundled in `Rhdf5lib` (v1.12.2 as of Bioconductor 3.19).
+-   **Modern HDF5 Version:** `hdf5lib` bundles HDF5 v2.2.0, providing access to the latest features and fixes, including native complex number support and improved UTF-8 handling on Windows. This is more recent than the version typically bundled in `Rhdf5lib` (v1.12.2 as of Bioconductor 3.19).
 
 -   **Thread-Safety Enabled:** `hdf5lib` builds HDF5 with thread-safety enabled, ensuring safe use with parallel R packages (like `RcppParallel`). `Rhdf5lib` does not support building with this feature.
 
--   **Predictable Versioning and Features:** The version of `hdf5lib` directly corresponds to the bundled HDF5 version (e.g., `hdf5lib` v2.1.0.x bundles HDF5 v2.1.0). This allows developers to require a minimum `hdf5lib` version to guarantee a specific HDF5 version and a consistent set of features. In contrast, `Rhdf5lib` may link against a pre-existing system library or be configured at install-time, so its package version does not guarantee which version of HDF5 is actually in use or which features are enabled.
+-   **Predictable Versioning and Features:** The version of `hdf5lib` directly corresponds to the bundled HDF5 version (e.g., `hdf5lib` v2.2.0.x bundles HDF5 v2.2.0). This allows developers to require a minimum `hdf5lib` version to guarantee a specific HDF5 version and a consistent set of features. In contrast, `Rhdf5lib` may link against a pre-existing system library or be configured at install-time, so its package version does not guarantee which version of HDF5 is actually in use or which features are enabled.
 
 `hdf5lib` is intended to be a simple and reliable provider of the HDF5 C library for any R package.
 
