@@ -27,7 +27,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">hdf5lib</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.1.1.2</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.2.0.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -124,12 +124,12 @@ a contiguous dataset will fail.</p></li>
 <li><p><strong>Filter Registration (Plugins Only):</strong> If you are
 using any of the bundled plugins (Zstd, LZ4, Blosc, etc.), they must be
 registered globally in your R session. You should do this exactly once
-during your package’s <code>.onLoad</code> hook using
-<code>hdf5lib_register_all_filters()</code> and tear them down in
-<code>.onUnload</code> with <code>hdf5lib_destroy_all_filters()</code>.
-Registering filters per-I/O operation will severely degrade performance.
-See the <a href="hdf5lib.html">Getting Started</a> guide for the
-boilerplate code.</p></li>
+from your package’s <code>R_init_&lt;pkgname&gt;()</code> entry point
+using <code>hdf5lib_register_all_filters()</code>, and tear them down in
+<code>R_unload_&lt;pkgname&gt;()</code> with
+<code>hdf5lib_destroy_all_filters()</code>. Registering filters per-I/O
+operation will severely degrade performance. See the <a href="hdf5lib.html">Getting Started</a> guide for the boilerplate
+code.</p></li>
 <li><p><strong>The Reader Must Have the Plugin:</strong> If you compress
 a dataset using an external plugin (like Zstd or LZ4), <strong>any
 application that opens that file must also have the corresponding HDF5

@@ -21,7 +21,7 @@ developers to use in the `LinkingTo` field of their `DESCRIPTION` file.
   “out of the box” on any operating system without requiring users to
   install system-level libraries or hold administrative privileges.
 
-- **Comprehensive Core API (v2.1.0):** Provides complete access to the
+- **Comprehensive Core API (v2.2.0):** Provides complete access to the
   HDF5 C API, including both the **Low-Level** and simplified
   **High-Level** interfaces, giving you full control over file
   structure, metadata, and raw I/O.
@@ -114,50 +114,45 @@ filters modifies global state and spins up background thread pools (via
 Blosc2), you should **never** register filters on a per-I/O basis, as
 this will severely impact performance.
 
-Instead, expose the registration functions to R and call them exactly
-once during your package’s load/unload cycle.
+Instead, call them exactly once from your package’s DLL load/unload
+entry points.
 
-**Create C Wrappers (e.g., in `src/init.c`):**
+**Register in `src/init.c`:**
 
 ``` c
 #include <Rinternals.h>
-#include "hdf5lib.h"
-
-SEXP r_register_hdf5_filters(void) {
-    hdf5lib_register_all_filters();
-    return R_NilValue;
-}
-
-SEXP r_destroy_hdf5_filters(void) {
-    hdf5lib_destroy_all_filters();
-    return R_NilValue;
-}
+#include <R_ext/Rdynload.h>
+#include <hdf5lib.h>
 
 static const R_CallMethodDef CallEntries[] = {
-  {"C_register_hdf5_filters", (DL_FUNC) &C_register_hdf5_filters, 0},
-  {"C_destroy_hdf5_filters",  (DL_FUNC) &C_destroy_hdf5_filters,  0},
-  // Add your package's C functions here as well
+  // Add your package's own .Call entry points here
   {NULL, NULL, 0}
 };
 
-void R_init_h5lite(DllInfo *dll) {
+void R_init_myhdf5package(DllInfo *dll) {
   R_registerRoutines(dll, NULL, CallEntries, NULL, NULL);
   R_useDynamicSymbols(dll, FALSE);
+
+  /* Register plugins and spin up the Blosc thread pools once, at load time */
+  hdf5lib_register_all_filters();
+}
+
+void R_unload_myhdf5package(DllInfo *dll) {
+  /* Cleanly tear down threads and free memory to prevent Valgrind warnings */
+  hdf5lib_destroy_all_filters();
 }
 ```
 
-**Hook into R Package Load (e.g., in `R/zzz.R`):**
+`R_init_<pkgname>()` runs the moment your shared object is loaded, so
+the filters are in place before any of your code can run.
+`R_unload_<pkgname>()` only runs if the DLL is actually unloaded, which
+R does not do by default – add this to `R/zzz.R` if you want the
+teardown to happen:
 
 ``` r
 
-.onLoad <- function(libname, pkgname) {
-    # Register plugins and spin up Blosc thread pools once per session
-    .Call("r_register_hdf5_filters", PACKAGE = pkgname)
-}
-
 .onUnload <- function(libpath) {
-    # Cleanly tear down threads and free memory to prevent Valgrind warnings
-    .Call("r_destroy_hdf5_filters", PACKAGE = "myrpackage")
+    library.dynam.unload("myhdf5package", libpath)
 }
 ```
 
@@ -191,7 +186,7 @@ SEXP read_my_hdf5_data(SEXP filename) {
 ## **Included HDF5 APIs**
 
 This package provides access to the **complete core HDF5 C API**
-(v2.1.0). Developers have full access to all standard functions, macros,
+(v2.2.0). Developers have full access to all standard functions, macros,
 and types for local file I/O, metadata management, and data
 manipulation.
 
@@ -265,7 +260,7 @@ key distinctions:
   flexible, requires users to manage compile-time configuration options
   for a customized build.
 
-- **Modern HDF5 Version:** `hdf5lib` bundles HDF5 v2.1.0, providing
+- **Modern HDF5 Version:** `hdf5lib` bundles HDF5 v2.2.0, providing
   access to the latest features and fixes, including native complex
   number support and improved UTF-8 handling on Windows. This is more
   recent than the version typically bundled in `Rhdf5lib` (v1.12.2 as of
@@ -278,7 +273,7 @@ key distinctions:
 
 - **Predictable Versioning and Features:** The version of `hdf5lib`
   directly corresponds to the bundled HDF5 version (e.g., `hdf5lib`
-  v2.1.0.x bundles HDF5 v2.1.0). This allows developers to require a
+  v2.2.0.x bundles HDF5 v2.2.0). This allows developers to require a
   minimum `hdf5lib` version to guarantee a specific HDF5 version and a
   consistent set of features. In contrast, `Rhdf5lib` may link against a
   pre-existing system library or be configured at install-time, so its

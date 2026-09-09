@@ -29,7 +29,7 @@ Zstandard (Zstd) compression filter, and writes data to it.
 #include <Rinternals.h>
 #include <hdf5.h>
 
-// Remember to call hdf5lib_register_all_filters() in your R package's .onLoad!
+// Remember to call hdf5lib_register_all_filters() in your package's R_init_<pkgname>()!
 
 SEXP write_zstd_native(SEXP r_filename, SEXP r_dsetname) {
     const char *filename = CHAR(STRING_ELT(r_filename, 0));

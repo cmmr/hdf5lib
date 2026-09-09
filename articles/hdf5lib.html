@@ -27,7 +27,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">hdf5lib</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.1.1.2</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.2.0.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -133,45 +133,38 @@ exact strings needed.</p>
 they must be registered with the HDF5 library. Because registering
 filters modifies global state and spins up background thread pools (via
 Blosc2), you should <strong>never</strong> register filters on a per-I/O
-basis. Instead, expose the registration functions to R and call them
-exactly once during your package’s load/unload cycle.</p>
-<p><strong>Create C Wrappers (e.g., in
-<code>src/init.c</code>):</strong></p>
+basis. Instead, call them exactly once from your package’s DLL
+load/unload entry points.</p>
+<p><strong>Register in <code>src/init.c</code>:</strong></p>
 <div class="sourceCode" id="cb3"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;Rinternals.h&gt;</span></span>
-<span id="cb3-2"><a href="#cb3-2" tabindex="-1"></a><span class="pp">#include </span><span class="im">"hdf5lib.h"</span></span>
-<span id="cb3-3"><a href="#cb3-3" tabindex="-1"></a></span>
-<span id="cb3-4"><a href="#cb3-4" tabindex="-1"></a>SEXP r_register_hdf5_filters<span class="op">(</span><span class="dt">void</span><span class="op">)</span> <span class="op">{</span></span>
-<span id="cb3-5"><a href="#cb3-5" tabindex="-1"></a>    hdf5lib_register_all_filters<span class="op">();</span></span>
-<span id="cb3-6"><a href="#cb3-6" tabindex="-1"></a>    <span class="cf">return</span> R_NilValue<span class="op">;</span></span>
-<span id="cb3-7"><a href="#cb3-7" tabindex="-1"></a><span class="op">}</span></span>
-<span id="cb3-8"><a href="#cb3-8" tabindex="-1"></a></span>
-<span id="cb3-9"><a href="#cb3-9" tabindex="-1"></a>SEXP r_destroy_hdf5_filters<span class="op">(</span><span class="dt">void</span><span class="op">)</span> <span class="op">{</span></span>
-<span id="cb3-10"><a href="#cb3-10" tabindex="-1"></a>    hdf5lib_destroy_all_filters<span class="op">();</span></span>
-<span id="cb3-11"><a href="#cb3-11" tabindex="-1"></a>    <span class="cf">return</span> R_NilValue<span class="op">;</span></span>
-<span id="cb3-12"><a href="#cb3-12" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb3-2"><a href="#cb3-2" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;R_ext/Rdynload.h&gt;</span></span>
+<span id="cb3-3"><a href="#cb3-3" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;hdf5lib.h&gt;</span></span>
+<span id="cb3-4"><a href="#cb3-4" tabindex="-1"></a></span>
+<span id="cb3-5"><a href="#cb3-5" tabindex="-1"></a><span class="dt">static</span> <span class="dt">const</span> R_CallMethodDef CallEntries<span class="op">[]</span> <span class="op">=</span> <span class="op">{</span></span>
+<span id="cb3-6"><a href="#cb3-6" tabindex="-1"></a>  <span class="co">// Add your package's own .Call entry points here</span></span>
+<span id="cb3-7"><a href="#cb3-7" tabindex="-1"></a>  <span class="op">{</span>NULL<span class="op">,</span> NULL<span class="op">,</span> <span class="dv">0</span><span class="op">}</span></span>
+<span id="cb3-8"><a href="#cb3-8" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb3-9"><a href="#cb3-9" tabindex="-1"></a></span>
+<span id="cb3-10"><a href="#cb3-10" tabindex="-1"></a><span class="dt">void</span> R_init_myhdf5package<span class="op">(</span>DllInfo <span class="op">*</span>dll<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb3-11"><a href="#cb3-11" tabindex="-1"></a>  R_registerRoutines<span class="op">(</span>dll<span class="op">,</span> NULL<span class="op">,</span> CallEntries<span class="op">,</span> NULL<span class="op">,</span> NULL<span class="op">);</span></span>
+<span id="cb3-12"><a href="#cb3-12" tabindex="-1"></a>  R_useDynamicSymbols<span class="op">(</span>dll<span class="op">,</span> FALSE<span class="op">);</span></span>
 <span id="cb3-13"><a href="#cb3-13" tabindex="-1"></a></span>
-<span id="cb3-14"><a href="#cb3-14" tabindex="-1"></a><span class="dt">static</span> <span class="dt">const</span> R_CallMethodDef CallEntries<span class="op">[]</span> <span class="op">=</span> <span class="op">{</span></span>
-<span id="cb3-15"><a href="#cb3-15" tabindex="-1"></a>  <span class="op">{</span><span class="st">"C_register_hdf5_filters"</span><span class="op">,</span> <span class="op">(</span>DL_FUNC<span class="op">)</span> <span class="op">&amp;</span>C_register_hdf5_filters<span class="op">,</span> <span class="dv">0</span><span class="op">},</span></span>
-<span id="cb3-16"><a href="#cb3-16" tabindex="-1"></a>  <span class="op">{</span><span class="st">"C_destroy_hdf5_filters"</span><span class="op">,</span>  <span class="op">(</span>DL_FUNC<span class="op">)</span> <span class="op">&amp;</span>C_destroy_hdf5_filters<span class="op">,</span>  <span class="dv">0</span><span class="op">},</span></span>
-<span id="cb3-17"><a href="#cb3-17" tabindex="-1"></a>  <span class="co">// Add your package's C functions here as well</span></span>
-<span id="cb3-18"><a href="#cb3-18" tabindex="-1"></a>  <span class="op">{</span>NULL<span class="op">,</span> NULL<span class="op">,</span> <span class="dv">0</span><span class="op">}</span></span>
-<span id="cb3-19"><a href="#cb3-19" tabindex="-1"></a><span class="op">};</span></span>
-<span id="cb3-20"><a href="#cb3-20" tabindex="-1"></a></span>
-<span id="cb3-21"><a href="#cb3-21" tabindex="-1"></a><span class="dt">void</span> R_init_h5lite<span class="op">(</span>DllInfo <span class="op">*</span>dll<span class="op">)</span> <span class="op">{</span></span>
-<span id="cb3-22"><a href="#cb3-22" tabindex="-1"></a>  R_registerRoutines<span class="op">(</span>dll<span class="op">,</span> NULL<span class="op">,</span> CallEntries<span class="op">,</span> NULL<span class="op">,</span> NULL<span class="op">);</span></span>
-<span id="cb3-23"><a href="#cb3-23" tabindex="-1"></a>  R_useDynamicSymbols<span class="op">(</span>dll<span class="op">,</span> FALSE<span class="op">);</span></span>
-<span id="cb3-24"><a href="#cb3-24" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
-<p><strong>Hook into R Package Load (e.g., in
-<code>R/zzz.R</code>):</strong></p>
+<span id="cb3-14"><a href="#cb3-14" tabindex="-1"></a>  <span class="co">/* Register plugins and spin up the Blosc thread pools once, at load time */</span></span>
+<span id="cb3-15"><a href="#cb3-15" tabindex="-1"></a>  hdf5lib_register_all_filters<span class="op">();</span></span>
+<span id="cb3-16"><a href="#cb3-16" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb3-17"><a href="#cb3-17" tabindex="-1"></a></span>
+<span id="cb3-18"><a href="#cb3-18" tabindex="-1"></a><span class="dt">void</span> R_unload_myhdf5package<span class="op">(</span>DllInfo <span class="op">*</span>dll<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb3-19"><a href="#cb3-19" tabindex="-1"></a>  <span class="co">/* Cleanly tear down threads and free memory to prevent Valgrind warnings */</span></span>
+<span id="cb3-20"><a href="#cb3-20" tabindex="-1"></a>  hdf5lib_destroy_all_filters<span class="op">();</span></span>
+<span id="cb3-21"><a href="#cb3-21" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p><code>R_init_&lt;pkgname&gt;()</code> runs the moment your shared
+object is loaded, so the filters are in place before any of your code
+can run. <code>R_unload_&lt;pkgname&gt;()</code> only runs if the DLL is
+actually unloaded, which R does not do by default – add this to
+<code>R/zzz.R</code> if you want the teardown to happen:</p>
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">.onLoad</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">libname</span>, <span class="va">pkgname</span><span class="op">)</span> <span class="op">{</span></span>
-<span>    <span class="co"># Register plugins and spin up Blosc thread pools once per session</span></span>
-<span>    <span class="fu"><a href="https://rdrr.io/r/base/CallExternal.html" class="external-link">.Call</a></span><span class="op">(</span><span class="st">"r_register_hdf5_filters"</span>, PACKAGE <span class="op">=</span> <span class="va">pkgname</span><span class="op">)</span></span>
-<span><span class="op">}</span></span>
-<span></span>
-<span><span class="va">.onUnload</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">libpath</span><span class="op">)</span> <span class="op">{</span></span>
-<span>    <span class="co"># Cleanly tear down threads and free memory to prevent Valgrind warnings</span></span>
-<span>    <span class="fu"><a href="https://rdrr.io/r/base/CallExternal.html" class="external-link">.Call</a></span><span class="op">(</span><span class="st">"r_destroy_hdf5_filters"</span>, PACKAGE <span class="op">=</span> <span class="st">"myhdf5package"</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="va">.onUnload</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">libpath</span><span class="op">)</span> <span class="op">{</span></span>
+<span>    <span class="fu"><a href="https://rdrr.io/r/base/library.dynam.html" class="external-link">library.dynam.unload</a></span><span class="op">(</span><span class="st">"myhdf5package"</span>, <span class="va">libpath</span><span class="op">)</span></span>
 <span><span class="op">}</span></span></code></pre></div>
 </div>
 <div class="section level3">

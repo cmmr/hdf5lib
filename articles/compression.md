@@ -46,11 +46,12 @@ of HDF5 compression:
 
 2.  **Filter Registration (Plugins Only):** If you are using any of the
     bundled plugins (Zstd, LZ4, Blosc, etc.), they must be registered
-    globally in your R session. You should do this exactly once during
-    your package’s `.onLoad` hook using `hdf5lib_register_all_filters()`
-    and tear them down in `.onUnload` with
-    `hdf5lib_destroy_all_filters()`. Registering filters per-I/O
-    operation will severely degrade performance. See the [Getting
+    globally in your R session. You should do this exactly once from
+    your package’s `R_init_<pkgname>()` entry point using
+    `hdf5lib_register_all_filters()`, and tear them down in
+    `R_unload_<pkgname>()` with `hdf5lib_destroy_all_filters()`.
+    Registering filters per-I/O operation will severely degrade
+    performance. See the [Getting
     Started](https://cmmr.github.io/hdf5lib/articles/hdf5lib.md) guide
     for the boilerplate code.
 

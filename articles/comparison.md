@@ -14,7 +14,7 @@ The table below summarizes the key differences between the two packages.
 | Feature | `hdf5lib` (CRAN) | `Rhdf5lib` (Bioconductor) |
 |----|----|----|
 | **Installation** | Zero-configuration | Configurable at install-time |
-| **HDF5 Version** | Bundled & predictable (v2.1.0) | Variable (older bundle or system) |
+| **HDF5 Version** | Bundled & predictable (v2.2.0) | Variable (older bundle or system) |
 | **Compression Plugins** | **Bundled (Blosc2, Zstd, LZ4, etc.)** | Requires external/system libraries |
 | **Build Type** | Static library only | Static or shared library |
 | **Thread-Safety** | **Enabled by default** | Not supported |
@@ -41,7 +41,7 @@ The table below summarizes the key differences between the two packages.
 
 ### 2. HDF5 Version
 
-- **`hdf5lib`** bundles a modern version of HDF5 (v2.1.0). This gives
+- **`hdf5lib`** bundles a modern version of HDF5 (v2.2.0). This gives
   developers immediate access to the latest features, bug fixes, and
   performance improvements, such as native complex number support and
   better UTF-8 handling on Windows.
@@ -98,7 +98,7 @@ The table below summarizes the key differences between the two packages.
   version `2.1.1`. This allows a downstream package developer to specify
   a minimum `hdf5lib` version in their `DESCRIPTION` file (e.g.,
   `hdf5lib (>= 2.1.1)`) and be certain that they are working with at
-  least HDF5 v2.1.0 and that key features like thread-safety are
+  least HDF5 v2.2.0 and that key features like thread-safety are
   enabled.
 
 - **`Rhdf5lib`**’s package version is not correlated with the version of
