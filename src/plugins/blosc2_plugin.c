@@ -20,8 +20,13 @@
 #define DEFAULT_SHUFFLE 1
 #define DEFAULT_COMPCODE BLOSC_BLOSCLZ
 
-/* Max possible size: Base(8) + MaxDims(8) + Meta(1) = 17 */
-#define MAX_FILTER_VALUES (8 + BLOSC2_MAX_DIM + 1) 
+/* Max possible size: Base(8) + MaxDims(B2ND_MAX_DIM) + Meta(1).
+   This used to read BLOSC2_MAX_DIM, which c-blosc2 3.x removed.  That macro was
+   a stale duplicate: b2nd raised its own limit from 8 to 16 in c-blosc2 2.21.3
+   while BLOSC2_MAX_DIM stayed at 8, so this array was half the size b2nd could
+   actually produce.  The reference filter (Blosc/HDF5-Blosc2) tracks
+   B2ND_MAX_DIM here, so we do too. */
+#define MAX_FILTER_VALUES (8 + B2ND_MAX_DIM + 1) 
 
 #ifdef WORDS_BIGENDIAN
   #define B2ND_ENDIAN_PREFIX ">"
@@ -90,9 +95,16 @@ static herr_t blosc2_set_local(hid_t dcpl, hid_t type, hid_t space) {
   
   /* 4. Append ndim and shape starting precisely at index 7 */
   size_t idx = 7;
-  values[idx++] = ndim;
-  for (int i = 0; i < ndim; i++) {
-      values[idx++] = (unsigned int)chunkshape[i];
+  if (ndim <= B2ND_MAX_DIM) {
+      values[idx++] = (unsigned int)ndim;
+      for (int i = 0; i < ndim; i++) {
+          values[idx++] = (unsigned int)chunkshape[i];
+      }
+  } else {
+      /* HDF5 allows ranks up to H5S_MAX_RANK (32) but cd_values can only carry
+         B2ND_MAX_DIM of them.  Record rank 0 ("no B2ND geometry") and fall back
+         to plain Blosc2, as the reference filter does, rather than failing. */
+      values[idx++] = 0;
   }
 
   /* 5. Append Custom Meta Value out of Python's reach */
@@ -174,12 +186,16 @@ static size_t blosc2_filter_function(
   int compcode       = cd_values[6];
   
   int ndim = -1;
-  int32_t chunkshape[BLOSC2_MAX_DIM];
+  int32_t chunkshape[B2ND_MAX_DIM];
   size_t idx = 7; 
 
   /* Only extract appended C geometry if the writer included it */
   if (cd_nelmts >= 8) {
       ndim = (int)cd_values[idx++];
+      if (ndim < 0 || ndim > B2ND_MAX_DIM)
+        PUSH_ERR("blosc2_filter: Invalid rank (%d) in filter parameters", ndim);
+      if (cd_nelmts < idx + (size_t)ndim)
+        PUSH_ERR("blosc2_filter: Filter parameters truncated");
       for (int i = 0; i < ndim; i++) {
           chunkshape[i] = (int32_t)cd_values[idx++];
       }
@@ -237,7 +253,7 @@ static size_t blosc2_filter_function(
     blosc2_storage storage = {.cparams = &cparams, .contiguous = false};
 
     /* Multi-Dimensional (B2ND) Chunking */
-    if (ndim > 1 || (compcode >= 33 && compcode <= 35)) {
+    if (ndim >= 1 && (ndim > 1 || (compcode >= 33 && compcode <= 35))) {
       b2nd_context_t *ctx = NULL;
       b2nd_array_t *array = NULL;
 
@@ -247,10 +263,10 @@ static size_t blosc2_filter_function(
         blocksize = sugg;
       }
       
-      int32_t blockdims[BLOSC2_MAX_DIM];
+      int32_t blockdims[B2ND_MAX_DIM];
       cparams.blocksize = compute_b2nd_block_shape(blocksize, typesize, ndim, chunkshape, blockdims);
 
-      int64_t chunkshape_l[BLOSC2_MAX_DIM];
+      int64_t chunkshape_l[B2ND_MAX_DIM];
       for (int i = 0; i < ndim; i++) chunkshape_l[i] = chunkshape[i];
 
       char dtype[B2ND_OPAQUE_NPDTYPE_MAXLEN];
@@ -338,8 +354,8 @@ static size_t blosc2_filter_function(
         PUSH_ERR("blosc2_filter: Cannot create B2ND array");
       }
       
-      int64_t start[BLOSC2_MAX_DIM] = {0};
-      int64_t stop[BLOSC2_MAX_DIM] = {0};
+      int64_t start[B2ND_MAX_DIM] = {0};
+      int64_t stop[B2ND_MAX_DIM] = {0};
       
       /* Trust the B2ND header entirely. Ignore cd_values chunkshape perfectly. */
       int64_t size = schunk->typesize; 
