@@ -46,7 +46,7 @@ If you want to use the newest available API, you can simply omit the
 
 The `api` argument accepts the following values:
 
-- `2.0` (HDF5 2.1.x)
+- `2.0` (HDF5 2.2.x)
 - `1.14` (HDF5 1.14.x)
 - `1.12` (HDF5 1.12.x)
 - `1.10` (HDF5 1.10.x)
@@ -54,6 +54,6 @@ The `api` argument accepts the following values:
 - `1.6` (HDF5 1.6.x)
 
 > **Note:** You must choose from the explicit list above. There is no
-> `api = 2.1` option, as the HDF5 library does not utilize an
-> `H5_USE_210_API_DEFAULT` macro internally. To build against the 2.1.x
+> `api = 2.2` option, as the HDF5 library does not utilize an
+> `H5_USE_210_API_DEFAULT` macro internally. To build against the 2.2.x
 > series, use `api = 2.0` or simply omit the argument.

@@ -2,7 +2,7 @@
 
 ## hdf5lib 2.2.0.0
 
-- Support installation to read-only directories.
+- Enables installation to read-only directories.
 - Dependency updates: HDF5 (2.1.1 to 2.2.0), c-blosc2 (2.23.1 to 3.3.3),
   and libaec (1.1.6 to 1.1.7).
 
