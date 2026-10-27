@@ -10,10 +10,15 @@
 #include <blosc2.h>
 #include <blosc2/codecs-registry.h>
 #include <b2nd.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
 #include <stdio.h>
+#ifndef _WIN32
+#include <unistd.h>
+#endif
+#include "hdf5lib.h"
 
 #define FILTER_BLOSC2 32026
 #define FILTER_BLOSC2_VERSION 2
@@ -48,6 +53,192 @@
     H5Epush(H5E_DEFAULT, __FILE__, __func__, __LINE__, H5E_ERR_CLS, H5E_PLINE, H5E_CANTFILTER, __VA_ARGS__); \
     return 0; \
 } while(0)
+
+/* =========================================================================
+ * CONTEXT CACHE
+ * =========================================================================
+ * c-blosc2 starts a context's worker threads the first time the context does
+ * any work and joins them when the context is freed.  Building a context per
+ * chunk therefore starts and stops the whole pool for every chunk, which with
+ * chunks of a megabyte or so costs more than the threads save, and also
+ * throws away each worker's codec state (a Zstd context, for one).  Instead,
+ * keep one compression and one decompression context alive across filter
+ * calls and lend them to each chunk's super-chunk in place of its own.
+ *
+ * HDF5 makes every filter call under its global lock (the bundled library is
+ * built thread-safe), so the cache needs no lock of its own. */
+
+/* Points a context at the super-chunk it is working for; codecs such as ZFP
+   and NDLZ read their geometry from it (src/config/blosc2/blosc2_ctx_schunk.c). */
+extern void hdf5lib_blosc2_ctx_set_schunk(blosc2_context *ctx, blosc2_schunk *schunk);
+
+typedef struct {
+  blosc2_context *ctx;
+  blosc2_cparams  cparams;   /* what a compression context was created from */
+  int32_t         nbytes;    /* chunk size its automatic blocksize was tuned for */
+  int16_t         nthreads;
+#ifndef _WIN32
+  pid_t           pid;       /* process holding its worker threads, or 0 if none */
+#endif
+} ctx_cache_t;
+
+static ctx_cache_t cctx_cache = {0};
+static ctx_cache_t dctx_cache = {0};
+
+#ifndef _WIN32
+/* A forked child (parallel::mclapply(), for one) inherits the cached contexts
+   but none of their worker threads, while c-blosc2 still lists the dead pool
+   under its thread count, ready to hand to the next context that asks for that
+   many threads.  So a child abandons the inherited contexts -- freeing them
+   would wait on threads that no longer exist -- and runs single-threaded. */
+static int inherited_dead_pool = 0;
+
+static void drop_if_forked(ctx_cache_t *cache) {
+  if (cache->ctx && cache->pid != 0 && cache->pid != getpid()) {
+    memset(cache, 0, sizeof(*cache));
+    inherited_dead_pool = 1;
+  }
+}
+#endif
+
+static int16_t blosc2_nthreads(void) {
+#ifndef _WIN32
+  drop_if_forked(&cctx_cache);
+  drop_if_forked(&dctx_cache);
+  if (inherited_dead_pool) return 1;
+#endif
+  return (int16_t)hdf5lib_get_blosc_nthreads();
+}
+
+static void cache_store(ctx_cache_t *cache, blosc2_context *ctx, int16_t nthreads) {
+  cache->ctx      = ctx;
+  cache->nthreads = nthreads;
+#ifndef _WIN32
+  cache->pid      = (nthreads > 1) ? getpid() : 0;
+#endif
+}
+
+static void cache_free(ctx_cache_t *cache) {
+  if (cache->ctx) blosc2_free_ctx(cache->ctx);
+  memset(cache, 0, sizeof(*cache));
+}
+
+static int same_cparams(const blosc2_cparams *a, const blosc2_cparams *b) {
+  return a->compcode == b->compcode && a->compcode_meta == b->compcode_meta &&
+         a->clevel == b->clevel && a->use_dict == b->use_dict &&
+         a->typesize == b->typesize && a->blocksize == b->blocksize &&
+         a->splitmode == b->splitmode &&
+         memcmp(a->filters, b->filters, sizeof(a->filters)) == 0 &&
+         memcmp(a->filters_meta, b->filters_meta, sizeof(a->filters_meta)) == 0;
+}
+
+/* The cached compression context, rebuilt whenever the parameters change.  A
+   compression context settles on its automatic blocksize the first time it
+   runs and keeps it, so it is only reused for chunks of the same size. */
+static blosc2_context *get_cctx(blosc2_context *template_ctx, int32_t nbytes) {
+  /* blosc2_ctx_get_cparams() leaves some fields alone; keep them at defaults. */
+  blosc2_cparams cparams = BLOSC2_CPARAMS_DEFAULTS;
+  int16_t nthreads = blosc2_nthreads();
+
+  if (blosc2_ctx_get_cparams(template_ctx, &cparams) < 0) return NULL;
+  cparams.schunk   = NULL;
+  cparams.nthreads = nthreads;
+
+  if (cctx_cache.ctx && cctx_cache.nthreads == nthreads &&
+      cctx_cache.nbytes == nbytes && same_cparams(&cctx_cache.cparams, &cparams))
+    return cctx_cache.ctx;
+
+  cache_free(&cctx_cache);
+  blosc2_context *ctx = blosc2_create_cctx(cparams);
+  if (!ctx) return NULL;
+  cache_store(&cctx_cache, ctx, nthreads);
+  cctx_cache.cparams = cparams;
+  cctx_cache.nbytes  = nbytes;
+  return ctx;
+}
+
+/* A decompression context takes everything else from the chunk it is given. */
+static blosc2_context *get_dctx(void) {
+  int16_t nthreads = blosc2_nthreads();
+
+  if (dctx_cache.ctx && dctx_cache.nthreads == nthreads) return dctx_cache.ctx;
+
+  cache_free(&dctx_cache);
+  blosc2_dparams dparams = BLOSC2_DPARAMS_DEFAULTS;
+  dparams.nthreads = nthreads;
+  blosc2_context *ctx = blosc2_create_dctx(dparams);
+  if (!ctx) return NULL;
+  cache_store(&dctx_cache, ctx, nthreads);
+  return ctx;
+}
+
+/* Lend the cached contexts to `schunk`, keeping its own to hand back before it
+   is serialised or freed.  Returns -1 if a context could not be made. */
+typedef struct {
+  blosc2_context *cctx;
+  blosc2_context *dctx;
+} own_ctxs_t;
+
+static int lend_contexts(blosc2_schunk *schunk, int32_t nbytes, own_ctxs_t *own) {
+  blosc2_context *cctx = (nbytes > 0) ? get_cctx(schunk->cctx, nbytes) : NULL;
+  blosc2_context *dctx = get_dctx();
+  if ((nbytes > 0 && !cctx) || !dctx) return -1;
+
+  own->cctx = schunk->cctx;
+  own->dctx = schunk->dctx;
+  if (cctx) {
+    hdf5lib_blosc2_ctx_set_schunk(cctx, schunk);
+    schunk->cctx = cctx;
+  }
+  hdf5lib_blosc2_ctx_set_schunk(dctx, schunk);
+  schunk->dctx = dctx;
+  return 0;
+}
+
+static void return_contexts(blosc2_schunk *schunk, const own_ctxs_t *own) {
+  if (schunk->cctx != own->cctx) {
+    hdf5lib_blosc2_ctx_set_schunk(schunk->cctx, NULL);
+    schunk->cctx = own->cctx;
+  }
+  hdf5lib_blosc2_ctx_set_schunk(schunk->dctx, NULL);
+  schunk->dctx = own->dctx;
+}
+
+/* Called by hdf5lib_destroy_all_filters() before blosc2_destroy(). */
+void blosc2_plugin_free_contexts(void) {
+#ifndef _WIN32
+  drop_if_forked(&cctx_cache);
+  drop_if_forked(&dctx_cache);
+#endif
+  cache_free(&cctx_cache);
+  cache_free(&dctx_cache);
+}
+
+/* =========================================================================
+ * NON-FINITE GUARD
+ * =========================================================================
+ * ZFP has no encoding for NaN or Inf: one turns into an arbitrary finite
+ * number and spoils the other values in its block, too.  Refuse such a chunk
+ * instead.  With H5Z_FLAG_OPTIONAL, HDF5 then stores that one chunk
+ * unfiltered, so the data stays exact; with H5Z_FLAG_MANDATORY the write
+ * fails rather than corrupting it. */
+static int has_nonfinite(const void *buf, size_t nbytes, size_t typesize) {
+  const unsigned char *p = (const unsigned char *)buf;
+  if (typesize == 8) {
+    for (size_t i = 0; i + 8 <= nbytes; i += 8) {
+      uint64_t u;
+      memcpy(&u, p + i, 8);
+      if ((u & UINT64_C(0x7FF0000000000000)) == UINT64_C(0x7FF0000000000000)) return 1;
+    }
+  } else if (typesize == 4) {
+    for (size_t i = 0; i + 4 <= nbytes; i += 4) {
+      uint32_t u;
+      memcpy(&u, p + i, 4);
+      if ((u & UINT32_C(0x7F800000)) == UINT32_C(0x7F800000)) return 1;
+    }
+  }
+  return 0;
+}
 
 /* =========================================================================
  * SET_LOCAL CALLBACK (METADATA INJECTION & PARSING)
@@ -246,6 +437,9 @@ static size_t blosc2_filter_function(
   /* ----- Compression Path ----- */
   if (!(flags & H5Z_FLAG_REVERSE)) {
 
+    if (IS_ZFP_CODEC(compcode) && has_nonfinite(*buf, nbytes, typesize))
+      PUSH_ERR("blosc2_filter: ZFP cannot encode the NaN or Inf values in this chunk");
+
     blosc2_cparams cparams = BLOSC2_CPARAMS_DEFAULTS;
     cparams.compcode = compcode;
     cparams.typesize = (int32_t)typesize;
@@ -325,8 +519,24 @@ static size_t blosc2_filter_function(
         PUSH_ERR("blosc2_filter: Cannot create B2ND context");
       }
 
-      if (b2nd_from_cbuffer(ctx, &array, *buf, (int32_t)nbytes) < 0) {
+      /* What b2nd_from_cbuffer() does, but compressing with the cached contexts */
+      if (b2nd_empty(ctx, &array) < 0) {
         b2nd_free_ctx(ctx);
+        PUSH_ERR("blosc2_filter: Cannot create B2ND array");
+      }
+
+      own_ctxs_t own;
+      if (lend_contexts(array->sc, (int32_t)nbytes, &own) < 0) {
+        b2nd_free(array); b2nd_free_ctx(ctx);
+        PUSH_ERR("blosc2_filter: Cannot create Blosc2 contexts");
+      }
+
+      int64_t start[B2ND_MAX_DIM] = {0};
+      int rc = b2nd_set_slice_cbuffer(*buf, array->shape, (int64_t)nbytes, start, array->shape, array);
+      return_contexts(array->sc, &own);
+
+      if (rc < 0) {
+        b2nd_free(array); b2nd_free_ctx(ctx);
         PUSH_ERR("blosc2_filter: Cannot compress buffer into B2ND array");
       }
 
@@ -355,12 +565,20 @@ static size_t blosc2_filter_function(
     else {
       cparams.blocksize = (int32_t)blocksize;
 
-      blosc2_context *cctx = blosc2_create_cctx(cparams);
       blosc2_schunk *schunk = blosc2_schunk_new(&storage);
-      if (!schunk) { blosc2_free_ctx(cctx); PUSH_ERR("blosc2_filter: Cannot create super-chunk"); }
+      if (!schunk) PUSH_ERR("blosc2_filter: Cannot create super-chunk");
 
-      if (blosc2_schunk_append_buffer(schunk, *buf, (int32_t)nbytes) < 0) {
-        blosc2_schunk_free(schunk); blosc2_free_ctx(cctx);
+      own_ctxs_t own;
+      if (lend_contexts(schunk, (int32_t)nbytes, &own) < 0) {
+        blosc2_schunk_free(schunk);
+        PUSH_ERR("blosc2_filter: Cannot create Blosc2 contexts");
+      }
+
+      int64_t rc = blosc2_schunk_append_buffer(schunk, *buf, (int32_t)nbytes);
+      return_contexts(schunk, &own);
+
+      if (rc < 0) {
+        blosc2_schunk_free(schunk);
         PUSH_ERR("blosc2_filter: Cannot append buffer to super-chunk");
       }
 
@@ -371,7 +589,6 @@ static size_t blosc2_filter_function(
       if (status <= 0) {
           if (needs_free && tmp_out) free(tmp_out);
           blosc2_schunk_free(schunk); 
-          blosc2_free_ctx(cctx);
           PUSH_ERR("blosc2_filter: Super-chunk compression failed");
       }
 
@@ -380,7 +597,6 @@ static size_t blosc2_filter_function(
       
       if (needs_free && tmp_out) free(tmp_out);
       blosc2_schunk_free(schunk);
-      blosc2_free_ctx(cctx);
     }
   } 
   
@@ -417,7 +633,17 @@ static size_t blosc2_filter_function(
         PUSH_ERR("blosc2_filter: Cannot allocate decompression buffer"); 
       }
 
-      if (b2nd_get_slice_cbuffer(array, start, stop, outbuf, stop, (int32_t)size) < 0) {
+      own_ctxs_t own;
+      if (lend_contexts(array->sc, 0, &own) < 0) {
+        H5free_memory(outbuf);
+        b2nd_free(array);
+        PUSH_ERR("blosc2_filter: Cannot create Blosc2 context");
+      }
+
+      int rc = b2nd_get_slice_cbuffer(array, start, stop, outbuf, stop, (int32_t)size);
+      return_contexts(array->sc, &own);
+
+      if (rc < 0) {
         H5free_memory(outbuf); 
         b2nd_free(array);
         PUSH_ERR("blosc2_filter: Cannot decompress B2ND array");
@@ -449,13 +675,17 @@ static size_t blosc2_filter_function(
         PUSH_ERR("blosc2_filter: Cannot allocate decompression buffer"); 
       }
 
-      blosc2_dparams dparams = BLOSC2_DPARAMS_DEFAULTS;
-      dparams.schunk = schunk;
-      blosc2_context *dctx = blosc2_create_dctx(dparams);
-      
-      status = blosc2_decompress_ctx(dctx, chunk, cbytes, outbuf, (int32_t)outbuf_size);
-      
-      blosc2_free_ctx(dctx);
+      own_ctxs_t own;
+      if (lend_contexts(schunk, 0, &own) < 0) {
+        H5free_memory(outbuf);
+        if (needs_free && chunk) free(chunk);
+        blosc2_schunk_free(schunk);
+        PUSH_ERR("blosc2_filter: Cannot create Blosc2 context");
+      }
+
+      status = blosc2_decompress_ctx(schunk->dctx, chunk, cbytes, outbuf, (int32_t)outbuf_size);
+      return_contexts(schunk, &own);
+
       if (needs_free && chunk) free(chunk);
 
       if (status <= 0) {

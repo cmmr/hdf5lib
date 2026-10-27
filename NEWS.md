@@ -1,3 +1,12 @@
+# hdf5lib (development version)
+
+* Blosc and Blosc2 multi-threading now pays off. The Blosc2 filter keeps its compression and decompression contexts, and their worker threads, alive between chunks instead of starting a new thread pool for every chunk; Blosc (v1) runs through c-blosc's persistent global pool when threads are requested. Both filters still default to one thread.
+* New C API `hdf5lib_set_blosc_nthreads()` / `hdf5lib_get_blosc_nthreads()` in `hdf5lib.h` sets the Blosc and Blosc2 thread count. The `BLOSC_NTHREADS` environment variable, which Blosc (v1) previously ignored, now applies to both filters and takes precedence, though the function is the better choice (see the compression article).
+* ZFP no longer silently corrupts `NaN`, `NA`, and `Inf` values. The standalone ZFP filter (except in reversible mode) and Blosc2's ZFP codecs now refuse chunks that hold them, so an optional filter stores those chunks unfiltered and a mandatory one fails the write.
+* Corrected the Blosc2 NDLZ codec ID in the compression article (`32`, not `11`) and documented the threading and non-finite behaviour.
+
+
+
 # hdf5lib 2.2.0.0
 
 * Enables installation to read-only directories.

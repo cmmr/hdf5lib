@@ -2,8 +2,8 @@
 #define SNAPPY_COMPAT_H
 
 #include "csnappy.h"
-#include <hdf5.h> /* Using HDF5 memory allocators instead of stdlib */
 #include <stdint.h>
+#include <stdlib.h>
 
 /* Map the basic types and macros */
 typedef int snappy_status;
@@ -25,8 +25,10 @@ static inline snappy_status snappy_compress(const char* input,
                                             size_t input_length,
                                             char* compressed,
                                             size_t* compressed_length) {
-    /* Allocate using HDF5's allocator, 0 for clear flag (false) */
-    void* working_memory = H5allocate_memory(SAFE_WORKMEM_BYTES, 0);
+    /* Plain malloc(), not H5allocate_memory(): Blosc calls this from its worker
+       threads, and H5allocate_memory() takes HDF5's global lock -- which the
+       thread running the filter holds while it waits for those workers. */
+    void* working_memory = malloc(SAFE_WORKMEM_BYTES);
     if (!working_memory) return -1; /* Allocation failed */
 
     uint32_t out_len = 0;
@@ -35,8 +37,7 @@ static inline snappy_status snappy_compress(const char* input,
 
     *compressed_length = (size_t)out_len;
     
-    /* Free using HDF5's deallocator */
-    H5free_memory(working_memory);
+    free(working_memory);
     return SNAPPY_OK;
 }
 

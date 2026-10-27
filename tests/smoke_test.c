@@ -1,6 +1,7 @@
 #include <R.h>
 #include <Rinternals.h>
 #include <stdio.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
@@ -30,6 +31,8 @@
 #define TEST_EMP 64  /* Empty dataset -> Tests nbytes == 0 chunk logic */
 #define TEST_INT 128 /* Standard Integer Data */
 #define TEST_2D8 256 /* 2-D chunked bytes -> Tests the multidimensional path */
+#define TEST_NAN 512 /* NaN / Inf in float data -> Tests the ZFP non-finite guard */
+#define TEST_THR 1024 /* Multi-block chunks, 1 and 2 threads -> Tests Blosc context reuse */
 
 #define TEST_ALL          (TEST_FLT | TEST_INT | TEST_CMP | TEST_ARR | TEST_ZRO | TEST_RND | TEST_UNC | TEST_EMP | TEST_2D8)
 /* Filters like standalone ZFP and SZIP officially support atomic numerical arrays (Float & Int) */
@@ -599,6 +602,249 @@ cleanup:
   return ret;
 }
 
+/* 10. Non-Finite Values Through ZFP */
+
+/* ZFP cannot encode NaN or Inf, so its filters refuse a chunk that holds any.
+   An optional filter must then leave just that chunk unfiltered, exact and
+   readable; a mandatory one must fail the write rather than store garbage.
+
+   ZFP's integer transforms shift and overflow signed values in ways UBSan
+   reports (an upstream issue), so this sticks to cases that stay clear of it:
+   the finite values follow the float test's pattern, every 4-value block an
+   increasing ramp, and neither reversible mode (which keeps NaN and Inf exactly
+   and is exempt, but via overflow) nor 4-bit expert mode is run here.  The
+   guard runs before any mode-specific code, so the other modes cover it. */
+#define NF_CHUNK  256
+#define NF_NCHUNK 4
+#define NF_BAD    1   /* index of the chunk that holds the non-finite values */
+
+static herr_t make_filter_optional(hid_t plist, H5Z_filter_t id) {
+  unsigned int flags, cd_values[16];
+  size_t nelmts = 16;
+  if (H5Pget_filter_by_id(plist, id, &flags, &nelmts, cd_values, 0, NULL, NULL) < 0) return -1;
+  /* The H5Pset_zfp_*() helpers leave no cd_values; the compression article
+     shows that case as H5Pmodify_filter(plist, 32013, H5Z_FLAG_OPTIONAL, 0, NULL) */
+  return H5Pmodify_filter(plist, id, H5Z_FLAG_OPTIONAL, nelmts, nelmts ? cd_values : NULL);
+}
+
+static int test_nonfinite_data(hid_t fid, const FilterConfig* cfg, unsigned int flags, int use_float) {
+  size_t tsize = use_float ? sizeof(float) : sizeof(double);
+  hid_t mtype = use_float ? H5T_NATIVE_FLOAT : H5T_NATIVE_DOUBLE;
+  hsize_t dims[1] = {NF_CHUNK * NF_NCHUNK}, chunkdims[1] = {NF_CHUNK};
+  unsigned char *data = malloc(dims[0] * tsize), *data_out = malloc(dims[0] * tsize);
+  hid_t sid = -1, plist = -1, dset = -1;
+  int ret = -1;
+
+  if (!data || !data_out) goto cleanup;
+
+  for (hsize_t i = 0; i < dims[0]; i++) {
+    double v = (double)(i % 100);
+    if (use_float) { float f = (float)v; memcpy(data + i * tsize, &f, tsize); }
+    else           { memcpy(data + i * tsize, &v, tsize); }
+  }
+  /* R's NA_real_ is a NaN with a payload; a float can't carry it, so use NaN */
+  size_t bad = NF_BAD * NF_CHUNK;
+  if (use_float) {
+    float nf[4] = {NAN, NAN, INFINITY, -INFINITY};
+    for (int k = 0; k < 4; k++) memcpy(data + (bad + 10 * (k + 1)) * tsize, &nf[k], tsize);
+  } else {
+    uint64_t na = UINT64_C(0x7FF00000000007A2);
+    double nf[3] = {NAN, INFINITY, -INFINITY};
+    memcpy(data + (bad + 10) * tsize, &na, tsize);
+    for (int k = 0; k < 3; k++) memcpy(data + (bad + 10 * (k + 2)) * tsize, &nf[k], tsize);
+  }
+
+  CHECK(sid = H5Screate_simple(1, dims, NULL), "H5Screate_simple");
+  CHECK(plist = H5Pcreate(H5P_DATASET_CREATE), "H5Pcreate");
+  CHECK(H5Pset_chunk(plist, 1, chunkdims), "H5Pset_chunk");
+  CHECK(apply_filter(plist, cfg), "apply_filter");
+  if (flags == H5Z_FLAG_OPTIONAL) CHECK(make_filter_optional(plist, cfg->id), "make_filter_optional");
+
+  char dset_name[128];
+  snprintf(dset_name, sizeof(dset_name), "/nonfinite_%s_%s_%s", cfg->name,
+           use_float ? "f32" : "f64", flags == H5Z_FLAG_OPTIONAL ? "opt" : "man");
+  CHECK(dset = H5Dcreate2(fid, dset_name, mtype, sid, H5P_DEFAULT, plist, H5P_DEFAULT), "H5Dcreate2");
+
+  herr_t wrote = H5Dwrite(dset, mtype, H5S_ALL, H5S_ALL, H5P_DEFAULT, data);
+  if (wrote >= 0) wrote = H5Dflush(dset);
+
+  if (flags == H5Z_FLAG_MANDATORY) {
+    if (wrote >= 0) {
+      Rprintf("\n      -> Mandatory filter accepted non-finite values (%s)", use_float ? "f32" : "f64");
+      goto cleanup;
+    }
+    /* The failed chunk is still dirty, so closing fails again; that is expected */
+    H5Dclose(dset);
+    dset = -1;
+    ret = 0;
+    goto cleanup;
+  }
+
+  CHECK(wrote, "H5Dwrite/H5Dflush");
+  if (H5Dclose(dset) < 0) { dset = -1; Rprintf("\n      -> H5Dclose failed"); goto cleanup; }
+
+  /* Read back through a fresh handle, so nothing comes out of the chunk cache */
+  CHECK(dset = H5Dopen2(fid, dset_name, H5P_DEFAULT), "H5Dopen2");
+  CHECK(H5Dread(dset, mtype, H5S_ALL, H5S_ALL, H5P_DEFAULT, data_out), "H5Dread");
+
+  for (hsize_t c = 0; c < NF_NCHUNK; c++) {
+    hsize_t offset[1], size;
+    unsigned mask;
+    haddr_t addr;
+    CHECK(H5Dget_chunk_info(dset, H5S_ALL, c, offset, &mask, &addr, &size), "H5Dget_chunk_info");
+    int skipped = (mask != 0);
+    int expect_skipped = (offset[0] / NF_CHUNK == NF_BAD);
+    if (skipped != expect_skipped) {
+      Rprintf("\n      -> Chunk at %llu was %sfiltered (%s)", (unsigned long long)offset[0],
+              skipped ? "not " : "", use_float ? "f32" : "f64");
+      goto cleanup;
+    }
+  }
+
+  /* The non-finite chunk must be bit-exact */
+  if (memcmp(data + bad * tsize, data_out + bad * tsize, NF_CHUNK * tsize) != 0) {
+    Rprintf("\n      -> Non-finite chunk did not round-trip exactly (%s)", use_float ? "f32" : "f64");
+    goto cleanup;
+  }
+  /* The other chunks went through lossy ZFP */
+  for (hsize_t i = 0; i < dims[0]; i++) {
+    if (i / NF_CHUNK == NF_BAD) continue;
+    double a, b;
+    if (use_float) { float fa, fb; memcpy(&fa, data + i * tsize, tsize); memcpy(&fb, data_out + i * tsize, tsize); a = fa; b = fb; }
+    else           { memcpy(&a, data + i * tsize, tsize); memcpy(&b, data_out + i * tsize, tsize); }
+    if (!(fabs(a - b) <= 1.0)) {
+      Rprintf("\n      -> Mismatch at index %llu (in: %f, out: %f)", (unsigned long long)i, a, b);
+      goto cleanup;
+    }
+  }
+  ret = 0;
+
+cleanup:
+  if (data) free(data);
+  if (data_out) free(data_out);
+  CLOSE_DSET(dset);
+  if (plist >= 0) H5Pclose(plist);
+  if (sid >= 0) H5Sclose(sid);
+  return ret;
+}
+
+/* 11. Multi-Block Chunks With and Without Threads */
+
+/* Chunks large enough for Blosc to split into many blocks, so that a second
+   thread has work to do.  Every chunk holds the same values: with one thread
+   the stored bytes must then match chunk for chunk, which shows that a
+   compression context reused across chunks writes exactly what a fresh one
+   does.  Lossy codecs are held to a tolerance; the rest must be exact.  ZFP
+   gets ramps that restart on block boundaries (see the non-finite test). */
+#define THR_CHUNK_1D 262144   /* 2 MB of doubles */
+#define THR_CHUNK_2D 512      /* 512 x 512 doubles, also 2 MB */
+
+static double thr_value(hsize_t row, hsize_t col, int zfp) {
+  if (zfp) return (double)(col % 100);
+  hsize_t k = row * THR_CHUNK_2D + col;
+  return floor(sin((double)k / 3000.0) * 1000.0) / 8.0 + (double)(k % 7);
+}
+
+static int test_threaded_data(hid_t fid, const FilterConfig* cfg, int nthreads, int rank) {
+  hsize_t dims[2], chunkdims[2];
+  if (rank == 1) { dims[0] = 3 * THR_CHUNK_1D; chunkdims[0] = THR_CHUNK_1D; }
+  else           { dims[0] = dims[1] = 2 * THR_CHUNK_2D; chunkdims[0] = chunkdims[1] = THR_CHUNK_2D; }
+  hsize_t n = (rank == 1) ? dims[0] : dims[0] * dims[1];
+  hsize_t nchunks = (rank == 1) ? 3 : 4;
+  int lossy = (cfg->id == H5Z_FILTER_BLOSC2 && cfg->cd_values[6] >= 33 && cfg->cd_values[6] <= 35);
+
+  double *data = malloc(n * sizeof(double)), *data_out = malloc(n * sizeof(double));
+  unsigned char *raw0 = NULL, *raw = NULL;
+  hid_t sid = -1, plist = -1, dset = -1;
+  int ret = -1;
+  int old_nthreads = hdf5lib_set_blosc_nthreads(nthreads);
+
+  if (!data || !data_out) goto cleanup;
+
+  for (hsize_t i = 0; i < n; i++) {
+    /* Position within the chunk, so that every chunk holds the same values */
+    if (rank == 1) data[i] = thr_value(0, i % THR_CHUNK_1D, lossy);
+    else           data[i] = thr_value((i / dims[1]) % THR_CHUNK_2D, (i % dims[1]) % THR_CHUNK_2D, lossy);
+    data_out[i] = -1.0;
+  }
+
+  CHECK(sid = H5Screate_simple(rank, dims, NULL), "H5Screate_simple");
+  CHECK(plist = H5Pcreate(H5P_DATASET_CREATE), "H5Pcreate");
+  CHECK(H5Pset_chunk(plist, rank, chunkdims), "H5Pset_chunk");
+  CHECK(apply_filter(plist, cfg), "apply_filter");
+
+  char dset_name[128];
+  snprintf(dset_name, sizeof(dset_name), "/threads_%s_%dd_%dt", cfg->name, rank, nthreads);
+  CHECK(dset = H5Dcreate2(fid, dset_name, H5T_NATIVE_DOUBLE, sid, H5P_DEFAULT, plist, H5P_DEFAULT), "H5Dcreate2");
+  CHECK(H5Dwrite(dset, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT, data), "H5Dwrite");
+  if (H5Dclose(dset) < 0) { dset = -1; Rprintf("\n      -> H5Dclose failed"); goto cleanup; }
+
+  CHECK(dset = H5Dopen2(fid, dset_name, H5P_DEFAULT), "H5Dopen2");
+  CHECK(H5Dread(dset, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT, data_out), "H5Dread");
+
+  for (hsize_t i = 0; i < n; i++) {
+    double diff = fabs(data[i] - data_out[i]);
+    if (lossy ? diff > 1.0 : diff != 0.0) {
+      Rprintf("\n      -> %dD/%d-thread mismatch at index %llu (in: %f, out: %f)",
+              rank, nthreads, (unsigned long long)i, data[i], data_out[i]);
+      goto cleanup;
+    }
+  }
+
+  if (nthreads == 1) {
+    hsize_t size0 = 0;
+    for (hsize_t c = 0; c < nchunks; c++) {
+      hsize_t offset[2], size;
+      unsigned mask;
+      haddr_t addr;
+      CHECK(H5Dget_chunk_info(dset, H5S_ALL, c, offset, &mask, &addr, &size), "H5Dget_chunk_info");
+      if (mask != 0) { Rprintf("\n      -> Chunk %llu was stored unfiltered", (unsigned long long)c); goto cleanup; }
+
+      unsigned char **dest = (c == 0) ? &raw0 : &raw;
+      if (*dest) free(*dest);
+      if (!(*dest = malloc((size_t)size))) goto cleanup;
+      size_t buf_size = (size_t)size;
+      CHECK(H5Dread_chunk(dset, H5P_DEFAULT, offset, &mask, *dest, &buf_size), "H5Dread_chunk");
+
+      if (c == 0) size0 = size;
+      else if (size != size0 || memcmp(raw0, raw, (size_t)size) != 0) {
+        Rprintf("\n      -> Chunk %llu compressed differently from chunk 0 (%llu vs %llu bytes)",
+                (unsigned long long)c, (unsigned long long)size, (unsigned long long)size0);
+        goto cleanup;
+      }
+    }
+  }
+  ret = 0;
+
+cleanup:
+  hdf5lib_set_blosc_nthreads(old_nthreads);
+  if (data) free(data);
+  if (data_out) free(data_out);
+  if (raw0) free(raw0);
+  if (raw) free(raw);
+  CLOSE_DSET(dset);
+  if (plist >= 0) H5Pclose(plist);
+  if (sid >= 0) H5Sclose(sid);
+  return ret;
+}
+
+/* 12. Blosc Thread Count Setting */
+static int test_blosc_nthreads_api(void) {
+  /* BLOSC_NTHREADS overrides the setting, so the checks below assume it is unset */
+  if (getenv("BLOSC_NTHREADS") != NULL) return 0;
+
+  int old = hdf5lib_set_blosc_nthreads(0);
+  int ok = hdf5lib_get_blosc_nthreads() == 1 &&
+           hdf5lib_set_blosc_nthreads(3) == 0 &&
+           hdf5lib_get_blosc_nthreads() == 3 &&
+           hdf5lib_set_blosc_nthreads(1000) == 3 &&
+           hdf5lib_get_blosc_nthreads() == 256 &&
+           hdf5lib_set_blosc_nthreads(-1) == 256 &&
+           hdf5lib_get_blosc_nthreads() == 1;
+  hdf5lib_set_blosc_nthreads(old);
+  return ok ? 0 : -1;
+}
+
 /* =========================================================================
  * MAIN R INVOCATION
  * ========================================================================= */
@@ -641,27 +887,27 @@ SEXP C_smoke_test(SEXP sexp_filename) {
     {"bshuf_pure",  H5Z_FILTER_BSHUF,   2, {0, 0},                        TEST_ALL},
     {"bshuf_lz4",   H5Z_FILTER_BSHUF,   2, {0, 2},                        TEST_ALL},
     {"bshuf_zstd",  H5Z_FILTER_BSHUF,   3, {0, 3, 5},                     TEST_ALL},
-    {"zfp_rate",    H5Z_FILTER_ZFP,     6, {1, 0, 8, 0, 0, 0},            TEST_NUMERIC_ONLY},
-    {"zfp_prec",    H5Z_FILTER_ZFP,     6, {2, 0, 16, 0, 0, 0},           TEST_NUMERIC_ONLY},
-    {"zfp_acc",     H5Z_FILTER_ZFP,     6, {3, 0, 3, 0, 0, 0},            TEST_FLOAT_ONLY},
+    {"zfp_rate",    H5Z_FILTER_ZFP,     6, {1, 0, 8, 0, 0, 0},            TEST_NUMERIC_ONLY | TEST_NAN},
+    {"zfp_prec",    H5Z_FILTER_ZFP,     6, {2, 0, 16, 0, 0, 0},           TEST_NUMERIC_ONLY | TEST_NAN},
+    {"zfp_acc",     H5Z_FILTER_ZFP,     6, {3, 0, 3, 0, 0, 0},            TEST_FLOAT_ONLY | TEST_NAN},
     {"zfp_expert",  H5Z_FILTER_ZFP,     6, {4, 0, 1, 16, 16, 0},          TEST_NUMERIC_ONLY},
     {"zfp_rev",     H5Z_FILTER_ZFP,     6, {5, 0, 0, 0, 0, 0},            TEST_NUMERIC_ONLY},
-    {"blosc_lz",    H5Z_FILTER_BLOSC,   7, {0, 0, 0, 0, 5, 1, 0},         TEST_ALL},
-    {"blosc_lz4",   H5Z_FILTER_BLOSC,   7, {0, 0, 0, 0, 5, 1, 1},         TEST_ALL},
-    {"blosc_lz4hc", H5Z_FILTER_BLOSC,   7, {0, 0, 0, 0, 5, 1, 2},         TEST_ALL},
-    {"blosc_snappy",H5Z_FILTER_BLOSC,   7, {0, 0, 0, 0, 5, 1, 3},         TEST_ALL},
-    {"blosc_zlib",  H5Z_FILTER_BLOSC,   7, {0, 0, 0, 0, 5, 1, 4},         TEST_ALL},
-    {"blosc_zstd",  H5Z_FILTER_BLOSC,   7, {0, 0, 0, 0, 5, 1, 5},         TEST_ALL},
-    {"blosc2_lz",   H5Z_FILTER_BLOSC2,  7, {0, 0, 0, 0, 5, 1, 0},         TEST_ALL},
-    {"blosc2_lz4",  H5Z_FILTER_BLOSC2,  7, {0, 0, 0, 0, 5, 1, 1},         TEST_ALL},
-    {"blosc2_lz4hc",H5Z_FILTER_BLOSC2,  7, {0, 0, 0, 0, 5, 1, 2},         TEST_ALL},
-    {"blosc2_zlib", H5Z_FILTER_BLOSC2,  7, {0, 0, 0, 0, 5, 1, 4},         TEST_ALL},
-    {"blosc2_zstd", H5Z_FILTER_BLOSC2,  7, {0, 0, 0, 0, 5, 1, 5},         TEST_ALL},
-    {"blosc2_ndlz", H5Z_FILTER_BLOSC2,  8, {0, 0, 0, 0, 5, 0, 32, 4},     TEST_ND_ONLY},
-    {"b2_zfp_acc",  H5Z_FILTER_BLOSC2,  8, {0, 0, 0, 0, 5, 0, 33, 253},   TEST_FLOAT_ONLY}, 
-    {"b2_zfp_prec", H5Z_FILTER_BLOSC2,  8, {0, 0, 0, 0, 5, 0, 34, 16},    TEST_FLOAT_ONLY}, 
-    {"b2_zfp_rate", H5Z_FILTER_BLOSC2,  8, {0, 0, 0, 0, 5, 0, 35,  25},   TEST_FLOAT_ONLY},
-    {"blosc2_pipe", H5Z_FILTER_BLOSC2,  7, {0, 0, 0, 0, 1, 6, 5},         TEST_NUMERIC_ONLY}
+    {"blosc_lz",    H5Z_FILTER_BLOSC,   7, {0, 0, 0, 0, 5, 1, 0},         TEST_ALL | TEST_THR},
+    {"blosc_lz4",   H5Z_FILTER_BLOSC,   7, {0, 0, 0, 0, 5, 1, 1},         TEST_ALL | TEST_THR},
+    {"blosc_lz4hc", H5Z_FILTER_BLOSC,   7, {0, 0, 0, 0, 5, 1, 2},         TEST_ALL | TEST_THR},
+    {"blosc_snappy",H5Z_FILTER_BLOSC,   7, {0, 0, 0, 0, 5, 1, 3},         TEST_ALL | TEST_THR},
+    {"blosc_zlib",  H5Z_FILTER_BLOSC,   7, {0, 0, 0, 0, 5, 1, 4},         TEST_ALL | TEST_THR},
+    {"blosc_zstd",  H5Z_FILTER_BLOSC,   7, {0, 0, 0, 0, 5, 1, 5},         TEST_ALL | TEST_THR},
+    {"blosc2_lz",   H5Z_FILTER_BLOSC2,  7, {0, 0, 0, 0, 5, 1, 0},         TEST_ALL | TEST_THR},
+    {"blosc2_lz4",  H5Z_FILTER_BLOSC2,  7, {0, 0, 0, 0, 5, 1, 1},         TEST_ALL | TEST_THR},
+    {"blosc2_lz4hc",H5Z_FILTER_BLOSC2,  7, {0, 0, 0, 0, 5, 1, 2},         TEST_ALL | TEST_THR},
+    {"blosc2_zlib", H5Z_FILTER_BLOSC2,  7, {0, 0, 0, 0, 5, 1, 4},         TEST_ALL | TEST_THR},
+    {"blosc2_zstd", H5Z_FILTER_BLOSC2,  7, {0, 0, 0, 0, 5, 1, 5},         TEST_ALL | TEST_THR},
+    {"blosc2_ndlz", H5Z_FILTER_BLOSC2,  8, {0, 0, 0, 0, 5, 0, 32, 4},     TEST_ND_ONLY | TEST_THR},
+    {"b2_zfp_acc",  H5Z_FILTER_BLOSC2,  8, {0, 0, 0, 0, 5, 0, 33, 253},   TEST_FLOAT_ONLY | TEST_NAN | TEST_THR},
+    {"b2_zfp_prec", H5Z_FILTER_BLOSC2,  8, {0, 0, 0, 0, 5, 0, 34, 16},    TEST_FLOAT_ONLY | TEST_NAN | TEST_THR},
+    {"b2_zfp_rate", H5Z_FILTER_BLOSC2,  8, {0, 0, 0, 0, 5, 0, 35,  25},   TEST_FLOAT_ONLY | TEST_NAN | TEST_THR},
+    {"blosc2_pipe", H5Z_FILTER_BLOSC2,  7, {0, 0, 0, 0, 1, 6, 5},         TEST_NUMERIC_ONLY | TEST_THR}
   };
   
   int num_filters = sizeof(filters) / sizeof(FilterConfig);
@@ -681,6 +927,22 @@ SEXP C_smoke_test(SEXP sexp_filename) {
     if (filters[i].test_mask & TEST_UNC) { if (test_unchunked_data(file_id, &filters[i])           < 0) err++; }
     if (filters[i].test_mask & TEST_EMP) { if (test_empty_dataset(file_id, &filters[i])            < 0) err++; }
     if (filters[i].test_mask & TEST_2D8) { if (test_ndim2_data(file_id, &filters[i])               < 0) err++; }
+    if (filters[i].test_mask & TEST_NAN) {
+      if (test_nonfinite_data(file_id, &filters[i], H5Z_FLAG_OPTIONAL,  0) < 0) err++;
+      if (test_nonfinite_data(file_id, &filters[i], H5Z_FLAG_OPTIONAL,  1) < 0) err++;
+      if (test_nonfinite_data(file_id, &filters[i], H5Z_FLAG_MANDATORY, 0) < 0) err++;
+    }
+    if (filters[i].test_mask & TEST_THR) {
+      /* CRAN allows two threads.  NDLZ only works on 2-D chunks; ZFP's 2-D
+         decoder trips UBSan (see the non-finite test), and ZFP takes the same
+         B2ND path in 1-D anyway. */
+      int b2_codec = (filters[i].id == H5Z_FILTER_BLOSC2) ? (int)filters[i].cd_values[6] : -1;
+      int zfp = (b2_codec >= 33 && b2_codec <= 35);
+      for (int nthreads = 1; nthreads <= 2; nthreads++) {
+        if (b2_codec != 32 && test_threaded_data(file_id, &filters[i], nthreads, 1) < 0) err++;
+        if (!zfp && test_threaded_data(file_id, &filters[i], nthreads, 2) < 0) err++;
+      }
+    }
     
     if (err > 0) {
       Rprintf(" [FAILED]\n");
@@ -688,6 +950,14 @@ SEXP C_smoke_test(SEXP sexp_filename) {
     } else {
       Rprintf(" [OK]\n");
     }
+  }
+
+  Rprintf("  Testing %-15s", "blosc_nthreads");
+  if (test_blosc_nthreads_api() < 0) {
+    Rprintf(" [FAILED]\n");
+    total_errors++;
+  } else {
+    Rprintf(" [OK]\n");
   }
 
   H5Fclose(file_id);
