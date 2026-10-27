@@ -168,7 +168,7 @@ static htri_t H5Z_zfp_can_apply(hid_t dcpl_id, hid_t type_id, hid_t chunk_space_
     htri_t retval = 0;
     hsize_t dims[H5S_MAX_RANK];
     H5T_class_t dclass;
-    hid_t native_type_id;
+    hid_t native_type_id = H5I_INVALID_HID;
 
     if ((int) stream_word_bits != 8)
         PUSH_AND_GOTO(H5E_CANTINIT, -1, "ZFP lib not compiled with -DBIT_STREAM_WORD_TYPE=uint8");
@@ -203,6 +203,7 @@ static htri_t H5Z_zfp_can_apply(hid_t dcpl_id, hid_t type_id, hid_t chunk_space_
 
     retval = 1;
 done:
+    if (native_type_id >= 0) H5Tclose(native_type_id);
     return retval;
 }
 

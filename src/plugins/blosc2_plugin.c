@@ -257,11 +257,15 @@ static herr_t blosc2_set_local(hid_t dcpl, hid_t type, hid_t space) {
   r = H5Pget_filter_by_id(dcpl, FILTER_BLOSC2, &flags, &nelements, values, 0, NULL, NULL);
   if (r < 0) return -1;
 
-  /* 1. Extract User Inputs (Assuming user array: [0,0,0,0, clevel, filter, compcode, meta]) */
+  /* 1. Extract User Inputs (Assuming user array: [0,0,0,0, clevel, filter, compcode, meta]).
+     A seven-value list may also be one this function already wrote (a copied
+     DCPL, say), which keeps the meta value in the high bits of slot 5; a list
+     straight from the user has nothing there. */
   unsigned int user_clevel      = (nelements >= 5) ? values[4] : DEFAULT_CLEVEL;
-  unsigned int user_filter_mask = (nelements >= 6) ? values[5] : DEFAULT_SHUFFLE;
+  unsigned int user_filter_mask = (nelements >= 6) ? (values[5] & 0xFF) : DEFAULT_SHUFFLE;
   unsigned int user_compcode    = (nelements >= 7) ? values[6] : DEFAULT_COMPCODE;
-  unsigned int user_meta        = (nelements >= 8) ? values[7] : 0;
+  unsigned int user_meta        = (nelements >= 8) ? values[7]
+                                : (nelements >= 6) ? (values[5] >> 8) & 0xFF : 0;
 
   /* 2. Calculate Data Geometry */
   ndim = H5Pget_chunk(dcpl, H5S_MAX_RANK, chunkshape);
@@ -320,22 +324,23 @@ static herr_t blosc2_set_local(hid_t dcpl, hid_t type, hid_t space) {
   values[5] = user_filter_mask; 
   values[6] = user_compcode;
   
-  /* 4. Append ndim and shape starting precisely at index 7 */
+  /* 4. Append ndim and shape starting precisely at index 7, then the meta value.
+     The reference filter (h5py's hdf5plugin) reads a rank from slot 7 whenever
+     there is one and refuses any below 2, so, like it, record B2ND geometry
+     only for ranks 2..B2ND_MAX_DIM.  Other chunks -- 1-D ones, and ranks that
+     cd_values cannot carry -- get exactly its seven values and use plain
+     Blosc2 (or, for ZFP, 1-D B2ND).  Their meta value rides in bits 8-15 of
+     slot 5, which the reference reads only when it compresses. */
   size_t idx = 7;
-  if (ndim <= B2ND_MAX_DIM) {
+  if (ndim >= 2 && ndim <= B2ND_MAX_DIM) {
       values[idx++] = (unsigned int)ndim;
       for (int i = 0; i < ndim; i++) {
           values[idx++] = (unsigned int)chunkshape[i];
       }
+      values[idx++] = user_meta;
   } else {
-      /* HDF5 allows ranks up to H5S_MAX_RANK (32) but cd_values can only carry
-         B2ND_MAX_DIM of them.  Record rank 0 ("no B2ND geometry") and fall back
-         to plain Blosc2, as the reference filter does, rather than failing. */
-      values[idx++] = 0;
+      values[5] |= (user_meta & 0xFF) << 8;  /* c-blosc2 keeps only a byte anyway */
   }
-
-  /* 5. Append Custom Meta Value out of Python's reach */
-  values[idx++] = user_meta;
 
   nelements = idx;
   if (H5Pmodify_filter(dcpl, FILTER_BLOSC2, flags, nelements, values) < 0) return -1;
@@ -409,14 +414,15 @@ static size_t blosc2_filter_function(
   size_t typesize    = cd_values[2]; 
   size_t outbuf_size = cd_values[3]; 
   int clevel         = cd_values[4];
-  int filter_mask    = cd_values[5];
+  int filter_mask    = cd_values[5] & 0xFF;
   int compcode       = cd_values[6];
   
   int ndim = -1;
   int32_t chunkshape[B2ND_MAX_DIM];
   size_t idx = 7; 
 
-  /* Only extract appended C geometry if the writer included it */
+  /* Only extract appended C geometry if the writer included it.  Files from
+     hdf5lib 2.2.0.0 and earlier also record ranks 1 and 0 here. */
   if (cd_nelmts >= 8) {
       ndim = (int)cd_values[idx++];
       if (ndim < 0 || ndim > B2ND_MAX_DIM)
@@ -428,8 +434,9 @@ static size_t blosc2_filter_function(
       }
   }
 
-  /* Extract custom meta byte if it was appended */
-  int meta_value = 0;
+  /* The meta value follows the geometry; without geometry it sits in bits
+     8-15 of slot 5 (see blosc2_set_local()) */
+  int meta_value = (cd_values[5] >> 8) & 0xFF;
   if (cd_nelmts > idx) {
       meta_value = cd_values[idx];
   }
@@ -439,6 +446,14 @@ static size_t blosc2_filter_function(
 
     if (IS_ZFP_CODEC(compcode) && has_nonfinite(*buf, nbytes, typesize))
       PUSH_ERR("blosc2_filter: ZFP cannot encode the NaN or Inf values in this chunk");
+
+    /* ZFP works through B2ND; a chunk recorded without geometry is one row */
+    if (IS_ZFP_CODEC(compcode) && ndim < 1) {
+      if (typesize == 0 || nbytes % typesize != 0 || nbytes / typesize > INT32_MAX)
+        PUSH_ERR("blosc2_filter: Chunk of %zu bytes does not hold whole %zu-byte items", nbytes, typesize);
+      ndim = 1;
+      chunkshape[0] = (int32_t)(nbytes / typesize);
+    }
 
     blosc2_cparams cparams = BLOSC2_CPARAMS_DEFAULTS;
     cparams.compcode = compcode;

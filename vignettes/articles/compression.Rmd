@@ -4,7 +4,7 @@ title: "Compression & Filters"
 
 One of the most powerful features of HDF5 is its ability to compress data transparently. When you read a compressed dataset, the HDF5 library automatically decompresses it for you. This can lead to significant savings in storage space and faster I/O performance.
 
-`hdf5lib` provides built-in support for `gzip` and `szip` compression natively, and additionally bundles an extensive suite of high-performance modern filter plugins. All compression plugins bundled with `hdf5lib` have been rigorously tested to ensure strict interoperability with the standard Python `h5py` ecosystem.
+`hdf5lib` provides built-in support for `gzip` and `szip` compression natively, and additionally bundles an extensive suite of high-performance modern filter plugins. They use the same filter IDs and parameter layouts as Python's `h5py` with [`hdf5plugin`](https://github.com/silx-kit/hdf5plugin), and the package's interoperability tests (`tests/interop`) check both directions: files written through `hdf5lib` read in `h5py`, and the other way round. Two exceptions: the standalone Snappy filter (`32003`) is not part of `hdf5plugin`, and Blosc2 datasets with 1-D chunks written by `hdf5lib` 2.2.0.0 or earlier cannot be read by `hdf5plugin` (rewrite them with a newer `hdf5lib`).
 
 
 ## Terminology
@@ -91,7 +91,7 @@ H5Pset_filter(plist_id, 32004, H5Z_FLAG_MANDATORY, 2, cd_values);
 
 **Recommendation:** **Use for Parallel Compression and Complex Pipelines.** Blosc2 splits each chunk into blocks and can (de)compress those blocks on several threads at once; see [Multi-threading](#multi-threading) below. It also features a Programmable Filter Pipeline, allowing you to easily chain multiple pre-filters (like Delta followed by Bitshuffle) before the data hits the final compressor.
 
-Our plugin implementation uses a highly efficient **bitmask architecture** to specify these complex pipelines while strictly maintaining a standard 8-element configuration, ensuring 100% layout compatibility with standard `h5py` and community plugins.
+Our plugin implementation uses a highly efficient **bitmask architecture** to specify these complex pipelines while strictly maintaining a standard 8-element configuration. The values it stores in the file follow the layout of the reference HDF5-Blosc2 filter that `hdf5plugin` uses, so `h5py` reads the data at any chunk rank.
 
 > **Restrictions on ZFP:** When using a ZFP compressor codec (`33`, `34`, `35`), you **must** pass floating-point data (`float32` or `float64`). ZFP performs lossy compression directly on numerical values; if bytes are shuffled before ZFP, it corrupts the dataset. To ensure safety, **this plugin automatically disables all Blosc2 pre-filters if a ZFP codec is selected**. You must also ensure no upstream native HDF5 filters (e.g., `H5Pset_shuffle`) are applied before Blosc2 in your property list. ZFP also cannot store `NaN` or `Inf` values; see [Non-finite values](#non-finite-values) under ZFP.
 

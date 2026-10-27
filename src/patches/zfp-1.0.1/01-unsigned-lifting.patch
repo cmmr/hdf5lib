@@ -1,0 +1,170 @@
+diff -ru src/zfp-orig/src/template/decode.c src/zfp-1.0.1/src/template/decode.c
+--- src/zfp-orig/src/template/decode.c	2026-10-27 19:09:27.721140100 +0000
++++ src/zfp-1.0.1/src/template/decode.c	2026-10-27 19:09:46.205056300 +0000
+@@ -8,11 +8,14 @@
+ static void
+ _t1(inv_lift, Int)(Int* p, ptrdiff_t s)
+ {
+-  Int x, y, z, w;
+-  x = *p; p += s;
+-  y = *p; p += s;
+-  z = *p; p += s;
+-  w = *p; p += s;
++  /* hdf5lib: work in UInt, where the arithmetic wraps exactly as the original
++     signed version does in practice; there, overflow and left shifts of
++     negative values are undefined behaviour, which UBSan reports. */
++  UInt x, y, z, w;
++  x = (UInt)*p; p += s;
++  y = (UInt)*p; p += s;
++  z = (UInt)*p; p += s;
++  w = (UInt)*p; p += s;
+ 
+   /*
+   ** non-orthogonal transform
+@@ -21,16 +24,16 @@
+   **       ( 4 -2  4 -5) (z)
+   **       ( 4 -6 -4  1) (w)
+   */
+-  y += w >> 1; w -= y >> 1;
++  y += (UInt)((Int)w >> 1); w -= (UInt)((Int)y >> 1);
+   y += w; w <<= 1; w -= y;
+   z += x; x <<= 1; x -= z;
+   y += z; z <<= 1; z -= y;
+   w += x; x <<= 1; x -= w;
+ 
+-  p -= s; *p = w;
+-  p -= s; *p = z;
+-  p -= s; *p = y;
+-  p -= s; *p = x;
++  p -= s; *p = (Int)w;
++  p -= s; *p = (Int)z;
++  p -= s; *p = (Int)y;
++  p -= s; *p = (Int)x;
+ }
+ 
+ #if ZFP_ROUNDING_MODE == ZFP_ROUND_LAST
+diff -ru src/zfp-orig/src/template/encode.c src/zfp-1.0.1/src/template/encode.c
+--- src/zfp-orig/src/template/encode.c	2026-10-27 19:09:27.920677500 +0000
++++ src/zfp-1.0.1/src/template/encode.c	2026-10-27 19:09:46.205056300 +0000
+@@ -30,11 +30,14 @@
+ static void
+ _t1(fwd_lift, Int)(Int* p, ptrdiff_t s)
+ {
+-  Int x, y, z, w;
+-  x = *p; p += s;
+-  y = *p; p += s;
+-  z = *p; p += s;
+-  w = *p; p += s;
++  /* hdf5lib: work in UInt, where the arithmetic wraps exactly as the original
++     signed version does in practice; there, overflow and left shifts of
++     negative values are undefined behaviour, which UBSan reports. */
++  UInt x, y, z, w;
++  x = (UInt)*p; p += s;
++  y = (UInt)*p; p += s;
++  z = (UInt)*p; p += s;
++  w = (UInt)*p; p += s;
+ 
+   /*
+   ** non-orthogonal transform
+@@ -43,16 +46,16 @@
+   **        (-4  4  4 -4) (z)
+   **        (-2  6 -6  2) (w)
+   */
+-  x += w; x >>= 1; w -= x;
+-  z += y; z >>= 1; y -= z;
+-  x += z; x >>= 1; z -= x;
+-  w += y; w >>= 1; y -= w;
+-  w += y >> 1; y -= w >> 1;
++  x += w; x = (UInt)((Int)x >> 1); w -= x;
++  z += y; z = (UInt)((Int)z >> 1); y -= z;
++  x += z; x = (UInt)((Int)x >> 1); z -= x;
++  w += y; w = (UInt)((Int)w >> 1); y -= w;
++  w += (UInt)((Int)y >> 1); y -= (UInt)((Int)w >> 1);
+ 
+-  p -= s; *p = w;
+-  p -= s; *p = z;
+-  p -= s; *p = y;
+-  p -= s; *p = x;
++  p -= s; *p = (Int)w;
++  p -= s; *p = (Int)z;
++  p -= s; *p = (Int)y;
++  p -= s; *p = (Int)x;
+ }
+ 
+ #if ZFP_ROUNDING_MODE == ZFP_ROUND_FIRST
+diff -ru src/zfp-orig/src/template/revdecode.c src/zfp-1.0.1/src/template/revdecode.c
+--- src/zfp-orig/src/template/revdecode.c	2026-10-27 19:09:27.910678600 +0000
++++ src/zfp-1.0.1/src/template/revdecode.c	2026-10-27 19:09:46.206055300 +0000
+@@ -6,11 +6,14 @@
+ static void
+ _t1(rev_inv_lift, Int)(Int* p, uint s)
+ {
+-  Int x, y, z, w;
+-  x = *p; p += s;
+-  y = *p; p += s;
+-  z = *p; p += s;
+-  w = *p; p += s;
++  /* hdf5lib: work in UInt, where the arithmetic wraps exactly as the original
++     signed version does in practice; there, overflow and left shifts of
++     negative values are undefined behaviour, which UBSan reports. */
++  UInt x, y, z, w;
++  x = (UInt)*p; p += s;
++  y = (UInt)*p; p += s;
++  z = (UInt)*p; p += s;
++  w = (UInt)*p; p += s;
+ 
+   /*
+   ** high-order Lorenzo transform (P4 Pascal matrix)
+@@ -23,10 +26,10 @@
+   z += y; w += z;
+   y += x; z += y; w += z;
+ 
+-  p -= s; *p = w;
+-  p -= s; *p = z;
+-  p -= s; *p = y;
+-  p -= s; *p = x;
++  p -= s; *p = (Int)w;
++  p -= s; *p = (Int)z;
++  p -= s; *p = (Int)y;
++  p -= s; *p = (Int)x;
+ }
+ 
+ /* decode block of integers using reversible algorithm */
+diff -ru src/zfp-orig/src/template/revencode.c src/zfp-1.0.1/src/template/revencode.c
+--- src/zfp-orig/src/template/revencode.c	2026-10-27 19:09:27.820498000 +0000
++++ src/zfp-1.0.1/src/template/revencode.c	2026-10-27 19:09:46.206055300 +0000
+@@ -6,11 +6,14 @@
+ static void
+ _t1(rev_fwd_lift, Int)(Int* p, uint s)
+ {
+-  Int x, y, z, w;
+-  x = *p; p += s;
+-  y = *p; p += s;
+-  z = *p; p += s;
+-  w = *p; p += s;
++  /* hdf5lib: work in UInt, where the arithmetic wraps exactly as the original
++     signed version does in practice; there, overflow and left shifts of
++     negative values are undefined behaviour, which UBSan reports. */
++  UInt x, y, z, w;
++  x = (UInt)*p; p += s;
++  y = (UInt)*p; p += s;
++  z = (UInt)*p; p += s;
++  w = (UInt)*p; p += s;
+ 
+   /*
+   ** high-order Lorenzo transform
+@@ -23,10 +26,10 @@
+   w -= z; z -= y;
+   w -= z;
+ 
+-  p -= s; *p = w;
+-  p -= s; *p = z;
+-  p -= s; *p = y;
+-  p -= s; *p = x;
++  p -= s; *p = (Int)w;
++  p -= s; *p = (Int)z;
++  p -= s; *p = (Int)y;
++  p -= s; *p = (Int)x;
+ }
+ 
+ /* return precision required to encode block reversibly */
