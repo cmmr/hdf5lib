@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">hdf5lib</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.2.0.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.2.0.1</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -41,7 +41,17 @@
     </div>
 
     <div class="section level2">
-<h2 class="pkg-version" data-toc-text="2.2.0.0" id="hdf5lib-2200">hdf5lib 2.2.0.0<a class="anchor" aria-label="anchor" href="#hdf5lib-2200"></a></h2>
+<h2 class="pkg-version" data-toc-text="2.2.0.1" id="hdf5lib-2201">hdf5lib 2.2.0.1<a class="anchor" aria-label="anchor" href="#hdf5lib-2201"></a></h2>
+<ul><li>Blosc and Blosc2 multi-threading now pays off. The Blosc2 filter keeps its compression and decompression contexts, and their worker threads, alive between chunks instead of starting a new thread pool for every chunk; Blosc (v1) runs through c-blosc’s persistent global pool when threads are requested. Both filters still default to one thread.</li>
+<li>New C API <code>hdf5lib_set_blosc_nthreads()</code> / <code>hdf5lib_get_blosc_nthreads()</code> in <code>hdf5lib.h</code> sets the Blosc and Blosc2 thread count. The <code>BLOSC_NTHREADS</code> environment variable, which Blosc (v1) previously ignored, now applies to both filters and takes precedence, though the function is the better choice (see the compression article).</li>
+<li>ZFP no longer silently corrupts <code>NaN</code>, <code>NA</code>, and <code>Inf</code> values. The standalone ZFP filter (except in reversible mode) and Blosc2’s ZFP codecs now refuse chunks that hold them, so an optional filter stores those chunks unfiltered and a mandatory one fails the write.</li>
+<li>Blosc2 datasets with 1-D chunks (or more than 16 dimensions) are now readable by <code>h5py</code> with <code>hdf5plugin</code>. The filter used to record a chunk rank of 1 (or 0) in its parameters, which <code>hdf5plugin</code>’s Blosc2 filter rejects; it now stores the reference filter’s seven values for such chunks. Datasets already written by hdf5lib 2.2.0.0 and earlier keep their old parameters: <code>hdf5lib</code> still reads them, but <code>hdf5plugin</code> cannot, so rewrite them to share them with Python.</li>
+<li>Patched the bundled ZFP’s lifting transforms to do their arithmetic in unsigned integers. The old code relied on signed overflow and left shifts of negative values, which UBSan reports whenever ZFP data is compressed or decompressed. Output is bit-for-bit unchanged.</li>
+<li>The ZFP filter no longer leaks a datatype ID for every dataset it is applied to.</li>
+<li>Corrected the Blosc2 NDLZ codec ID in the compression article (<code>32</code>, not <code>11</code>), corrected its claims about <code>h5py</code> interoperability, and documented the threading and non-finite behaviour. The interoperability tests now cover 1-D and high-rank Blosc2 chunks, Blosc2’s ZFP and NDLZ codecs, and use the documented Blosc2 pre-filter bitmask.</li>
+</ul></div>
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="2.2.0.0" id="hdf5lib-2200">hdf5lib 2.2.0.0<a class="anchor" aria-label="anchor" href="#hdf5lib-2200"></a></h2><p class="text-muted">CRAN release: 2026-09-09</p>
 <ul><li>Enables installation to read-only directories.</li>
 <li>Dependency updates: HDF5 (2.1.1 to 2.2.0), c-blosc2 (2.23.1 to 3.3.3), and libaec (1.1.6 to 1.1.7).</li>
 </ul></div>

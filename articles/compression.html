@@ -27,7 +27,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">hdf5lib</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.2.0.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.2.0.1</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -82,10 +82,17 @@ automatically decompresses it for you. This can lead to significant
 savings in storage space and faster I/O performance.</p>
 <p><code>hdf5lib</code> provides built-in support for <code>gzip</code>
 and <code>szip</code> compression natively, and additionally bundles an
-extensive suite of high-performance modern filter plugins. All
-compression plugins bundled with <code>hdf5lib</code> have been
-rigorously tested to ensure strict interoperability with the standard
-Python <code>h5py</code> ecosystem.</p>
+extensive suite of high-performance modern filter plugins. They use the
+same filter IDs and parameter layouts as Python’s <code>h5py</code> with
+<a href="https://github.com/silx-kit/hdf5plugin" class="external-link"><code>hdf5plugin</code></a>,
+and the package’s interoperability tests (<code>tests/interop</code>)
+check both directions: files written through <code>hdf5lib</code> read
+in <code>h5py</code>, and the other way round. Two exceptions: the
+standalone Snappy filter (<code>32003</code>) is not part of
+<code>hdf5plugin</code>, and Blosc2 datasets with 1-D chunks written by
+<code>hdf5lib</code> 2.2.0.0 or earlier cannot be read by
+<code>hdf5plugin</code> (rewrite them with a newer
+<code>hdf5lib</code>).</p>
 <div class="section level2">
 <h2 id="terminology">Terminology<a class="anchor" aria-label="anchor" href="#terminology"></a>
 </h2>
@@ -224,15 +231,17 @@ Compression) mode.</li>
 <h3 id="blosc2">4. Blosc2<a class="anchor" aria-label="anchor" href="#blosc2"></a>
 </h3>
 <p><strong>Recommendation:</strong> <strong>Use for Parallel Compression
-and Complex Pipelines.</strong> Blosc2 utilizes internal thread pools to
-compress blocks of data in parallel. It also features a Programmable
-Filter Pipeline, allowing you to easily chain multiple pre-filters (like
-Delta followed by Bitshuffle) before the data hits the final
-compressor.</p>
+and Complex Pipelines.</strong> Blosc2 splits each chunk into blocks and
+can (de)compress those blocks on several threads at once; see <a href="#multi-threading">Multi-threading</a> below. It also features a
+Programmable Filter Pipeline, allowing you to easily chain multiple
+pre-filters (like Delta followed by Bitshuffle) before the data hits the
+final compressor.</p>
 <p>Our plugin implementation uses a highly efficient <strong>bitmask
 architecture</strong> to specify these complex pipelines while strictly
-maintaining a standard 8-element configuration, ensuring 100% layout
-compatibility with standard <code>h5py</code> and community plugins.</p>
+maintaining a standard 8-element configuration. The values it stores in
+the file follow the layout of the reference HDF5-Blosc2 filter that
+<code>hdf5plugin</code> uses, so <code>h5py</code> reads the data at any
+chunk rank.</p>
 <blockquote>
 <p><strong>Restrictions on ZFP:</strong> When using a ZFP compressor
 codec (<code>33</code>, <code>34</code>, <code>35</code>), you
@@ -243,7 +252,8 @@ dataset. To ensure safety, <strong>this plugin automatically disables
 all Blosc2 pre-filters if a ZFP codec is selected</strong>. You must
 also ensure no upstream native HDF5 filters (e.g.,
 <code>H5Pset_shuffle</code>) are applied before Blosc2 in your property
-list.</p>
+list. ZFP also cannot store <code>NaN</code> or <code>Inf</code> values;
+see <a href="#non-finite-values">Non-finite values</a> under ZFP.</p>
 </blockquote>
 <div class="section level4">
 <h4 id="plugin-configuration">Plugin Configuration<a class="anchor" aria-label="anchor" href="#plugin-configuration"></a>
@@ -283,7 +293,7 @@ passed)</li>
 <li>
 <strong><code>cd_values[6]</code>:</strong> Compressor ID
 (<code>0</code>=blosclz, <code>1</code>=lz4, <code>2</code>=lz4hc,
-<code>4</code>=zlib, <code>5</code>=zstd, <code>11</code>=ndlz,
+<code>4</code>=zlib, <code>5</code>=zstd, <code>32</code>=ndlz,
 <code>33</code>=zfp_acc, <code>34</code>=zfp_prec,
 <code>35</code>=zfp_rate).</li>
 <li>
@@ -378,6 +388,37 @@ per value.</p>
 <span id="cb9-2"><a href="#cb9-2" tabindex="-1"></a><span class="dt">unsigned</span> <span class="dt">int</span> cd_values<span class="op">[</span><span class="dv">8</span><span class="op">]</span> <span class="op">=</span> <span class="op">{</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">5</span><span class="op">,</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">35</span><span class="op">,</span> <span class="dv">25</span> <span class="op">};</span> </span>
 <span id="cb9-3"><a href="#cb9-3" tabindex="-1"></a>H5Pset_filter<span class="op">(</span>plist_id<span class="op">,</span> <span class="dv">32026</span><span class="op">,</span> H5Z_FLAG_MANDATORY<span class="op">,</span> <span class="dv">8</span><span class="op">,</span> cd_values<span class="op">);</span></span></code></pre></div>
 </div>
+<div class="section level4">
+<h4 id="multi-threading">Multi-threading<a class="anchor" aria-label="anchor" href="#multi-threading"></a>
+</h4>
+<p>The Blosc2 and Blosc (v1) filters use <strong>one thread</strong> by
+default. To use more, call <code>hdf5lib_set_blosc_nthreads()</code>
+(declared in <code>hdf5lib.h</code>) or set the
+<code>BLOSC_NTHREADS</code> environment variable. As everywhere in
+c-blosc, the environment variable takes precedence. Prefer the function:
+c-blosc2 also applies <code>BLOSC_NTHREADS</code> to the small
+bookkeeping contexts it creates for every chunk, and on Windows each of
+those then starts and stops threads of its own.</p>
+<div class="sourceCode" id="cb10"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb10-1"><a href="#cb10-1" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;hdf5lib.h&gt;</span></span>
+<span id="cb10-2"><a href="#cb10-2" tabindex="-1"></a></span>
+<span id="cb10-3"><a href="#cb10-3" tabindex="-1"></a>hdf5lib_set_blosc_nthreads<span class="op">(</span><span class="dv">4</span><span class="op">);</span>           <span class="co">// use 4 threads from now on</span></span>
+<span id="cb10-4"><a href="#cb10-4" tabindex="-1"></a><span class="dt">int</span> n <span class="op">=</span> hdf5lib_get_blosc_nthreads<span class="op">();</span>    <span class="co">// threads the filters will actually use</span></span>
+<span id="cb10-5"><a href="#cb10-5" tabindex="-1"></a>hdf5lib_set_blosc_nthreads<span class="op">(</span><span class="dv">0</span><span class="op">);</span>           <span class="co">// back to the default (BLOSC_NTHREADS, else 1)</span></span></code></pre></div>
+<p>Threads work on the blocks <em>within</em> a chunk, so they only help
+when a chunk holds several blocks. Blosc picks the block size from the
+codec and compression level. Zstd and zlib at Blosc level 9
+(<code>cd_values[4]</code>), for example, use 1 MB blocks, so a 1 MB
+chunk is a single block and gains nothing from extra threads, while at
+level 5 the same chunk splits into four 256 KB blocks. Larger chunks or
+lower levels leave more room for parallelism. The worker threads are
+started on first use and kept between chunks, so they cost nothing per
+chunk once running.</p>
+<p>Keep in mind that CRAN does not allow package examples, tests, or
+vignettes to use more than two threads. On Linux and macOS, a process
+forked from one that has already used Blosc2 threads (a
+<code><a href="https://rdrr.io/r/parallel/mclapply.html" class="external-link">parallel::mclapply()</a></code> worker, say) runs the Blosc2 filter
+single-threaded.</p>
+</div>
 </div>
 <div class="section level3">
 <h3 id="zfp">5. ZFP<a class="anchor" aria-label="anchor" href="#zfp"></a>
@@ -449,17 +490,47 @@ bits of precision to keep, padding the rest with zeros (e.g.,
 <p>While you can manually pack the 6-element <code>cd_values</code>
 array, the ZFP plugin exposes convenient external helper functions that
 you can declare in your C code to set the parameters effortlessly.</p>
-<div class="sourceCode" id="cb10"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb10-1"><a href="#cb10-1" tabindex="-1"></a><span class="co">// Declare the external helpers provided by the bundled ZFP plugin</span></span>
-<span id="cb10-2"><a href="#cb10-2" tabindex="-1"></a><span class="kw">extern</span> herr_t H5Pset_zfp_rate<span class="op">(</span>hid_t plist<span class="op">,</span> <span class="dt">double</span> rate<span class="op">);</span></span>
-<span id="cb10-3"><a href="#cb10-3" tabindex="-1"></a><span class="kw">extern</span> herr_t H5Pset_zfp_precision<span class="op">(</span>hid_t plist<span class="op">,</span> <span class="dt">unsigned</span> <span class="dt">int</span> prec<span class="op">);</span></span>
-<span id="cb10-4"><a href="#cb10-4" tabindex="-1"></a><span class="kw">extern</span> herr_t H5Pset_zfp_accuracy<span class="op">(</span>hid_t plist<span class="op">,</span> <span class="dt">double</span> acc<span class="op">);</span></span>
-<span id="cb10-5"><a href="#cb10-5" tabindex="-1"></a><span class="kw">extern</span> herr_t H5Pset_zfp_expert<span class="op">(</span>hid_t plist<span class="op">,</span> <span class="dt">unsigned</span> <span class="dt">int</span> minbits<span class="op">,</span> <span class="dt">unsigned</span> <span class="dt">int</span> maxbits<span class="op">,</span> <span class="dt">unsigned</span> <span class="dt">int</span> maxprec<span class="op">,</span> <span class="dt">int</span> minexp<span class="op">);</span></span>
-<span id="cb10-6"><a href="#cb10-6" tabindex="-1"></a><span class="kw">extern</span> herr_t H5Pset_zfp_reversible<span class="op">(</span>hid_t plist<span class="op">);</span> <span class="co">// Lossless mode</span></span>
-<span id="cb10-7"><a href="#cb10-7" tabindex="-1"></a></span>
-<span id="cb10-8"><a href="#cb10-8" tabindex="-1"></a><span class="co">// ... later in your code ...</span></span>
-<span id="cb10-9"><a href="#cb10-9" tabindex="-1"></a></span>
-<span id="cb10-10"><a href="#cb10-10" tabindex="-1"></a><span class="co">// Compress data using ZFP's Accuracy mode (maintaining 0.001 tolerance)</span></span>
-<span id="cb10-11"><a href="#cb10-11" tabindex="-1"></a>H5Pset_zfp_accuracy<span class="op">(</span>plist_id<span class="op">,</span> <span class="fl">0.001</span><span class="op">);</span></span></code></pre></div>
+<div class="sourceCode" id="cb11"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb11-1"><a href="#cb11-1" tabindex="-1"></a><span class="co">// Declare the external helpers provided by the bundled ZFP plugin</span></span>
+<span id="cb11-2"><a href="#cb11-2" tabindex="-1"></a><span class="kw">extern</span> herr_t H5Pset_zfp_rate<span class="op">(</span>hid_t plist<span class="op">,</span> <span class="dt">double</span> rate<span class="op">);</span></span>
+<span id="cb11-3"><a href="#cb11-3" tabindex="-1"></a><span class="kw">extern</span> herr_t H5Pset_zfp_precision<span class="op">(</span>hid_t plist<span class="op">,</span> <span class="dt">unsigned</span> <span class="dt">int</span> prec<span class="op">);</span></span>
+<span id="cb11-4"><a href="#cb11-4" tabindex="-1"></a><span class="kw">extern</span> herr_t H5Pset_zfp_accuracy<span class="op">(</span>hid_t plist<span class="op">,</span> <span class="dt">double</span> acc<span class="op">);</span></span>
+<span id="cb11-5"><a href="#cb11-5" tabindex="-1"></a><span class="kw">extern</span> herr_t H5Pset_zfp_expert<span class="op">(</span>hid_t plist<span class="op">,</span> <span class="dt">unsigned</span> <span class="dt">int</span> minbits<span class="op">,</span> <span class="dt">unsigned</span> <span class="dt">int</span> maxbits<span class="op">,</span> <span class="dt">unsigned</span> <span class="dt">int</span> maxprec<span class="op">,</span> <span class="dt">int</span> minexp<span class="op">);</span></span>
+<span id="cb11-6"><a href="#cb11-6" tabindex="-1"></a><span class="kw">extern</span> herr_t H5Pset_zfp_reversible<span class="op">(</span>hid_t plist<span class="op">);</span> <span class="co">// Lossless mode</span></span>
+<span id="cb11-7"><a href="#cb11-7" tabindex="-1"></a></span>
+<span id="cb11-8"><a href="#cb11-8" tabindex="-1"></a><span class="co">// ... later in your code ...</span></span>
+<span id="cb11-9"><a href="#cb11-9" tabindex="-1"></a></span>
+<span id="cb11-10"><a href="#cb11-10" tabindex="-1"></a><span class="co">// Compress data using ZFP's Accuracy mode (maintaining 0.001 tolerance)</span></span>
+<span id="cb11-11"><a href="#cb11-11" tabindex="-1"></a>H5Pset_zfp_accuracy<span class="op">(</span>plist_id<span class="op">,</span> <span class="fl">0.001</span><span class="op">);</span></span></code></pre></div>
+</div>
+<div class="section level4">
+<h4 id="non-finite-values">Non-finite values<a class="anchor" aria-label="anchor" href="#non-finite-values"></a>
+</h4>
+<p>ZFP’s lossy modes have no encoding for <code>NaN</code> or
+<code>Inf</code> (or R’s <code>NA</code>, which is a <code>NaN</code>).
+Left alone, ZFP would turn each one into an arbitrary finite number and
+distort the other values in its block. So both the standalone ZFP filter
+and Blosc2’s ZFP codecs refuse any chunk that contains one, and what
+happens next depends on how the filter was added:</p>
+<ul>
+<li>
+<strong>Optional</strong> (<code>H5Z_FLAG_OPTIONAL</code>): HDF5
+stores just that chunk unfiltered. The data stays exact and the file
+reads normally; every other chunk is still compressed.</li>
+<li>
+<strong>Mandatory</strong> (<code>H5Z_FLAG_MANDATORY</code>): the
+write fails with an HDF5 error instead of storing corrupted values. HDF5
+compresses chunks that fit in its chunk cache only when they are evicted
+or flushed, so the error may not appear until <code>H5Dclose()</code>.
+Check its return value, because HDF5 drops the chunk that failed.</li>
+</ul>
+<p>The <code>H5Pset_zfp_*()</code> helpers add ZFP as a mandatory
+filter, as the upstream H5Z-ZFP plugin does. To get the per-chunk
+fallback, switch it to optional afterwards:</p>
+<div class="sourceCode" id="cb12"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb12-1"><a href="#cb12-1" tabindex="-1"></a>H5Pset_zfp_accuracy<span class="op">(</span>plist_id<span class="op">,</span> <span class="fl">0.001</span><span class="op">);</span></span>
+<span id="cb12-2"><a href="#cb12-2" tabindex="-1"></a>H5Pmodify_filter<span class="op">(</span>plist_id<span class="op">,</span> <span class="dv">32013</span><span class="op">,</span> H5Z_FLAG_OPTIONAL<span class="op">,</span> <span class="dv">0</span><span class="op">,</span> NULL<span class="op">);</span></span></code></pre></div>
+<p>Reversible mode is lossless for every bit pattern, <code>NaN</code>
+and <code>Inf</code> included, so it accepts such chunks and compresses
+them as usual.</p>
 </div>
 </div>
 <div class="section level3">
@@ -490,9 +561,9 @@ LZ4, <code>3</code> = Zstd.</li>
 applies if Zstd is selected (e.g., <code>5</code>). Pass <code>0</code>
 for uncompressed or LZ4.</li>
 </ul>
-<div class="sourceCode" id="cb11"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb11-1"><a href="#cb11-1" tabindex="-1"></a><span class="co">// Bitshuffle data, then apply Zstd compression at level 5</span></span>
-<span id="cb11-2"><a href="#cb11-2" tabindex="-1"></a><span class="dt">unsigned</span> <span class="dt">int</span> cd_values<span class="op">[</span><span class="dv">3</span><span class="op">]</span> <span class="op">=</span> <span class="op">{</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">3</span><span class="op">,</span> <span class="dv">5</span> <span class="op">};</span> </span>
-<span id="cb11-3"><a href="#cb11-3" tabindex="-1"></a>H5Pset_filter<span class="op">(</span>plist_id<span class="op">,</span> <span class="dv">32008</span><span class="op">,</span> H5Z_FLAG_MANDATORY<span class="op">,</span> <span class="dv">3</span><span class="op">,</span> cd_values<span class="op">);</span></span></code></pre></div>
+<div class="sourceCode" id="cb13"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb13-1"><a href="#cb13-1" tabindex="-1"></a><span class="co">// Bitshuffle data, then apply Zstd compression at level 5</span></span>
+<span id="cb13-2"><a href="#cb13-2" tabindex="-1"></a><span class="dt">unsigned</span> <span class="dt">int</span> cd_values<span class="op">[</span><span class="dv">3</span><span class="op">]</span> <span class="op">=</span> <span class="op">{</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">3</span><span class="op">,</span> <span class="dv">5</span> <span class="op">};</span> </span>
+<span id="cb13-3"><a href="#cb13-3" tabindex="-1"></a>H5Pset_filter<span class="op">(</span>plist_id<span class="op">,</span> <span class="dv">32008</span><span class="op">,</span> H5Z_FLAG_MANDATORY<span class="op">,</span> <span class="dv">3</span><span class="op">,</span> cd_values<span class="op">);</span></span></code></pre></div>
 </div>
 <div class="section level3">
 <h3 id="blosc-v1">7. Blosc (v1)<a class="anchor" aria-label="anchor" href="#blosc-v1"></a>
@@ -527,9 +598,9 @@ internally maps this 0-9 value to Zstd’s 1-22 scale.</em>
 (<code>0</code>=blosclz, <code>1</code>=lz4, <code>2</code>=lz4hc,
 <code>3</code>=snappy, <code>4</code>=zlib, <code>5</code>=zstd).</li>
 </ul>
-<div class="sourceCode" id="cb12"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb12-1"><a href="#cb12-1" tabindex="-1"></a><span class="co">// Blosc v1 using LZ4 (level 5) and the standard byte shuffle pre-filter</span></span>
-<span id="cb12-2"><a href="#cb12-2" tabindex="-1"></a><span class="dt">unsigned</span> <span class="dt">int</span> cd_values<span class="op">[</span><span class="dv">7</span><span class="op">]</span> <span class="op">=</span> <span class="op">{</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">5</span><span class="op">,</span> <span class="dv">1</span><span class="op">,</span> <span class="dv">1</span> <span class="op">};</span> </span>
-<span id="cb12-3"><a href="#cb12-3" tabindex="-1"></a>H5Pset_filter<span class="op">(</span>plist_id<span class="op">,</span> <span class="dv">32001</span><span class="op">,</span> H5Z_FLAG_MANDATORY<span class="op">,</span> <span class="dv">7</span><span class="op">,</span> cd_values<span class="op">);</span></span></code></pre></div>
+<div class="sourceCode" id="cb14"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb14-1"><a href="#cb14-1" tabindex="-1"></a><span class="co">// Blosc v1 using LZ4 (level 5) and the standard byte shuffle pre-filter</span></span>
+<span id="cb14-2"><a href="#cb14-2" tabindex="-1"></a><span class="dt">unsigned</span> <span class="dt">int</span> cd_values<span class="op">[</span><span class="dv">7</span><span class="op">]</span> <span class="op">=</span> <span class="op">{</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">5</span><span class="op">,</span> <span class="dv">1</span><span class="op">,</span> <span class="dv">1</span> <span class="op">};</span> </span>
+<span id="cb14-3"><a href="#cb14-3" tabindex="-1"></a>H5Pset_filter<span class="op">(</span>plist_id<span class="op">,</span> <span class="dv">32001</span><span class="op">,</span> H5Z_FLAG_MANDATORY<span class="op">,</span> <span class="dv">7</span><span class="op">,</span> cd_values<span class="op">);</span></span></code></pre></div>
 </div>
 <div class="section level3">
 <h3 id="szip">8. SZIP<a class="anchor" aria-label="anchor" href="#szip"></a>
@@ -563,8 +634,8 @@ be even, typically <code>8</code>, <code>16</code>, or
 <code>32</code>.</li>
 </ul>
 <p>Like GZIP, SZIP has a dedicated helper function.</p>
-<div class="sourceCode" id="cb13"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb13-1"><a href="#cb13-1" tabindex="-1"></a><span class="co">// Apply SZIP compression (Entropy Coding method, 8 pixels per block)</span></span>
-<span id="cb13-2"><a href="#cb13-2" tabindex="-1"></a>H5Pset_szip<span class="op">(</span>plist_id<span class="op">,</span> H5_SZIP_EC_OPTION_MASK<span class="op">,</span> <span class="dv">8</span><span class="op">);</span></span></code></pre></div>
+<div class="sourceCode" id="cb15"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb15-1"><a href="#cb15-1" tabindex="-1"></a><span class="co">// Apply SZIP compression (Entropy Coding method, 8 pixels per block)</span></span>
+<span id="cb15-2"><a href="#cb15-2" tabindex="-1"></a>H5Pset_szip<span class="op">(</span>plist_id<span class="op">,</span> H5_SZIP_EC_OPTION_MASK<span class="op">,</span> <span class="dv">8</span><span class="op">);</span></span></code></pre></div>
 </div>
 <div class="section level3">
 <h3 id="bzip2">9. BZIP2<a class="anchor" aria-label="anchor" href="#bzip2"></a>
@@ -585,8 +656,8 @@ Bundled strictly to allow reading of legacy archives.</p>
 level from <code>1</code> (fastest) to <code>9</code> (best). Default is
 <code>9</code>.</li>
 </ul>
-<div class="sourceCode" id="cb14"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb14-1"><a href="#cb14-1" tabindex="-1"></a><span class="dt">unsigned</span> <span class="dt">int</span> cd_values<span class="op">[</span><span class="dv">1</span><span class="op">]</span> <span class="op">=</span> <span class="op">{</span> <span class="dv">9</span> <span class="op">};</span> <span class="co">// BZIP2 level 9</span></span>
-<span id="cb14-2"><a href="#cb14-2" tabindex="-1"></a>H5Pset_filter<span class="op">(</span>plist_id<span class="op">,</span> <span class="dv">307</span><span class="op">,</span> H5Z_FLAG_MANDATORY<span class="op">,</span> <span class="dv">1</span><span class="op">,</span> cd_values<span class="op">);</span></span></code></pre></div>
+<div class="sourceCode" id="cb16"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb16-1"><a href="#cb16-1" tabindex="-1"></a><span class="dt">unsigned</span> <span class="dt">int</span> cd_values<span class="op">[</span><span class="dv">1</span><span class="op">]</span> <span class="op">=</span> <span class="op">{</span> <span class="dv">9</span> <span class="op">};</span> <span class="co">// BZIP2 level 9</span></span>
+<span id="cb16-2"><a href="#cb16-2" tabindex="-1"></a>H5Pset_filter<span class="op">(</span>plist_id<span class="op">,</span> <span class="dv">307</span><span class="op">,</span> H5Z_FLAG_MANDATORY<span class="op">,</span> <span class="dv">1</span><span class="op">,</span> cd_values<span class="op">);</span></span></code></pre></div>
 </div>
 <div class="section level3">
 <h3 id="lzf-snappy">10. LZF &amp; Snappy<a class="anchor" aria-label="anchor" href="#lzf-snappy"></a>
@@ -609,8 +680,8 @@ require zero configuration parameters.</p>
 <li>
 <strong>Elements (<code>cd_nelmts</code>):</strong> 0</li>
 </ul>
-<div class="sourceCode" id="cb15"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb15-1"><a href="#cb15-1" tabindex="-1"></a><span class="co">// Apply Snappy compression</span></span>
-<span id="cb15-2"><a href="#cb15-2" tabindex="-1"></a>H5Pset_filter<span class="op">(</span>plist_id<span class="op">,</span> <span class="dv">32003</span><span class="op">,</span> H5Z_FLAG_MANDATORY<span class="op">,</span> <span class="dv">0</span><span class="op">,</span> NULL<span class="op">);</span></span></code></pre></div>
+<div class="sourceCode" id="cb17"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb17-1"><a href="#cb17-1" tabindex="-1"></a><span class="co">// Apply Snappy compression</span></span>
+<span id="cb17-2"><a href="#cb17-2" tabindex="-1"></a>H5Pset_filter<span class="op">(</span>plist_id<span class="op">,</span> <span class="dv">32003</span><span class="op">,</span> H5Z_FLAG_MANDATORY<span class="op">,</span> <span class="dv">0</span><span class="op">,</span> NULL<span class="op">);</span></span></code></pre></div>
 <hr>
 </div>
 </div>
@@ -640,7 +711,7 @@ library where to find the installed plugins by setting the
 </ol>
 <p>Once configured, any R package linking to <code>hdf5lib</code> can
 seamlessly read datasets using that external filter.</p>
-<div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb18"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Tell HDF5 where to find external filter plugins</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/Sys.setenv.html" class="external-link">Sys.setenv</a></span><span class="op">(</span>HDF5_PLUGIN_PATH <span class="op">=</span> <span class="st">"/opt/hdf5/plugins/"</span><span class="op">)</span></span>
 <span></span>

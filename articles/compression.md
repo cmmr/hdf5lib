@@ -7,9 +7,15 @@ savings in storage space and faster I/O performance.
 
 `hdf5lib` provides built-in support for `gzip` and `szip` compression
 natively, and additionally bundles an extensive suite of
-high-performance modern filter plugins. All compression plugins bundled
-with `hdf5lib` have been rigorously tested to ensure strict
-interoperability with the standard Python `h5py` ecosystem.
+high-performance modern filter plugins. They use the same filter IDs and
+parameter layouts as Python’s `h5py` with
+[`hdf5plugin`](https://github.com/silx-kit/hdf5plugin), and the
+package’s interoperability tests (`tests/interop`) check both
+directions: files written through `hdf5lib` read in `h5py`, and the
+other way round. Two exceptions: the standalone Snappy filter (`32003`)
+is not part of `hdf5plugin`, and Blosc2 datasets with 1-D chunks written
+by `hdf5lib` 2.2.0.0 or earlier cannot be read by `hdf5plugin` (rewrite
+them with a newer `hdf5lib`).
 
 ## Terminology
 
@@ -137,15 +143,18 @@ H5Pset_filter(plist_id, 32004, H5Z_FLAG_MANDATORY, 2, cd_values);
 ### 4. Blosc2
 
 **Recommendation:** **Use for Parallel Compression and Complex
-Pipelines.** Blosc2 utilizes internal thread pools to compress blocks of
-data in parallel. It also features a Programmable Filter Pipeline,
-allowing you to easily chain multiple pre-filters (like Delta followed
-by Bitshuffle) before the data hits the final compressor.
+Pipelines.** Blosc2 splits each chunk into blocks and can (de)compress
+those blocks on several threads at once; see
+[Multi-threading](#multi-threading) below. It also features a
+Programmable Filter Pipeline, allowing you to easily chain multiple
+pre-filters (like Delta followed by Bitshuffle) before the data hits the
+final compressor.
 
 Our plugin implementation uses a highly efficient **bitmask
 architecture** to specify these complex pipelines while strictly
-maintaining a standard 8-element configuration, ensuring 100% layout
-compatibility with standard `h5py` and community plugins.
+maintaining a standard 8-element configuration. The values it stores in
+the file follow the layout of the reference HDF5-Blosc2 filter that
+`hdf5plugin` uses, so `h5py` reads the data at any chunk rank.
 
 > **Restrictions on ZFP:** When using a ZFP compressor codec (`33`,
 > `34`, `35`), you **must** pass floating-point data (`float32` or
@@ -154,7 +163,8 @@ compatibility with standard `h5py` and community plugins.
 > ensure safety, **this plugin automatically disables all Blosc2
 > pre-filters if a ZFP codec is selected**. You must also ensure no
 > upstream native HDF5 filters (e.g., `H5Pset_shuffle`) are applied
-> before Blosc2 in your property list.
+> before Blosc2 in your property list. ZFP also cannot store `NaN` or
+> `Inf` values; see [Non-finite values](#non-finite-values) under ZFP.
 
 #### Plugin Configuration
 
@@ -174,7 +184,7 @@ pre-filters into a single mask.
   - `4` = Delta
   - `8` = Truncate Precision
 - **`cd_values[6]`:** Compressor ID (`0`=blosclz, `1`=lz4, `2`=lz4hc,
-  `4`=zlib, `5`=zstd, `11`=ndlz, `33`=zfp_acc, `34`=zfp_prec,
+  `4`=zlib, `5`=zstd, `32`=ndlz, `33`=zfp_acc, `34`=zfp_prec,
   `35`=zfp_rate).
 - **`cd_values[7]`:** Metadata Value. This serves a dual purpose based
   on your configuration:
@@ -263,6 +273,39 @@ unsigned int cd_values[8] = { 0, 0, 0, 0, 5, 0, 35, 25 };
 H5Pset_filter(plist_id, 32026, H5Z_FLAG_MANDATORY, 8, cd_values);
 ```
 
+#### Multi-threading
+
+The Blosc2 and Blosc (v1) filters use **one thread** by default. To use
+more, call `hdf5lib_set_blosc_nthreads()` (declared in `hdf5lib.h`) or
+set the `BLOSC_NTHREADS` environment variable. As everywhere in c-blosc,
+the environment variable takes precedence. Prefer the function: c-blosc2
+also applies `BLOSC_NTHREADS` to the small bookkeeping contexts it
+creates for every chunk, and on Windows each of those then starts and
+stops threads of its own.
+
+``` c
+#include <hdf5lib.h>
+
+hdf5lib_set_blosc_nthreads(4);           // use 4 threads from now on
+int n = hdf5lib_get_blosc_nthreads();    // threads the filters will actually use
+hdf5lib_set_blosc_nthreads(0);           // back to the default (BLOSC_NTHREADS, else 1)
+```
+
+Threads work on the blocks *within* a chunk, so they only help when a
+chunk holds several blocks. Blosc picks the block size from the codec
+and compression level. Zstd and zlib at Blosc level 9 (`cd_values[4]`),
+for example, use 1 MB blocks, so a 1 MB chunk is a single block and
+gains nothing from extra threads, while at level 5 the same chunk splits
+into four 256 KB blocks. Larger chunks or lower levels leave more room
+for parallelism. The worker threads are started on first use and kept
+between chunks, so they cost nothing per chunk once running.
+
+Keep in mind that CRAN does not allow package examples, tests, or
+vignettes to use more than two threads. On Linux and macOS, a process
+forked from one that has already used Blosc2 threads (a
+[`parallel::mclapply()`](https://rdrr.io/r/parallel/mclapply.html)
+worker, say) runs the Blosc2 filter single-threaded.
+
 ### 5. ZFP
 
 **Recommendation:** **Use for High-Speed Lossy Compression.** ZFP
@@ -334,6 +377,35 @@ extern herr_t H5Pset_zfp_reversible(hid_t plist); // Lossless mode
 // Compress data using ZFP's Accuracy mode (maintaining 0.001 tolerance)
 H5Pset_zfp_accuracy(plist_id, 0.001);
 ```
+
+#### Non-finite values
+
+ZFP’s lossy modes have no encoding for `NaN` or `Inf` (or R’s `NA`,
+which is a `NaN`). Left alone, ZFP would turn each one into an arbitrary
+finite number and distort the other values in its block. So both the
+standalone ZFP filter and Blosc2’s ZFP codecs refuse any chunk that
+contains one, and what happens next depends on how the filter was added:
+
+- **Optional** (`H5Z_FLAG_OPTIONAL`): HDF5 stores just that chunk
+  unfiltered. The data stays exact and the file reads normally; every
+  other chunk is still compressed.
+- **Mandatory** (`H5Z_FLAG_MANDATORY`): the write fails with an HDF5
+  error instead of storing corrupted values. HDF5 compresses chunks that
+  fit in its chunk cache only when they are evicted or flushed, so the
+  error may not appear until `H5Dclose()`. Check its return value,
+  because HDF5 drops the chunk that failed.
+
+The `H5Pset_zfp_*()` helpers add ZFP as a mandatory filter, as the
+upstream H5Z-ZFP plugin does. To get the per-chunk fallback, switch it
+to optional afterwards:
+
+``` c
+H5Pset_zfp_accuracy(plist_id, 0.001);
+H5Pmodify_filter(plist_id, 32013, H5Z_FLAG_OPTIONAL, 0, NULL);
+```
+
+Reversible mode is lossless for every bit pattern, `NaN` and `Inf`
+included, so it accepts such chunks and compresses them as usual.
 
 ### 6. Bitshuffle
 
