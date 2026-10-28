@@ -44,7 +44,8 @@ def main():
         try:
             # Trigger decompression via hdf5plugin
             read_data = dset[...]
-            expected_data = get_expected_data(SHAPE, read_data.dtype)
+            # Every dataset holds the same N_ELEMS values, whatever its shape
+            expected_data = get_expected_data(read_data.shape, read_data.dtype)
 
             if is_lossy:
                 # Use the 0.5 tolerance defined in your C verification logic

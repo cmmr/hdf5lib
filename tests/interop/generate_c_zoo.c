@@ -49,6 +49,76 @@ static void write_dset(hid_t file, hid_t space, const char* name, hid_t type, hi
     } else Rprintf("FAILED (Create Error)\n");
 }
 
+/* One Blosc2 dataset per codec x pre-filter, plus Blosc2's ZFP codecs and NDLZ,
+   in the given chunk geometry.  The plugin records cd_values differently by
+   rank -- B2ND geometry for 2-D chunks, none for 1-D chunks or ranks beyond
+   B2ND's limit -- and h5py has to read every one of them. */
+static void write_blosc2_matrix(hid_t file_id, const char *prefix, int rank, const hsize_t *dims,
+                                const hsize_t *chunk, double *buf_f64, float *buf_f32,
+                                int *buf_i32, short *buf_i16) {
+    hid_t space_id = H5Screate_simple(rank, dims, NULL);
+    hid_t plist;
+    const char* b2_codecs[] = {"blosclz", "lz4", "lz4hc", "zlib", "zstd"};
+    int b2_compcodes[] = {0, 1, 2, 4, 5};
+    const char* b2_filters[] = {"nofilter", "shuffle", "bitshuffle", "delta", "truncprec"};
+    int b2_filter_masks[] = {0, 1, 2, 4, 8};  /* cd_values[5] is a bitmask */
+
+    for (int c = 0; c < 5; c++) {
+        for (int f = 0; f < 5; f++) {
+            char name[128];
+            snprintf(name, sizeof(name), "%sblosc2_%s_%s", prefix, b2_codecs[c], b2_filters[f]);
+
+            hid_t dtype = H5T_NATIVE_INT;
+            void* dbuf = buf_i32;
+            int meta = 0;
+
+            // TruncPrec strictly requires floating point data
+            if (b2_filter_masks[f] == 8) {
+                dtype = H5T_NATIVE_FLOAT;
+                dbuf = buf_f32;
+                meta = 16; // Demand 16-bit precision to keep values within verify_c_zoo bounds
+            }
+            // Bitshuffle favors 64-bit alignment
+            else if (b2_filter_masks[f] == 2) {
+                dtype = H5T_NATIVE_DOUBLE;
+                dbuf = buf_f64;
+            }
+            // Nofilter or Delta with smaller ints
+            else if (b2_filter_masks[f] == 0) {
+                dtype = H5T_NATIVE_SHORT;
+                dbuf = buf_i16;
+            }
+
+            plist = H5Pcreate(H5P_DATASET_CREATE); H5Pset_chunk(plist, rank, chunk);
+
+            // cd_values mapping: [0..3] metadata, [4] clevel, [5] filter, [6] compcode, [7] meta
+            unsigned int cd[] = {0, 0, 0, 0, 5, b2_filter_masks[f], b2_compcodes[c], meta};
+            H5Pset_filter(plist, H5Z_FILTER_BLOSC2, H5Z_FLAG_MANDATORY, 8, cd);
+
+            write_dset(file_id, space_id, name, dtype, plist, dbuf);
+            H5Pclose(plist);
+        }
+    }
+
+    /* ZFP (lossy, so float64) takes its parameter as cd_values[7]; NDLZ its cell size */
+    const char* extra_names[] = {"zfp_accuracy", "zfp_precision", "zfp_rate", "ndlz"};
+    int extra_compcodes[] = {33, 34, 35, 32};
+    int extra_meta[] = {253, 16, 25, 4};  /* 10^-3, 16 bits, 25% of 64 bits, 4x4 cells */
+    for (int e = 0; e < 4; e++) {
+        char name[128];
+        snprintf(name, sizeof(name), "%sblosc2_%s", prefix, extra_names[e]);
+        int is_ndlz = (extra_compcodes[e] == 32);
+        plist = H5Pcreate(H5P_DATASET_CREATE); H5Pset_chunk(plist, rank, chunk);
+        unsigned int cd[] = {0, 0, 0, 0, 5, 0, extra_compcodes[e], extra_meta[e]};
+        H5Pset_filter(plist, H5Z_FILTER_BLOSC2, H5Z_FLAG_MANDATORY, 8, cd);
+        write_dset(file_id, space_id, name, is_ndlz ? H5T_NATIVE_INT : H5T_NATIVE_DOUBLE, plist,
+                   is_ndlz ? (void*)buf_i32 : (void*)buf_f64);
+        H5Pclose(plist);
+    }
+
+    H5Sclose(space_id);
+}
+
 SEXP C_write_zoo(SEXP sexp_filename) {
     const char *filename = CHAR(STRING_ELT(sexp_filename, 0));
     
@@ -162,49 +232,17 @@ SEXP C_write_zoo(SEXP sexp_filename) {
     }
 
     // ==========================================
-    // 5. Exhaustive Blosc2 Matrix
+    // 5. Exhaustive Blosc2 Matrix: 2-D, 1-D, and a rank beyond B2ND's limit
     // ==========================================
-    const char* b2_codecs[] = {"blosclz", "lz4", "lz4hc", "zlib", "zstd"};
-    int b2_compcodes[] = {0, 1, 2, 4, 5};
-    const char* b2_filters[] = {"nofilter", "shuffle", "bitshuffle", "delta", "truncprec"};
-    int b2_filter_ids[] = {0, 1, 2, 3, 4};
+    write_blosc2_matrix(file_id, "", 2, dims, dims, buf_f64, buf_f32, buf_i32, buf_i16);
 
-    for (int c = 0; c < 5; c++) {
-        for (int f = 0; f < 5; f++) {
-            char name[128];
-            snprintf(name, sizeof(name), "blosc2_%s_%s", b2_codecs[c], b2_filters[f]);
-            
-            hid_t dtype = H5T_NATIVE_INT;
-            void* dbuf = buf_i32;
-            int meta = 0;
-            
-            // TruncPrec strictly requires floating point data
-            if (b2_filter_ids[f] == 4) {
-                dtype = H5T_NATIVE_FLOAT;
-                dbuf = buf_f32;
-                meta = 16; // Demand 16-bit precision to keep values within verify_c_zoo bounds
-            } 
-            // Bitshuffle favors 64-bit alignment
-            else if (b2_filter_ids[f] == 2) { 
-                dtype = H5T_NATIVE_DOUBLE; 
-                dbuf = buf_f64;
-            } 
-            // Nofilter or Delta with smaller ints
-            else if (b2_filter_ids[f] == 0) {
-                dtype = H5T_NATIVE_SHORT;  
-                dbuf = buf_i16;
-            }
+    hsize_t dims_1d[1] = {N_ELEMS}, chunk_1d[1] = {N_ELEMS / 4};
+    write_blosc2_matrix(file_id, "1d_", 1, dims_1d, chunk_1d, buf_f64, buf_f32, buf_i32, buf_i16);
 
-            plist = H5Pcreate(H5P_DATASET_CREATE); H5Pset_chunk(plist, 2, dims);
-            
-            // cd_values mapping: [0..3] metadata, [4] clevel, [5] filter, [6] compcode, [7] meta
-            unsigned int cd[] = {0, 0, 0, 0, 5, b2_filter_ids[f], b2_compcodes[c], meta}; 
-            H5Pset_filter(plist, H5Z_FILTER_BLOSC2, H5Z_FLAG_MANDATORY, 8, cd);
-            
-            write_dset(file_id, space_id, name, dtype, plist, dbuf); 
-            H5Pclose(plist);
-        }
-    }
+    hsize_t dims_17d[17];
+    for (int i = 0; i < 17; i++) dims_17d[i] = 1;
+    dims_17d[0] = CHUNK_X; dims_17d[1] = CHUNK_Y;
+    write_blosc2_matrix(file_id, "17d_", 17, dims_17d, dims_17d, buf_f64, buf_f32, buf_i32, buf_i16);
 
     // ==========================================
     // 6. Native Built-ins

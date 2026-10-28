@@ -135,6 +135,19 @@ def main():
         sys.stdout.flush()
         return
 
+    # --- 1-D Blosc2: hdf5plugin records no chunk geometry for these ---
+    # (Only the C side verifies them; it reads every dataset as 128 * 128 values.)
+    with h5py.File(FILENAME, 'a') as f:
+        for codec in ['blosclz', 'lz4', 'zstd']:
+            for fname, flt, dtype in [("shuffle", hdf5plugin.Blosc2.SHUFFLE, np.int32),
+                                      ("bitshuffle", hdf5plugin.Blosc2.BITSHUFFLE, np.float64)]:
+                name = f"1d_blosc2_{codec}_{fname}"
+                print(f"--> [START] Creating {name: <30} ...", end=" ")
+                f.create_dataset(name, data=generate_compressible_data((shape[0] * shape[1],), dtype),
+                                 chunks=(4096,), **hdf5plugin.Blosc2(cname=codec, filters=flt))
+                print("DONE")
+        sys.stdout.flush()
+
     # ==========================================
     # PHASE 2: Verify Metadata & Read-back
     # ==========================================

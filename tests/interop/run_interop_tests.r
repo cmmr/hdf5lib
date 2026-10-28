@@ -1,7 +1,7 @@
 library(hdf5lib)
 
-interop_dir <- normalizePath(".", mustWork = TRUE)
-r_exe <- normalizePath(file.path(R.home("bin"), "R"), mustWork = FALSE)
+interop_dir <- normalizePath(".", winslash = "/", mustWork = TRUE)
+r_exe <- normalizePath(file.path(R.home("bin"), "R"), winslash = "/", mustWork = FALSE)
 
 # --- File Definitions ---
 c_reader      <- file.path(interop_dir, "verify_python_zoo.c")

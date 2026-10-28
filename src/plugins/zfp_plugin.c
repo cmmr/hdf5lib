@@ -168,7 +168,7 @@ static htri_t H5Z_zfp_can_apply(hid_t dcpl_id, hid_t type_id, hid_t chunk_space_
     htri_t retval = 0;
     hsize_t dims[H5S_MAX_RANK];
     H5T_class_t dclass;
-    hid_t native_type_id;
+    hid_t native_type_id = H5I_INVALID_HID;
 
     if ((int) stream_word_bits != 8)
         PUSH_AND_GOTO(H5E_CANTINIT, -1, "ZFP lib not compiled with -DBIT_STREAM_WORD_TYPE=uint8");
@@ -203,6 +203,7 @@ static htri_t H5Z_zfp_can_apply(hid_t dcpl_id, hid_t type_id, hid_t chunk_space_
 
     retval = 1;
 done:
+    if (native_type_id >= 0) H5Tclose(native_type_id);
     return retval;
 }
 
@@ -419,6 +420,29 @@ static int zfp_codec_version_mismatch(unsigned int h5zfpver_from_cd_val, unsigne
     return writer_codec > reader_codec;
 }
 
+/* ZFP's lossy modes have no encoding for NaN or Inf: one turns into an
+   arbitrary finite number and spoils the other values in its block, too.
+   Refuse such a chunk instead.  With H5Z_FLAG_OPTIONAL, HDF5 then stores that
+   one chunk unfiltered, so the data stays exact; with H5Z_FLAG_MANDATORY the
+   write fails rather than corrupting it. */
+static int has_nonfinite(const void *buf, size_t nbytes, zfp_type type) {
+    const unsigned char *p = (const unsigned char *)buf;
+    if (type == zfp_type_double) {
+        for (size_t i = 0; i + 8 <= nbytes; i += 8) {
+            uint64_t u;
+            memcpy(&u, p + i, 8);
+            if ((u & UINT64_C(0x7FF0000000000000)) == UINT64_C(0x7FF0000000000000)) return 1;
+        }
+    } else if (type == zfp_type_float) {
+        for (size_t i = 0; i + 4 <= nbytes; i += 4) {
+            uint32_t u;
+            memcpy(&u, p + i, 4);
+            if ((u & UINT32_C(0x7F800000)) == UINT32_C(0x7F800000)) return 1;
+        }
+    }
+    return 0;
+}
+
 static size_t H5Z_filter_zfp(unsigned int flags, size_t cd_nelmts, const unsigned int cd_values[], size_t nbytes, size_t *buf_size, void **buf) {
     if (nbytes == 0) return 0;
     
@@ -491,6 +515,12 @@ static size_t H5Z_filter_zfp(unsigned int flags, size_t cd_nelmts, const unsigne
 
         if (0 == (zstr = zfp_stream_open(0))) PUSH_AND_GOTO(H5E_NOSPACE, 0, "zfp stream open failed");
         zfp_stream_set_mode(zstr, zfp_mode);
+
+        /* Reversible mode reproduces any bit pattern, NaN and Inf included */
+        if (zfp_stream_compression_mode(zstr) != zfp_mode_reversible &&
+            has_nonfinite(*buf, nbytes, zfp_field_type(zfld)))
+            PUSH_AND_GOTO(H5E_CANTFILTER, 0, "ZFP cannot encode the NaN or Inf values in this chunk");
+
         msize = zfp_stream_maximum_size(zstr, zfld);
 
         if (NULL == (newbuf = H5allocate_memory(msize, 0))) PUSH_AND_GOTO(H5E_NOSPACE, 0, "memory allocation failed for ZFP compression");

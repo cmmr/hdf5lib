@@ -1,8 +1,10 @@
 #include <R_ext/Error.h>
+#include <stdlib.h>
 #include <hdf5.h>
 #include <blosc.h>
 #include <blosc2.h>
 #include <blosc2/codecs-registry.h>
+#include "hdf5lib.h"
 
 /* --- Declare HDF5 Filters --- */
 extern const H5Z_class2_t blosc_class;
@@ -27,6 +29,41 @@ extern blosc2_codec zfp_rate_codec;
 
 /* --- Internal Blosc2 Registration (Bypasses User ID Boundary) --- */
 extern int register_codec_private(blosc2_codec *codec);
+
+/* --- Blosc2 Plugin's Cached Contexts (see blosc2_plugin.c) --- */
+extern void blosc2_plugin_free_contexts(void);
+
+
+/* --- Blosc Thread Count --- */
+
+/* c-blosc1 cannot run more threads than this. */
+#define HDF5LIB_BLOSC_MAX_THREADS 256
+
+/* 0 means "not set": fall back to BLOSC_NTHREADS, then to one thread.  HDF5
+   serialises every filter call, so plain reads and writes are enough here as
+   long as the setter is not called while another thread is doing I/O. */
+static int blosc_nthreads_setting = 0;
+
+int hdf5lib_set_blosc_nthreads(int nthreads) {
+  int previous = blosc_nthreads_setting;
+  if (nthreads < 0) nthreads = 0;
+  if (nthreads > HDF5LIB_BLOSC_MAX_THREADS) nthreads = HDF5LIB_BLOSC_MAX_THREADS;
+  blosc_nthreads_setting = nthreads;
+  return previous;
+}
+
+int hdf5lib_get_blosc_nthreads(void) {
+  /* c-blosc lets BLOSC_NTHREADS override the thread count its callers ask for,
+     so honour it the same way rather than have it win in some code paths only. */
+  const char *env = getenv("BLOSC_NTHREADS");
+  if (env != NULL) {
+    char *end;
+    long n = strtol(env, &end, 10);
+    if (end != env && n > 0)
+      return (n > HDF5LIB_BLOSC_MAX_THREADS) ? HDF5LIB_BLOSC_MAX_THREADS : (int)n;
+  }
+  return (blosc_nthreads_setting > 0) ? blosc_nthreads_setting : 1;
+}
 
 /* --- Registration Macros --- */
 #define REG_BLOSC2_CODEC(codec_ptr, name_str) do { \
@@ -92,7 +129,9 @@ herr_t hdf5lib_destroy_all_filters(void) {
   H5Zunregister(zfp_class.id);
   H5Zunregister(zstd_class.id);
 
-  /* Safely tear down the Blosc thread pools and TLS memory */
+  /* Safely tear down the Blosc thread pools and TLS memory.  The Blosc2 plugin's
+     cached contexts hold worker threads of their own, so release them first. */
+  blosc2_plugin_free_contexts();
   blosc_destroy();
   blosc2_destroy();
   
