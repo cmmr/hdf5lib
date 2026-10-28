@@ -1,0 +1,28 @@
+diff -ru src/zfp-orig/src/template/revencodef.c src/zfp-1.0.1/src/template/revencodef.c
+--- src/zfp-orig/src/template/revencodef.c	2026-10-28 17:58:45.795923200 +0000
++++ src/zfp-1.0.1/src/template/revencodef.c	2026-10-28 17:58:46.046604700 +0000
+@@ -1,3 +1,4 @@
++#include <math.h>
+ #include <string.h>
+ 
+ /* private functions ------------------------------------------------------- */
+@@ -17,8 +18,18 @@
+ static void
+ _t1(rev_fwd_cast, Scalar)(Int* iblock, const Scalar* fblock, uint n, int emax)
+ {
++  /* hdf5lib: NaN and Inf have no integer value; converting one is undefined
++     behaviour, which UBSan reports.  A block that holds any can never pass
++     the reversibility test, since the integers decode to finite values only,
++     so it takes the bit-reinterpreting path whatever they are: give it zeros
++     instead.  The output is unchanged. */
++  uint i;
++  int finite = 1;
++  for (i = 0; i < n; i++)
++    if (!isfinite(fblock[i]))
++      finite = 0;
+   /* test for all-zero block, which needs special treatment */
+-  if (emax != -EBIAS)
++  if (emax != -EBIAS && finite)
+     _t1(fwd_cast, Scalar)(iblock, fblock, BLOCK_SIZE, emax);
+   else
+     while (n--)
