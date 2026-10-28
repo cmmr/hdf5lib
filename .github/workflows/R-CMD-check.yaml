@@ -69,7 +69,7 @@ jobs:
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
           cache: false
-          extra-packages: any::rcmdcheck, MASS
+          extra-packages: any::rcmdcheck, any::MASS
           needs: check
 
       - uses: r-lib/actions/check-r-package@v2
