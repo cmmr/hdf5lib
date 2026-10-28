@@ -24,10 +24,12 @@
   such chunks. Datasets already written by hdf5lib 2.2.0.0 and earlier
   keep their old parameters: `hdf5lib` still reads them, but
   `hdf5plugin` cannot, so rewrite them to share them with Python.
-- Patched the bundled ZFP’s lifting transforms to do their arithmetic in
-  unsigned integers. The old code relied on signed overflow and left
-  shifts of negative values, which UBSan reports whenever ZFP data is
-  compressed or decompressed. Output is bit-for-bit unchanged.
+- Patched the bundled ZFP to remove undefined behaviour that UBSan
+  reports. Its lifting transforms now do their arithmetic in unsigned
+  integers instead of relying on signed overflow and left shifts of
+  negative values. Reversible mode no longer converts NaN or Inf to an
+  integer when it tests whether a block can be stored exactly. Output is
+  bit-for-bit unchanged.
 - The ZFP filter no longer leaks a datatype ID for every dataset it is
   applied to.
 - Corrected the Blosc2 NDLZ codec ID in the compression article (`32`,

@@ -128,7 +128,7 @@
 <h3 id="id_3-manage-global-filter-state-important">
 <strong>3. Manage Global Filter State (Important)</strong><a class="anchor" aria-label="anchor" href="#id_3-manage-global-filter-state-important"></a>
 </h3>
-<p>To utilize the bundled compression plugins (LZ4, Zstd, Blosc, etc.), they must be registered with the HDF5 library. Because registering filters modifies global state and spins up background thread pools (via Blosc2), you should <strong>never</strong> register filters on a per-I/O basis, as this will severely impact performance.</p>
+<p>To utilize the bundled compression plugins (LZ4, Zstd, Blosc, etc.), they must be registered with the HDF5 library. Registering them changes process-wide state (HDF5’s filter table and Blosc2’s codec registry), so you should <strong>never</strong> register filters on a per-I/O basis. Tearing them down with <code>hdf5lib_destroy_all_filters()</code> also frees the Blosc worker threads and cached contexts that make multi-threaded Blosc fast, so calling it after each operation would throw them away.</p>
 <p>Instead, call them exactly once from your package’s DLL load/unload entry points.</p>
 <p><strong>Register in <code>src/init.c</code>:</strong></p>
 <div class="sourceCode" id="cb5"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb5-1"><a href="#cb5-1" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;Rinternals.h&gt;</span></span>
@@ -144,12 +144,12 @@
 <span id="cb5-11"><a href="#cb5-11" tabindex="-1"></a>  R_registerRoutines<span class="op">(</span>dll<span class="op">,</span> NULL<span class="op">,</span> CallEntries<span class="op">,</span> NULL<span class="op">,</span> NULL<span class="op">);</span></span>
 <span id="cb5-12"><a href="#cb5-12" tabindex="-1"></a>  R_useDynamicSymbols<span class="op">(</span>dll<span class="op">,</span> FALSE<span class="op">);</span></span>
 <span id="cb5-13"><a href="#cb5-13" tabindex="-1"></a></span>
-<span id="cb5-14"><a href="#cb5-14" tabindex="-1"></a>  <span class="co">/* Register plugins and spin up the Blosc thread pools once, at load time */</span></span>
+<span id="cb5-14"><a href="#cb5-14" tabindex="-1"></a>  <span class="co">/* Register the compression plugins once, at load time */</span></span>
 <span id="cb5-15"><a href="#cb5-15" tabindex="-1"></a>  hdf5lib_register_all_filters<span class="op">();</span></span>
 <span id="cb5-16"><a href="#cb5-16" tabindex="-1"></a><span class="op">}</span></span>
 <span id="cb5-17"><a href="#cb5-17" tabindex="-1"></a></span>
 <span id="cb5-18"><a href="#cb5-18" tabindex="-1"></a><span class="dt">void</span> R_unload_myhdf5package<span class="op">(</span>DllInfo <span class="op">*</span>dll<span class="op">)</span> <span class="op">{</span></span>
-<span id="cb5-19"><a href="#cb5-19" tabindex="-1"></a>  <span class="co">/* Cleanly tear down threads and free memory to prevent Valgrind warnings */</span></span>
+<span id="cb5-19"><a href="#cb5-19" tabindex="-1"></a>  <span class="co">/* Free Blosc's worker threads and cached contexts, and unregister the filters */</span></span>
 <span id="cb5-20"><a href="#cb5-20" tabindex="-1"></a>  hdf5lib_destroy_all_filters<span class="op">();</span></span>
 <span id="cb5-21"><a href="#cb5-21" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
 <p><code>R_init_&lt;pkgname&gt;()</code> runs the moment your shared object is loaded, so the filters are in place before any of your code can run. <code>R_unload_&lt;pkgname&gt;()</code> only runs if the DLL is actually unloaded, which R does not do by default – add this to <code>R/zzz.R</code> if you want the teardown to happen:</p>

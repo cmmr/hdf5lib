@@ -55,11 +55,13 @@ PKG_LIBS     = `$(R_HOME)/bin/Rscript -e "cat(hdf5lib::ld_flags(api = 2.0))"`
 ### Step 3: Manage Global Filter State (Important)
 
 To utilize the bundled compression plugins (LZ4, Zstd, Blosc, etc.),
-they must be registered with the HDF5 library. Because registering
-filters modifies global state and spins up background thread pools (via
-Blosc2), you should **never** register filters on a per-I/O basis.
-Instead, call them exactly once from your package’s DLL load/unload
-entry points.
+they must be registered with the HDF5 library. Registering them changes
+process-wide state (HDF5’s filter table and Blosc2’s codec registry), so
+you should **never** register filters on a per-I/O basis. Tearing them
+down with `hdf5lib_destroy_all_filters()` also frees the Blosc worker
+threads and cached contexts that make multi-threaded Blosc fast, so
+calling it after each operation would throw them away. Instead, call
+them exactly once from your package’s DLL load/unload entry points.
 
 **Register in `src/init.c`:**
 
@@ -77,12 +79,12 @@ void R_init_myhdf5package(DllInfo *dll) {
   R_registerRoutines(dll, NULL, CallEntries, NULL, NULL);
   R_useDynamicSymbols(dll, FALSE);
 
-  /* Register plugins and spin up the Blosc thread pools once, at load time */
+  /* Register the compression plugins once, at load time */
   hdf5lib_register_all_filters();
 }
 
 void R_unload_myhdf5package(DllInfo *dll) {
-  /* Cleanly tear down threads and free memory to prevent Valgrind warnings */
+  /* Free Blosc's worker threads and cached contexts, and unregister the filters */
   hdf5lib_destroy_all_filters();
 }
 ```
