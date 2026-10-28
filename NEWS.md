@@ -1,4 +1,4 @@
-# hdf5lib (development version)
+# hdf5lib 2.2.0.1
 
 * Blosc and Blosc2 multi-threading now pays off. The Blosc2 filter keeps its compression and decompression contexts, and their worker threads, alive between chunks instead of starting a new thread pool for every chunk; Blosc (v1) runs through c-blosc's persistent global pool when threads are requested. Both filters still default to one thread.
 * New C API `hdf5lib_set_blosc_nthreads()` / `hdf5lib_get_blosc_nthreads()` in `hdf5lib.h` sets the Blosc and Blosc2 thread count. The `BLOSC_NTHREADS` environment variable, which Blosc (v1) previously ignored, now applies to both filters and takes precedence, though the function is the better choice (see the compression article).
