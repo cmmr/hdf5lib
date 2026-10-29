@@ -65,8 +65,23 @@
   two or more dimensions the filter took the stored chunk rank for it,
   so a 2-D copy kept 2 bits of precision, or relaxed ZFP’s accuracy to
   10^2.
+- Blosc2’s ZFP codecs (`33` to `35`) no longer silently corrupt data
+  that is not native-order `float32` or `float64`. They compressed
+  integers and byte-swapped floats as though they were native floats,
+  and the values read back as garbage (small integers as 0) without any
+  error. A mandatory filter now makes `H5Dcreate2()` fail on such data.
+  An optional one stores it unfiltered: it records compression level
+  255, which makes every Blosc2 filter (`hdf5plugin`’s included) refuse
+  each chunk. A compression level above 9 now makes `H5Dcreate2()` fail
+  instead of every chunk.
+- The read-only BitRound shim now sits on BitRound’s registered filter
+  ID, 32032. It used to claim 32024, which belongs to SZ3. Registering
+  hdf5lib’s filters then made SZ3 datasets unreadable and stopped HDF5
+  from loading a real SZ3 plugin. The shim on 32023, formerly called
+  BitShave, is now named for Granular BitRound, the quantizer registered
+  under that ID.
 - `hdf5lib_destroy_all_filters()` now also unregisters the BitGroom,
-  BitShave, and BitRound read shims that
+  Granular BitRound, and BitRound read shims that
   `hdf5lib_register_all_filters()` registers.
 - Corrected the Blosc2 NDLZ codec ID in the compression article (`32`,
   not `11`), corrected its claims about `h5py` interoperability, and

@@ -244,10 +244,12 @@ the file follow the layout of the reference HDF5-Blosc2 filter that
 chunk rank.</p>
 <blockquote>
 <p><strong>Restrictions on ZFP:</strong> When using a ZFP compressor
-codec (<code>33</code>, <code>34</code>, <code>35</code>), you
-<strong>must</strong> pass floating-point data (<code>float32</code> or
-<code>float64</code>). ZFP performs lossy compression directly on
-numerical values; if bytes are shuffled before ZFP, it corrupts the
+codec (<code>33</code>, <code>34</code>, <code>35</code>), the data
+<strong>must</strong> be <code>float32</code> or <code>float64</code> in
+native byte order (alone or in arrays). On any other datatype, a
+mandatory filter makes <code>H5Dcreate2()</code> fail and an optional
+one stores the data unfiltered. ZFP performs lossy compression directly
+on numerical values; if bytes are shuffled before ZFP, it corrupts the
 dataset. To ensure safety, <strong>this plugin automatically disables
 all Blosc2 pre-filters if a ZFP codec is selected</strong>. You must
 also ensure no upstream native HDF5 filters (e.g.,
@@ -271,7 +273,10 @@ desired pre-filters into a single mask.</p>
 <code>0</code>).</li>
 <li>
 <strong><code>cd_values[4]</code>:</strong> Compression level
-(<code>0</code> to <code>9</code>).</li>
+(<code>0</code> to <code>9</code>). A higher level makes
+<code>H5Dcreate2()</code> fail; the plugin itself records
+<code>255</code> for a dataset a ZFP codec cannot take, so that every
+chunk is stored unfiltered.</li>
 <li>
 <strong><code>cd_values[5]</code>:</strong> Pre-filter Bitmask. Sum
 the following values to chain filters (they will automatically execute

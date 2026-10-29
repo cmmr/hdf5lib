@@ -157,8 +157,10 @@ the file follow the layout of the reference HDF5-Blosc2 filter that
 `hdf5plugin` uses, so `h5py` reads the data at any chunk rank.
 
 > **Restrictions on ZFP:** When using a ZFP compressor codec (`33`,
-> `34`, `35`), you **must** pass floating-point data (`float32` or
-> `float64`). ZFP performs lossy compression directly on numerical
+> `34`, `35`), the data **must** be `float32` or `float64` in native
+> byte order (alone or in arrays). On any other datatype, a mandatory
+> filter makes `H5Dcreate2()` fail and an optional one stores the data
+> unfiltered. ZFP performs lossy compression directly on numerical
 > values; if bytes are shuffled before ZFP, it corrupts the dataset. To
 > ensure safety, **this plugin automatically disables all Blosc2
 > pre-filters if a ZFP codec is selected**. You must also ensure no
@@ -174,7 +176,10 @@ pre-filters into a single mask.
 - **Filter ID:** `32026`
 - **Elements (`cd_nelmts`):** 8
 - **`cd_values[0-3]`:** Reserved (Pass `0`).
-- **`cd_values[4]`:** Compression level (`0` to `9`).
+- **`cd_values[4]`:** Compression level (`0` to `9`). A higher level
+  makes `H5Dcreate2()` fail; the plugin itself records `255` for a
+  dataset a ZFP codec cannot take, so that every chunk is stored
+  unfiltered.
 - **`cd_values[5]`:** Pre-filter Bitmask. Sum the following values to
   chain filters (they will automatically execute in the optimal order:
   Truncprec -\> Delta -\> Bitshuffle/Shuffle):
