@@ -24,6 +24,28 @@
   such chunks. Datasets already written by hdf5lib 2.2.0.0 and earlier
   keep their old parameters: `hdf5lib` still reads them, but
   `hdf5plugin` cannot, so rewrite them to share them with Python.
+- Blosc2 (`32026`) has a new `cd_values` layout, in which every slot
+  holds what the reference HDF5-Blosc2 filter keeps there.
+  `cd_values[5]` is now the last pre-filter as a single Blosc2 filter
+  code (`0` none, `1` shuffle, `2` bitshuffle, `3` delta, `4`
+  trunc-prec), and nothing follows the chunk shape. hdf5lib’s own
+  settings, the pre-filter bitmask and the meta value (trunc-prec’s
+  precision, NDLZ’s cell size or the ZFP codecs’ parameter), are packed
+  into `cd_values[0]`, where the reference keeps a revision number it
+  never reads: `0xB2100001 + (bitmask << 16) + (meta << 8)`.
+  `hdf5plugin` read the old bitmask as a filter code, so it took delta
+  (`4`) for trunc-prec and rejected pipelines such as delta + bitshuffle
+  (`6`); it now describes hdf5lib’s datasets by their last pre-filter,
+  and `h5py` can append to them. Pass the new form, 7 values, to
+  `H5Pset_filter()`. The old form, with `cd_values[0] = 0`, the bitmask
+  in `cd_values[5]` and the meta value as an 8th value, is still
+  accepted and stored in the new layout. Creation property lists copied
+  from datasets that earlier versions or the reference filter wrote are
+  converted too, and chunks appended to those datasets keep their
+  settings. hdf5lib used to read a reference dataset’s `cd_values[5]` as
+  a bitmask when appending to it, running delta (`3`) as bitshuffle. See
+  the compression article for the layout and for what `h5py` does with
+  each kind of dataset.
 - Patched the bundled ZFP to remove undefined behaviour that UBSan
   reports. Its lifting transforms now do their arithmetic in unsigned
   integers instead of relying on signed overflow and left shifts of
@@ -48,23 +70,24 @@
   creates them, now gets a ZFP header for its own chunks in the same
   mode. It used to inherit the original’s header, which miscompressed
   chunks of a different shape or type.
-- Blosc2’s truncate-precision pre-filter (`8` in `cd_values[5]`) now
-  applies only to native-order `float32` and `float64` data, and arrays
-  of them; for other datatypes the flag is dropped. It used to zero the
-  low bits of any 4- or 8-byte item: integers and 8-byte compound
-  records were corrupted (keeping 10 bits, every `int32` below 8192 read
-  back as 0), and chunks of other item sizes failed. A precision that
-  Blosc2 cannot apply (keeping 0 bits, or dropping the whole mantissa)
-  now makes `H5Dcreate2()` fail instead of every chunk, and keeping more
-  bits than the mantissa holds keeps them all. Datasets created by
-  earlier versions keep the flag, so chunks written to them later are
-  still truncated.
+- Blosc2’s truncate-precision pre-filter (bitmask `8`) now applies only
+  to native-order `float32` and `float64` data, and arrays of them; for
+  other datatypes the flag is dropped. It used to zero the low bits of
+  any 4- or 8-byte item: integers and 8-byte compound records were
+  corrupted (keeping 10 bits, every `int32` below 8192 read back as 0),
+  and chunks of other item sizes failed. A precision that Blosc2 cannot
+  apply (keeping 0 bits, or dropping the whole mantissa) now makes
+  `H5Dcreate2()` fail instead of every chunk, and keeping more bits than
+  the mantissa holds keeps them all. Datasets created by earlier
+  versions keep the flag, so chunks written to them later are still
+  truncated.
 - A Blosc2 dataset created from another’s creation property list, as
   `h5repack` creates them, now keeps the original’s meta value
   (truncation precision, or the ZFP codecs’ parameter). For chunks with
   two or more dimensions the filter took the stored chunk rank for it,
   so a 2-D copy kept 2 bits of precision, or relaxed ZFP’s accuracy to
-  10^2.
+  10^2. The meta value is now stored in `cd_values[0]`, away from the
+  chunk shape.
 - Blosc2’s ZFP codecs (`33` to `35`) no longer silently corrupt data
   that is not native-order `float32` or `float64`. They compressed
   integers and byte-swapped floats as though they were native floats,
@@ -83,12 +106,78 @@
 - `hdf5lib_destroy_all_filters()` now also unregisters the BitGroom,
   Granular BitRound, and BitRound read shims that
   `hdf5lib_register_all_filters()` registers.
+- Blosc2 no longer loses data when a chunk’s bytes don’t match the chunk
+  geometry it records. Three cases hit this: an array datatype with 2-D
+  or larger chunks, NDLZ with an array datatype, and a filter that
+  changes a chunk’s size (Fletcher32 or scale-offset) running before
+  Blosc2. Only part of each chunk was compressed, so writes succeeded
+  and every read failed. Array datatypes are now recorded without B2ND
+  geometry, and a chunk whose size doesn’t match its geometry falls back
+  to plain Blosc2, as the reference filter does.
+- Blosc2’s ZFP codecs no longer fail every chunk with a rank above 4 or
+  a dimension under 4, shapes that c-blosc2’s ZFP codec rejects. Such
+  chunks now use 1-D ZFP. A chunk of fewer than 4 values is handled like
+  a datatype ZFP can’t take. Blosc2 now also reads datasets whose filter
+  parameters hold fewer than 7 values, as the reference filter writes
+  them for 1-D chunks.
+- Every filter now fails cleanly on a truncated or corrupt chunk.
+  Previously bzip2 hung, Snappy returned an uninitialized tail, LZ4
+  didn’t check each block’s decoded length, and Blosc, Bitshuffle and
+  ZFP could read past the end of the chunk.
+- The Snappy filter (`32003`) now writes chunks in the layout of
+  [snappy-cuda](https://github.com/lucasvr/snappy-cuda), the filter that
+  HDF5’s registry assigns that ID to, so the two can read each other’s
+  files. A chunk holds the uncompressed length and a 32 KiB block size
+  as varints, then each block as a 4-byte little-endian length and its
+  raw Snappy data. The filter used to write one raw Snappy stream per
+  chunk, which snappy-cuda can’t read. It reads both layouts,
+  snappy-cuda’s at any block size, and still uses only the bundled
+  csnappy, so no CUDA is needed. `hdf5lib` 2.2.0.0 and earlier can’t
+  read Snappy chunks written by this version. Blosc’s `snappy` codec is
+  a different container (filter `32001`) and remains the way to share
+  Snappy-compressed data with `h5py` and `hdf5plugin`, which have no
+  `32003` filter.
+- Snappy now refuses chunks of about 3.4 GB or more, whose worst-case
+  compressed size overflowed its output buffer. LZF refuses chunks of 4
+  GB or more, which it used to truncate silently; HDF5 2.x allows chunks
+  that large.
+- ZFP now byte-swaps data before compressing chunks appended to a
+  dataset written on a machine of the other byte order, matching how
+  such chunks are read. It refuses a chunk whose size differs from what
+  its ZFP header describes, where it used to read past the chunk. Chunk
+  dimensions too large for ZFP’s header are now treated like other
+  chunks ZFP can’t take, so an optional filter declines them instead of
+  failing `H5Dcreate2()`. A dataset created from a declined dataset’s
+  creation property list is declined again instead of failing.
+- Bitshuffle: a dataset created from another Bitshuffle dataset’s
+  creation property list, as `h5repack` creates them, now keeps its
+  codec. `set_local` used to shift the copied parameters again, so every
+  chunk failed. A block size that isn’t a multiple of 8, or an unknown
+  codec, now makes `H5Dcreate2()` fail instead of every chunk. An
+  element size of 0 no longer divides by zero. Unknown codec IDs in
+  existing files are read as plain bitshuffle, as the reference filter
+  reads them.
+- The read-only BitGroom, Granular BitRound and BitRound shims are now
+  registered only for IDs no other filter has, such as a real plugin
+  found through `HDF5_PLUGIN_PATH`, which can also write.
+  `hdf5lib_destroy_all_filters()` unregisters only the shims it
+  registered.
+- Compiled code no longer refers to the C library’s `stderr`, which R
+  CMD check flags in packages that link hdf5lib. The Blosc filter now
+  reports errors only through HDF5’s error stack, and bzip2 is built
+  with `BZ_NO_STDIO`. c-blosc2’s `BLOSC_TRACE` and `BLOSC_INFO` messages
+  are compiled out, because they could run on Blosc worker threads,
+  where R’s console can’t be used.
+- The smoke tests now read data back through a fresh dataset handle, so
+  every chunk is decompressed rather than served from HDF5’s chunk
+  cache.
 - Corrected the Blosc2 NDLZ codec ID in the compression article (`32`,
   not `11`), corrected its claims about `h5py` interoperability, and
   documented the threading and non-finite behaviour. The
   interoperability tests now cover 1-D and high-rank Blosc2 chunks,
-  Blosc2’s ZFP and NDLZ codecs, and use the documented Blosc2 pre-filter
-  bitmask.
+  Blosc2’s ZFP and NDLZ codecs, and the old and new Blosc2 `cd_values`
+  forms, and check that `hdf5plugin` describes hdf5lib’s Blosc2 datasets
+  and that `h5py` can append to them.
 
 ## hdf5lib 2.2.0.0
 

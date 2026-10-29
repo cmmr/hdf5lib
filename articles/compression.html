@@ -236,12 +236,14 @@ can (de)compress those blocks on several threads at once; see <a href="#multi-th
 Programmable Filter Pipeline, allowing you to easily chain multiple
 pre-filters (like Delta followed by Bitshuffle) before the data hits the
 final compressor.</p>
-<p>Our plugin implementation uses a highly efficient <strong>bitmask
-architecture</strong> to specify these complex pipelines while strictly
-maintaining a standard 8-element configuration. The values it stores in
-the file follow the layout of the reference HDF5-Blosc2 filter that
-<code>hdf5plugin</code> uses, so <code>h5py</code> reads the data at any
-chunk rank.</p>
+<p>The plugin’s <code>cd_values</code> follow the layout of the
+reference HDF5-Blosc2 filter (the one <code>hdf5plugin</code>, PyTables
+and The HDF Group build) slot for slot, so other implementations can
+read, describe and append to <code>hdf5lib</code>’s datasets. The
+reference has room for a single pre-filter and no codec parameters, so
+the plugin packs the rest of its settings, the whole pre-filter pipeline
+and one parameter byte, into <code>cd_values[0]</code>, which the
+reference only uses for its revision number and never reads.</p>
 <blockquote>
 <p><strong>Restrictions on ZFP:</strong> When using a ZFP compressor
 codec (<code>33</code>, <code>34</code>, <code>35</code>), the data
@@ -255,40 +257,125 @@ all Blosc2 pre-filters if a ZFP codec is selected</strong>. You must
 also ensure no upstream native HDF5 filters (e.g.,
 <code>H5Pset_shuffle</code>) are applied before Blosc2 in your property
 list. ZFP also cannot store <code>NaN</code> or <code>Inf</code> values;
-see <a href="#non-finite-values">Non-finite values</a> under ZFP.</p>
+see <a href="#non-finite-values">Non-finite values</a> under ZFP. Chunks
+of more than 4 dimensions, or with a dimension under 4, are compressed
+as one long row, because the codec cannot take them as they are.</p>
 </blockquote>
 <div class="section level4">
 <h4 id="plugin-configuration">Plugin Configuration<a class="anchor" aria-label="anchor" href="#plugin-configuration"></a>
 </h4>
-<p>Blosc2 pipelines are defined by summing the bit values of your
-desired pre-filters into a single mask.</p>
 <ul>
 <li>
 <strong>Filter ID:</strong> <code>32026</code>
 </li>
 <li>
-<strong>Elements (<code>cd_nelmts</code>):</strong> 8</li>
-<li>
-<strong><code>cd_values[0-3]</code>:</strong> Reserved (Pass
-<code>0</code>).</li>
-<li>
-<strong><code>cd_values[4]</code>:</strong> Compression level
-(<code>0</code> to <code>9</code>). A higher level makes
-<code>H5Dcreate2()</code> fail; the plugin itself records
-<code>255</code> for a dataset a ZFP codec cannot take, so that every
-chunk is stored unfiltered.</li>
-<li>
-<strong><code>cd_values[5]</code>:</strong> Pre-filter Bitmask. Sum
-the following values to chain filters (they will automatically execute
-in the optimal order: Truncprec -&gt; Delta -&gt; Bitshuffle/Shuffle):
+<strong>Elements (<code>cd_nelmts</code>):</strong> 7</li>
+</ul>
+<table class="table">
+<colgroup>
+<col width="33%">
+<col width="33%">
+<col width="33%">
+</colgroup>
+<thead><tr class="header">
+<th>Slot</th>
+<th>You pass</th>
+<th>The plugin stores</th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td><code>cd_values[0]</code></td>
+<td>The packed settings below</td>
+<td>The same, less anything that does not run (see below)</td>
+</tr>
+<tr class="even">
+<td><code>cd_values[1]</code></td>
+<td><code>0</code></td>
+<td>
+<code>0</code>: Blosc2 picks the block size</td>
+</tr>
+<tr class="odd">
+<td><code>cd_values[2]</code></td>
+<td><code>0</code></td>
+<td>The item size in bytes</td>
+</tr>
+<tr class="even">
+<td><code>cd_values[3]</code></td>
+<td><code>0</code></td>
+<td>The chunk size in bytes</td>
+</tr>
+<tr class="odd">
+<td><code>cd_values[4]</code></td>
+<td>Compression level, <code>0</code> to <code>9</code>
+</td>
+<td>The same, or <code>255</code> for a dataset a ZFP codec cannot
+take</td>
+</tr>
+<tr class="even">
+<td><code>cd_values[5]</code></td>
+<td>
+<code>0</code>, or the code of the last pre-filter</td>
+<td>The code of the last pre-filter</td>
+</tr>
+<tr class="odd">
+<td><code>cd_values[6]</code></td>
+<td>Codec</td>
+<td>The same</td>
+</tr>
+<tr class="even">
+<td>
+<code>cd_values[7]</code>, <code>[8...]</code>
+</td>
+<td>Nothing</td>
+<td>The chunk rank and shape, for chunks compressed as B2ND arrays</td>
+</tr>
+</tbody>
+</table>
+<p>The packed settings in <code>cd_values[0]</code>:</p>
+<table class="table">
+<thead><tr class="header">
+<th>Bits</th>
+<th>Contents</th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td>31-24</td>
+<td>
+<code>0xB2</code>, marking the value as <code>hdf5lib</code>’s</td>
+</tr>
+<tr class="even">
+<td>23-20</td>
+<td>Layout version, <code>1</code>
+</td>
+</tr>
+<tr class="odd">
+<td>19-16</td>
+<td>Pre-filter bitmask</td>
+</tr>
+<tr class="even">
+<td>15-8</td>
+<td>Meta value</td>
+</tr>
+<tr class="odd">
+<td>7-0</td>
+<td>
+<code>1</code>, the reference filter’s revision</td>
+</tr>
+</tbody>
+</table>
+<p>That is,
+<code>cd_values[0] = 0xB2100001 + (bitmask &lt;&lt; 16) + (meta &lt;&lt; 8)</code>.</p>
 <ul>
 <li>
-<code>0</code> = No Filter</li>
+<strong>Pre-filter bitmask:</strong> the sum of the pre-filters to
+chain. They run in the order trunc-prec, delta, then bitshuffle or
+shuffle, whatever the order of the bits:
+<ul>
 <li>
 <code>1</code> = Byte Shuffle</li>
 <li>
-<code>2</code> = Bitshuffle (Prioritized if both 1 and 2 are
-passed)</li>
+<code>2</code> = Bitshuffle (wins if both <code>1</code> and
+<code>2</code> are given)</li>
 <li>
 <code>4</code> = Delta</li>
 <li>
@@ -299,30 +386,24 @@ corrupt)</li>
 </ul>
 </li>
 <li>
-<strong><code>cd_values[6]</code>:</strong> Compressor ID
-(<code>0</code>=blosclz, <code>1</code>=lz4, <code>2</code>=lz4hc,
-<code>4</code>=zlib, <code>5</code>=zstd, <code>32</code>=ndlz,
-<code>33</code>=zfp_acc, <code>34</code>=zfp_prec,
-<code>35</code>=zfp_rate).</li>
-<li>
-<strong><code>cd_values[7]</code>:</strong> Metadata Value. This
-serves a dual purpose based on your configuration:
+<strong>Meta value:</strong> one byte, read according to the
+configuration:
 <ul>
 <li>
-<em>Truncate Precision:</em> If the <code>truncprec</code>
-pre-filter is active (bitmask in <code>cd_values[5]</code> includes
-<code>8</code>), this integer defines the number of mantissa bits to
-keep: <code>1</code> to <code>23</code> for <code>float32</code>,
-<code>1</code> to <code>52</code> for <code>float64</code>. Blosc2 reads
-it as a signed byte, so a negative value (<code>256 - n</code>) drops
-<code>n</code> bits instead. A value that would keep no bits or drop the
-whole mantissa makes <code>H5Dcreate2()</code> fail; one that keeps more
-bits than the mantissa holds keeps them all.</li>
+<em>Truncate Precision:</em> If the bitmask includes <code>8</code>,
+the number of mantissa bits to keep: <code>1</code> to <code>23</code>
+for <code>float32</code>, <code>1</code> to <code>52</code> for
+<code>float64</code>. Blosc2 reads it as a signed byte, so a negative
+value (<code>256 - n</code>) drops <code>n</code> bits instead. A value
+that would keep no bits or drop the whole mantissa makes
+<code>H5Dcreate2()</code> fail; one that keeps more bits than the
+mantissa holds keeps them all.</li>
 <li>
-<em>ZFP Metadata:</em> Because <code>cd_values</code> are strictly
-passed as unsigned integers, Blosc2 applies specific internal formulas
-to map this 8-bit integer (<code>uint8_t</code>) to ZFP’s required
-floating-point parameters:
+<em>NDLZ:</em> The cell size, <code>4</code> or <code>8</code>. Any
+other value is taken as <code>4</code>.</li>
+<li>
+<em>ZFP Metadata:</em> Blosc2 applies specific internal formulas to
+map this byte to ZFP’s floating-point parameters:
 <ul>
 <li>
 <strong>Precision (<code>34</code>):</strong> Passed directly as an
@@ -331,8 +412,7 @@ integer. For 16 bits of precision, pass <code>16</code>.</li>
 <strong>Accuracy (<code>33</code>):</strong> Interpreted as a
 base-10 exponent (<code>10^meta</code>). To pass a negative exponent
 like <code>-3</code> (for an accuracy tolerance of <code>0.001</code>),
-you must pass its 8-bit unsigned equivalent:
-<code>256 - 3 = 253</code>.</li>
+pass its 8-bit unsigned equivalent: <code>256 - 3 = 253</code>.</li>
 <li>
 <strong>Rate (<code>35</code>):</strong> Interpreted as a
 <em>percentage</em> of the original data size. For example, to achieve a
@@ -344,34 +424,70 @@ pass <code>25</code>.</li>
 <li>Otherwise, pass <code>0</code>.</li>
 </ul>
 </li>
+<li>
+<strong><code>cd_values[4]</code>:</strong> Compression level
+(<code>0</code> to <code>9</code>). A higher level makes
+<code>H5Dcreate2()</code> fail; the plugin itself records
+<code>255</code> for a dataset a ZFP codec cannot take, so that every
+chunk is stored unfiltered.</li>
+<li>
+<strong><code>cd_values[5]</code>:</strong> the last pre-filter that
+runs, as a single Blosc2 filter code, which is what the reference filter
+keeps in this slot: <code>2</code> if the bitmask has bitshuffle, else
+<code>1</code> if shuffle, else <code>3</code> if delta, else
+<code>4</code> if trunc-prec, else <code>0</code>. The plugin works it
+out from the bitmask, so pass <code>0</code> or that code; any other
+value makes <code>H5Dcreate2()</code> fail with a message naming the
+code expected.</li>
+<li>
+<strong><code>cd_values[6]</code>:</strong> Compressor ID
+(<code>0</code>=blosclz, <code>1</code>=lz4, <code>2</code>=lz4hc,
+<code>4</code>=zlib, <code>5</code>=zstd, <code>32</code>=ndlz,
+<code>33</code>=zfp_acc, <code>34</code>=zfp_prec,
+<code>35</code>=zfp_rate).</li>
 </ul>
+<p>The list the plugin stores records only what runs, so it may differ
+from the one you passed. The ZFP codecs and NDLZ skip the pre-filters,
+so their bitmask and <code>cd_values[5]</code> are stored as
+<code>0</code>. With bitshuffle, the shuffle bit is dropped;
+truncate-precision is dropped on data it cannot take, or when it would
+keep every bit. The meta value is stored as <code>0</code> when nothing
+reads it, and NDLZ’s as <code>4</code> or <code>8</code>. For chunks of
+2 to 16 dimensions the plugin adds the rank and shape in
+<code>cd_values[7]</code> onwards, as the reference does, except for
+array datatypes, which it compresses as plain Blosc2, and ZFP chunks of
+more than 4 dimensions or with a dimension under 4, which it compresses
+as one long row. NDLZ always records the 2-D byte image it compresses.
+Values you pass after <code>cd_values[6]</code> are ignored.</p>
 </div>
 <div class="section level4">
 <h4 id="example-1-standard-compression">Example 1: Standard Compression<a class="anchor" aria-label="anchor" href="#example-1-standard-compression"></a>
 </h4>
 <p>Using Zstd (level 5) with the standard Bitshuffle pre-filter.</p>
-<div class="sourceCode" id="cb4"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb4-1"><a href="#cb4-1" tabindex="-1"></a><span class="co">// Mask for Bitshuffle is 2</span></span>
-<span id="cb4-2"><a href="#cb4-2" tabindex="-1"></a><span class="dt">unsigned</span> <span class="dt">int</span> cd_values<span class="op">[</span><span class="dv">8</span><span class="op">]</span> <span class="op">=</span> <span class="op">{</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">5</span><span class="op">,</span> <span class="dv">2</span><span class="op">,</span> <span class="dv">5</span><span class="op">,</span> <span class="dv">0</span> <span class="op">};</span> </span>
-<span id="cb4-3"><a href="#cb4-3" tabindex="-1"></a>H5Pset_filter<span class="op">(</span>plist_id<span class="op">,</span> <span class="dv">32026</span><span class="op">,</span> H5Z_FLAG_MANDATORY<span class="op">,</span> <span class="dv">8</span><span class="op">,</span> cd_values<span class="op">);</span></span></code></pre></div>
+<div class="sourceCode" id="cb4"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb4-1"><a href="#cb4-1" tabindex="-1"></a><span class="co">// cd_values[0]: bitmask 2 (Bitshuffle), meta 0 -&gt; 0xB2120001</span></span>
+<span id="cb4-2"><a href="#cb4-2" tabindex="-1"></a><span class="co">// cd_values[5]: Bitshuffle (2) is the last pre-filter</span></span>
+<span id="cb4-3"><a href="#cb4-3" tabindex="-1"></a><span class="dt">unsigned</span> <span class="dt">int</span> cd_values<span class="op">[</span><span class="dv">7</span><span class="op">]</span> <span class="op">=</span> <span class="op">{</span> <span class="bn">0xB2120001</span><span class="op">,</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">5</span><span class="op">,</span> <span class="dv">2</span><span class="op">,</span> <span class="dv">5</span> <span class="op">};</span></span>
+<span id="cb4-4"><a href="#cb4-4" tabindex="-1"></a>H5Pset_filter<span class="op">(</span>plist_id<span class="op">,</span> <span class="dv">32026</span><span class="op">,</span> H5Z_FLAG_MANDATORY<span class="op">,</span> <span class="dv">7</span><span class="op">,</span> cd_values<span class="op">);</span></span></code></pre></div>
 </div>
 <div class="section level4">
 <h4 id="example-2-multi-filter-pipeline">Example 2: Multi-Filter Pipeline<a class="anchor" aria-label="anchor" href="#example-2-multi-filter-pipeline"></a>
 </h4>
 <p>Chaining the Delta filter and Bitshuffle before hitting Zstd (level
 5).</p>
-<div class="sourceCode" id="cb5"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb5-1"><a href="#cb5-1" tabindex="-1"></a><span class="co">// Mask for Delta (4) + Bitshuffle (2) = 6</span></span>
-<span id="cb5-2"><a href="#cb5-2" tabindex="-1"></a><span class="dt">unsigned</span> <span class="dt">int</span> cd_values<span class="op">[</span><span class="dv">8</span><span class="op">]</span> <span class="op">=</span> <span class="op">{</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">5</span><span class="op">,</span> <span class="dv">6</span><span class="op">,</span> <span class="dv">5</span><span class="op">,</span> <span class="dv">0</span> <span class="op">};</span> </span>
-<span id="cb5-3"><a href="#cb5-3" tabindex="-1"></a>H5Pset_filter<span class="op">(</span>plist_id<span class="op">,</span> <span class="dv">32026</span><span class="op">,</span> H5Z_FLAG_MANDATORY<span class="op">,</span> <span class="dv">8</span><span class="op">,</span> cd_values<span class="op">);</span></span></code></pre></div>
+<div class="sourceCode" id="cb5"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb5-1"><a href="#cb5-1" tabindex="-1"></a><span class="co">// cd_values[0]: bitmask Delta (4) + Bitshuffle (2) = 6, meta 0 -&gt; 0xB2160001</span></span>
+<span id="cb5-2"><a href="#cb5-2" tabindex="-1"></a><span class="co">// cd_values[5]: Bitshuffle (2) runs last</span></span>
+<span id="cb5-3"><a href="#cb5-3" tabindex="-1"></a><span class="dt">unsigned</span> <span class="dt">int</span> cd_values<span class="op">[</span><span class="dv">7</span><span class="op">]</span> <span class="op">=</span> <span class="op">{</span> <span class="bn">0xB2160001</span><span class="op">,</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">5</span><span class="op">,</span> <span class="dv">2</span><span class="op">,</span> <span class="dv">5</span> <span class="op">};</span></span>
+<span id="cb5-4"><a href="#cb5-4" tabindex="-1"></a>H5Pset_filter<span class="op">(</span>plist_id<span class="op">,</span> <span class="dv">32026</span><span class="op">,</span> H5Z_FLAG_MANDATORY<span class="op">,</span> <span class="dv">7</span><span class="op">,</span> cd_values<span class="op">);</span></span></code></pre></div>
 </div>
 <div class="section level4">
 <h4 id="example-3-truncate-precision-pipeline">Example 3: Truncate Precision Pipeline<a class="anchor" aria-label="anchor" href="#example-3-truncate-precision-pipeline"></a>
 </h4>
 <p>Truncating floats to 16 bits of precision, applying Bitshuffle, and
 compressing with LZ4.</p>
-<div class="sourceCode" id="cb6"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb6-1"><a href="#cb6-1" tabindex="-1"></a><span class="co">// Mask for Truncprec (8) + Bitshuffle (2) = 10.</span></span>
-<span id="cb6-2"><a href="#cb6-2" tabindex="-1"></a><span class="co">// We pass the 16-bit metadata requirement in cd_values[7].</span></span>
-<span id="cb6-3"><a href="#cb6-3" tabindex="-1"></a><span class="dt">unsigned</span> <span class="dt">int</span> cd_values<span class="op">[</span><span class="dv">8</span><span class="op">]</span> <span class="op">=</span> <span class="op">{</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">5</span><span class="op">,</span> <span class="dv">10</span><span class="op">,</span> <span class="dv">1</span><span class="op">,</span> <span class="dv">16</span> <span class="op">};</span> </span>
-<span id="cb6-4"><a href="#cb6-4" tabindex="-1"></a>H5Pset_filter<span class="op">(</span>plist_id<span class="op">,</span> <span class="dv">32026</span><span class="op">,</span> H5Z_FLAG_MANDATORY<span class="op">,</span> <span class="dv">8</span><span class="op">,</span> cd_values<span class="op">);</span></span></code></pre></div>
+<div class="sourceCode" id="cb6"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb6-1"><a href="#cb6-1" tabindex="-1"></a><span class="co">// cd_values[0]: bitmask Truncprec (8) + Bitshuffle (2) = 10, meta 16 bits -&gt; 0xB21A1001</span></span>
+<span id="cb6-2"><a href="#cb6-2" tabindex="-1"></a><span class="co">// cd_values[5]: Bitshuffle (2) runs last</span></span>
+<span id="cb6-3"><a href="#cb6-3" tabindex="-1"></a><span class="dt">unsigned</span> <span class="dt">int</span> cd_values<span class="op">[</span><span class="dv">7</span><span class="op">]</span> <span class="op">=</span> <span class="op">{</span> <span class="bn">0xB21A1001</span><span class="op">,</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">5</span><span class="op">,</span> <span class="dv">2</span><span class="op">,</span> <span class="dv">1</span> <span class="op">};</span></span>
+<span id="cb6-4"><a href="#cb6-4" tabindex="-1"></a>H5Pset_filter<span class="op">(</span>plist_id<span class="op">,</span> <span class="dv">32026</span><span class="op">,</span> H5Z_FLAG_MANDATORY<span class="op">,</span> <span class="dv">7</span><span class="op">,</span> cd_values<span class="op">);</span></span></code></pre></div>
 <p>Truncation zeroes the low bits of every value, including the payload
 bits of a <code>NaN</code>. <code>Inf</code>, and a <code>NaN</code>
 whose payload has its top bit set (the usual quiet <code>NaN</code>),
@@ -387,19 +503,19 @@ truncation off for data that contains it.</p>
 </h4>
 <p>Using Blosc2’s meta-compressor to run ZFP in Fixed Precision mode,
 keeping exactly 16 bits of precision.</p>
-<div class="sourceCode" id="cb7"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a><span class="co">// We pass the ZFP precision metadata (16) directly in cd_values[7].</span></span>
-<span id="cb7-2"><a href="#cb7-2" tabindex="-1"></a><span class="co">// Any pre-filters requested in cd_values[5] are safely ignored by the plugin.</span></span>
-<span id="cb7-3"><a href="#cb7-3" tabindex="-1"></a><span class="dt">unsigned</span> <span class="dt">int</span> cd_values<span class="op">[</span><span class="dv">8</span><span class="op">]</span> <span class="op">=</span> <span class="op">{</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">5</span><span class="op">,</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">34</span><span class="op">,</span> <span class="dv">16</span> <span class="op">};</span> </span>
-<span id="cb7-4"><a href="#cb7-4" tabindex="-1"></a>H5Pset_filter<span class="op">(</span>plist_id<span class="op">,</span> <span class="dv">32026</span><span class="op">,</span> H5Z_FLAG_MANDATORY<span class="op">,</span> <span class="dv">8</span><span class="op">,</span> cd_values<span class="op">);</span></span></code></pre></div>
+<div class="sourceCode" id="cb7"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a><span class="co">// cd_values[0]: bitmask 0 (ZFP skips pre-filters), meta 16 bits -&gt; 0xB2101001</span></span>
+<span id="cb7-2"><a href="#cb7-2" tabindex="-1"></a><span class="dt">unsigned</span> <span class="dt">int</span> cd_values<span class="op">[</span><span class="dv">7</span><span class="op">]</span> <span class="op">=</span> <span class="op">{</span> <span class="bn">0xB2101001</span><span class="op">,</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">5</span><span class="op">,</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">34</span> <span class="op">};</span></span>
+<span id="cb7-3"><a href="#cb7-3" tabindex="-1"></a>H5Pset_filter<span class="op">(</span>plist_id<span class="op">,</span> <span class="dv">32026</span><span class="op">,</span> H5Z_FLAG_MANDATORY<span class="op">,</span> <span class="dv">7</span><span class="op">,</span> cd_values<span class="op">);</span></span></code></pre></div>
 </div>
 <div class="section level4">
 <h4 id="example-5-blosc2-zfp-accuracy">Example 5: Blosc2 + ZFP Accuracy<a class="anchor" aria-label="anchor" href="#example-5-blosc2-zfp-accuracy"></a>
 </h4>
 <p>Using ZFP Accuracy mode to enforce an absolute error tolerance of
 <code>0.001</code> (<code>10^-3</code>).</p>
-<div class="sourceCode" id="cb8"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb8-1"><a href="#cb8-1" tabindex="-1"></a><span class="co">// ZFP Accuracy uses an exponent. The unsigned 8-bit equivalent of -3 is 253.</span></span>
-<span id="cb8-2"><a href="#cb8-2" tabindex="-1"></a><span class="dt">unsigned</span> <span class="dt">int</span> cd_values<span class="op">[</span><span class="dv">8</span><span class="op">]</span> <span class="op">=</span> <span class="op">{</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">5</span><span class="op">,</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">33</span><span class="op">,</span> <span class="dv">253</span> <span class="op">};</span> </span>
-<span id="cb8-3"><a href="#cb8-3" tabindex="-1"></a>H5Pset_filter<span class="op">(</span>plist_id<span class="op">,</span> <span class="dv">32026</span><span class="op">,</span> H5Z_FLAG_MANDATORY<span class="op">,</span> <span class="dv">8</span><span class="op">,</span> cd_values<span class="op">);</span></span></code></pre></div>
+<div class="sourceCode" id="cb8"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb8-1"><a href="#cb8-1" tabindex="-1"></a><span class="co">// ZFP Accuracy uses an exponent. The unsigned 8-bit equivalent of -3 is 253 (0xFD).</span></span>
+<span id="cb8-2"><a href="#cb8-2" tabindex="-1"></a><span class="co">// cd_values[0]: bitmask 0, meta 253 -&gt; 0xB210FD01</span></span>
+<span id="cb8-3"><a href="#cb8-3" tabindex="-1"></a><span class="dt">unsigned</span> <span class="dt">int</span> cd_values<span class="op">[</span><span class="dv">7</span><span class="op">]</span> <span class="op">=</span> <span class="op">{</span> <span class="bn">0xB210FD01</span><span class="op">,</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">5</span><span class="op">,</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">33</span> <span class="op">};</span></span>
+<span id="cb8-4"><a href="#cb8-4" tabindex="-1"></a>H5Pset_filter<span class="op">(</span>plist_id<span class="op">,</span> <span class="dv">32026</span><span class="op">,</span> H5Z_FLAG_MANDATORY<span class="op">,</span> <span class="dv">7</span><span class="op">,</span> cd_values<span class="op">);</span></span></code></pre></div>
 </div>
 <div class="section level4">
 <h4 id="example-6-blosc2-zfp-rate">Example 6: Blosc2 + ZFP Rate<a class="anchor" aria-label="anchor" href="#example-6-blosc2-zfp-rate"></a>
@@ -407,8 +523,93 @@ keeping exactly 16 bits of precision.</p>
 <p>Using ZFP Rate mode to compress 32-bit floats down to exactly 8 bits
 per value.</p>
 <div class="sourceCode" id="cb9"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb9-1"><a href="#cb9-1" tabindex="-1"></a><span class="co">// ZFP Rate requires a percentage of the original size. 8 / 32 = 0.25 (25%).</span></span>
-<span id="cb9-2"><a href="#cb9-2" tabindex="-1"></a><span class="dt">unsigned</span> <span class="dt">int</span> cd_values<span class="op">[</span><span class="dv">8</span><span class="op">]</span> <span class="op">=</span> <span class="op">{</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">5</span><span class="op">,</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">35</span><span class="op">,</span> <span class="dv">25</span> <span class="op">};</span> </span>
-<span id="cb9-3"><a href="#cb9-3" tabindex="-1"></a>H5Pset_filter<span class="op">(</span>plist_id<span class="op">,</span> <span class="dv">32026</span><span class="op">,</span> H5Z_FLAG_MANDATORY<span class="op">,</span> <span class="dv">8</span><span class="op">,</span> cd_values<span class="op">);</span></span></code></pre></div>
+<span id="cb9-2"><a href="#cb9-2" tabindex="-1"></a><span class="co">// cd_values[0]: bitmask 0, meta 25 (0x19) -&gt; 0xB2101901</span></span>
+<span id="cb9-3"><a href="#cb9-3" tabindex="-1"></a><span class="dt">unsigned</span> <span class="dt">int</span> cd_values<span class="op">[</span><span class="dv">7</span><span class="op">]</span> <span class="op">=</span> <span class="op">{</span> <span class="bn">0xB2101901</span><span class="op">,</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">5</span><span class="op">,</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">35</span> <span class="op">};</span></span>
+<span id="cb9-4"><a href="#cb9-4" tabindex="-1"></a>H5Pset_filter<span class="op">(</span>plist_id<span class="op">,</span> <span class="dv">32026</span><span class="op">,</span> H5Z_FLAG_MANDATORY<span class="op">,</span> <span class="dv">7</span><span class="op">,</span> cd_values<span class="op">);</span></span></code></pre></div>
+</div>
+<div class="section level4">
+<h4 id="lists-in-other-forms">Lists in other forms<a class="anchor" aria-label="anchor" href="#lists-in-other-forms"></a>
+</h4>
+<p>The plugin reads <code>cd_values[0]</code> to tell what kind of list
+it was handed, both from your <code>H5Pset_filter()</code> call and from
+a creation property list copied from another dataset (as
+<code>h5repack</code> and <code>H5Dget_create_plist()</code> hand them
+on), and converts each to the layout above:</p>
+<ul>
+<li>
+<strong><code>0</code>: the form earlier versions of
+<code>hdf5lib</code> documented</strong>, still accepted:
+<code>{ 0, 0, 0, 0, level, bitmask, codec, meta }</code>, with the
+pre-filter bitmask in <code>cd_values[5]</code> and the meta value as an
+optional 8th value. Example 3 in this form is
+<code>{ 0, 0, 0, 0, 5, 10, 1, 16 }</code>, and it stores exactly the
+same list as Example 3. Here <code>cd_values[5]</code> is still the
+bitmask, not a filter code. The option tuples <code>hdf5plugin</code>’s
+<code>Blosc2()</code> builds also start with <code>0</code>, so they are
+read this way too, and two of its codes mean something else:
+<code>3</code> (its <code>DELTA</code>) is shuffle + bitshuffle, so
+bitshuffle, and <code>4</code> (its <code>TRUNC_PREC</code>) is delta.
+Passing no values at all also lands here: level 5, shuffle,
+BloscLZ.</li>
+<li>
+<strong><code>1</code>: the reference filter’s own lists</strong>,
+such as a creation property list copied from a dataset <code>h5py</code>
+wrote. <code>cd_values[5]</code> is one filter code (<code>0</code>
+none, <code>1</code> shuffle, <code>2</code> bitshuffle, <code>3</code>
+delta, <code>4</code> trunc-prec); there is no meta value, so trunc-prec
+fails <code>H5Dcreate2()</code> on native floats (it has no precision to
+keep) and NDLZ uses 4 x 4 cells. Any other code fails
+<code>H5Dcreate2()</code>.</li>
+<li>
+<strong><code>2</code>: lists stored by <code>hdf5lib</code> 2.1.1.0
+to 2.2.0.0</strong> (and development builds of 2.2.0.1): the bitmask in
+the low byte of <code>cd_values[5]</code>, and the meta value in its
+next byte (lists of 7 values) or after the chunk shape.</li>
+<li>
+<strong><code>0xB2...</code></strong>: the layout above. A layout
+version other than <code>1</code> fails <code>H5Dcreate2()</code>.</li>
+</ul>
+<p>Any other <code>cd_values[0]</code> fails <code>H5Dcreate2()</code>.
+When the plugin compresses chunks for a dataset already in a file, such
+as one being appended to, it reads the stored list the same way: a
+dataset an earlier <code>hdf5lib</code> wrote keeps the settings it
+recorded, and one another implementation wrote gets the single
+pre-filter its <code>cd_values[5]</code> names, as the reference filter
+would run it. It refuses to compress with a layout version it does not
+know. Reading does not depend on any of these settings, because every
+Blosc2 chunk records its own pre-filters, codec and parameters.</p>
+</div>
+<div class="section level4">
+<h4 id="what-h5py-sees">What <code>h5py</code> sees<a class="anchor" aria-label="anchor" href="#what-h5py-sees"></a>
+</h4>
+<ul>
+<li>
+<strong>Reading:</strong> <code>h5py</code> with
+<code>hdf5plugin</code> reads every Blosc2 dataset <code>hdf5lib</code>
+writes, whatever the pre-filters and codec, as each chunk describes
+itself.</li>
+<li>
+<strong>Describing:</strong>
+<code>hdf5plugin.from_filter_options()</code> describes datasets that
+use one of the five byte codecs as
+<code>Blosc2(cname, clevel, filters)</code>, with <code>filters</code>
+the last pre-filter only, so Example 2 shows as <code>BITSHUFFLE</code>.
+It raises an error for NDLZ and the ZFP codecs.</li>
+<li>
+<strong>Appending:</strong> <code>h5py</code> compresses the chunks
+it adds with the stored codec and level, but runs only the pre-filter in
+<code>cd_values[5]</code>, without the meta value. Datasets whose last
+pre-filter is none, shuffle, bitshuffle or delta take new chunks without
+loss: Example 2’s new chunks are only bitshuffled, and Example 3’s are
+not truncated. Where trunc-prec runs alone, <code>hdf5plugin</code> has
+no precision to give it, so each chunk it compresses fails: a mandatory
+filter fails the write, and an optional one stores the chunk unfiltered,
+as <code>hdf5plugin</code>’s own <code>Blosc2(filters=TRUNC_PREC)</code>
+does. Writes to NDLZ datasets fail the same way. Writes to ZFP datasets
+either fail or, for chunks with recorded geometry, compress with a
+parameter of <code>0</code>, which loses far more than the dataset was
+written with.</li>
+</ul>
 </div>
 <div class="section level4">
 <h4 id="multi-threading">Multi-threading<a class="anchor" aria-label="anchor" href="#multi-threading"></a>
@@ -515,7 +716,10 @@ original numerical array.</p></li>
 parameters. For instance, in Precision mode
 (<code>cd_values[0]=2</code>), <code>cd_values[2]</code> specifies the
 bits of precision to keep, padding the rest with zeros (e.g.,
-<code>{2, 0, 16, 0, 0, 0}</code>).</li>
+<code>{2, 0, 16, 0, 0, 0}</code>). Rate and Accuracy take a
+<code>double</code>, whose 8 bytes fill <code>cd_values[2]</code> and
+<code>cd_values[3]</code> in native memory order, as LLNL’s H5Z-ZFP and
+<code>hdf5plugin</code> lay it out.</li>
 </ul>
 <p>While you can manually pack the 6-element <code>cd_values</code>
 array, the ZFP plugin exposes convenient external helper functions that
@@ -712,6 +916,26 @@ require zero configuration parameters.</p>
 </ul>
 <div class="sourceCode" id="cb17"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb17-1"><a href="#cb17-1" tabindex="-1"></a><span class="co">// Apply Snappy compression</span></span>
 <span id="cb17-2"><a href="#cb17-2" tabindex="-1"></a>H5Pset_filter<span class="op">(</span>plist_id<span class="op">,</span> <span class="dv">32003</span><span class="op">,</span> H5Z_FLAG_MANDATORY<span class="op">,</span> <span class="dv">0</span><span class="op">,</span> NULL<span class="op">);</span></span></code></pre></div>
+<blockquote>
+<p><strong>Snappy’s chunk layout:</strong> HDF5’s filter registry
+assigns <code>32003</code> to <a href="https://github.com/lucasvr/snappy-cuda" class="external-link">snappy-cuda</a>, so
+<code>hdf5lib</code> writes chunks in snappy-cuda’s layout, and the two
+read each other’s files. A chunk holds the uncompressed length and a
+block size of 32 KiB, both as varints, then each block as a 4-byte
+little-endian length followed by that block’s raw Snappy data. Every
+block but the last is full, as snappy-cuda’s GPU decoder requires.
+<code>hdf5lib</code> writes it with the bundled csnappy library, so no
+CUDA or GPU is needed. <code>hdf5lib</code> reads chunks in this layout
+with any block size, and still reads the single raw Snappy stream per
+chunk that <code>hdf5lib</code> 2.2.0.0 and earlier wrote. <strong>Those
+older releases cannot read Snappy chunks written by <code>hdf5lib</code>
+2.2.0.1 or later.</strong></p>
+<p><code>h5py</code> with <code>hdf5plugin</code> has no
+<code>32003</code> filter. Blosc’s <code>snappy</code> codec (filter
+<code>32001</code> with <code>cd_values[6] = 3</code>) is unrelated: it
+wraps Snappy in Blosc’s own container, and it is the way to share
+Snappy-compressed data with Python.</p>
+</blockquote>
 <hr>
 </div>
 </div>
