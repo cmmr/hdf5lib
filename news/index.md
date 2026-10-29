@@ -32,6 +32,42 @@
   bit-for-bit unchanged.
 - The ZFP filter no longer leaks a datatype ID for every dataset it is
   applied to.
+- An optional ZFP filter on chunks that ZFP cannot compress now leaves
+  every chunk unfiltered by design. This covers a single value, more
+  than four dimensions longer than one, items other than 4 or 8 bytes,
+  and data in non-native byte order. The filter used to record no
+  parameters for some of these chunks and then read past them, fail
+  `H5Dcreate2()` for others, and compress byte-swapped data as though it
+  were native, which corrupted it. It now records parameters that make
+  it refuse every chunk, and it refuses chunks whose parameters are
+  missing, as in datasets earlier versions wrote this way. A mandatory
+  ZFP filter still makes `H5Dcreate2()` fail on such chunks.
+- ZFP’s `set_local` callback now reports errors such as an invalid mode
+  instead of succeeding without recording parameters. A dataset created
+  from another ZFP dataset’s creation property list, as `h5repack`
+  creates them, now gets a ZFP header for its own chunks in the same
+  mode. It used to inherit the original’s header, which miscompressed
+  chunks of a different shape or type.
+- Blosc2’s truncate-precision pre-filter (`8` in `cd_values[5]`) now
+  applies only to native-order `float32` and `float64` data, and arrays
+  of them; for other datatypes the flag is dropped. It used to zero the
+  low bits of any 4- or 8-byte item: integers and 8-byte compound
+  records were corrupted (keeping 10 bits, every `int32` below 8192 read
+  back as 0), and chunks of other item sizes failed. A precision that
+  Blosc2 cannot apply (keeping 0 bits, or dropping the whole mantissa)
+  now makes `H5Dcreate2()` fail instead of every chunk, and keeping more
+  bits than the mantissa holds keeps them all. Datasets created by
+  earlier versions keep the flag, so chunks written to them later are
+  still truncated.
+- A Blosc2 dataset created from another’s creation property list, as
+  `h5repack` creates them, now keeps the original’s meta value
+  (truncation precision, or the ZFP codecs’ parameter). For chunks with
+  two or more dimensions the filter took the stored chunk rank for it,
+  so a 2-D copy kept 2 bits of precision, or relaxed ZFP’s accuracy to
+  10^2.
+- `hdf5lib_destroy_all_filters()` now also unregisters the BitGroom,
+  BitShave, and BitRound read shims that
+  `hdf5lib_register_all_filters()` registers.
 - Corrected the Blosc2 NDLZ codec ID in the compression article (`32`,
   not `11`), corrected its claims about `h5py` interoperability, and
   documented the threading and non-finite behaviour. The

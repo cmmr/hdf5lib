@@ -287,7 +287,10 @@ passed)</li>
 <li>
 <code>4</code> = Delta</li>
 <li>
-<code>8</code> = Truncate Precision</li>
+<code>8</code> = Truncate Precision (native-order
+<code>float32</code> and <code>float64</code> data, and arrays of them,
+only; the plugin drops it for every other datatype, which it would
+corrupt)</li>
 </ul>
 </li>
 <li>
@@ -303,8 +306,13 @@ serves a dual purpose based on your configuration:
 <li>
 <em>Truncate Precision:</em> If the <code>truncprec</code>
 pre-filter is active (bitmask in <code>cd_values[5]</code> includes
-<code>8</code>), this integer defines the number of bits of precision to
-keep.</li>
+<code>8</code>), this integer defines the number of mantissa bits to
+keep: <code>1</code> to <code>23</code> for <code>float32</code>,
+<code>1</code> to <code>52</code> for <code>float64</code>. Blosc2 reads
+it as a signed byte, so a negative value (<code>256 - n</code>) drops
+<code>n</code> bits instead. A value that would keep no bits or drop the
+whole mantissa makes <code>H5Dcreate2()</code> fail; one that keeps more
+bits than the mantissa holds keeps them all.</li>
 <li>
 <em>ZFP Metadata:</em> Because <code>cd_values</code> are strictly
 passed as unsigned integers, Blosc2 applies specific internal formulas
@@ -359,6 +367,15 @@ compressing with LZ4.</p>
 <span id="cb6-2"><a href="#cb6-2" tabindex="-1"></a><span class="co">// We pass the 16-bit metadata requirement in cd_values[7].</span></span>
 <span id="cb6-3"><a href="#cb6-3" tabindex="-1"></a><span class="dt">unsigned</span> <span class="dt">int</span> cd_values<span class="op">[</span><span class="dv">8</span><span class="op">]</span> <span class="op">=</span> <span class="op">{</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">5</span><span class="op">,</span> <span class="dv">10</span><span class="op">,</span> <span class="dv">1</span><span class="op">,</span> <span class="dv">16</span> <span class="op">};</span> </span>
 <span id="cb6-4"><a href="#cb6-4" tabindex="-1"></a>H5Pset_filter<span class="op">(</span>plist_id<span class="op">,</span> <span class="dv">32026</span><span class="op">,</span> H5Z_FLAG_MANDATORY<span class="op">,</span> <span class="dv">8</span><span class="op">,</span> cd_values<span class="op">);</span></span></code></pre></div>
+<p>Truncation zeroes the low bits of every value, including the payload
+bits of a <code>NaN</code>. <code>Inf</code>, and a <code>NaN</code>
+whose payload has its top bit set (the usual quiet <code>NaN</code>),
+come through unchanged, but R’s <code>NA_real_</code> (bits
+<code>0x7FF00000000007A2</code>) does not. Its payload sits in the low
+11 bits, so keeping 41 or fewer bits of a <code>float64</code> turns
+<code>NA</code> into <code>Inf</code>, and keeping 42 to 50 bits turns
+it into a plain <code>NaN</code>. To keep <code>NA</code>, leave
+truncation off for data that contains it.</p>
 </div>
 <div class="section level4">
 <h4 id="example-4-blosc2-zfp-precision">Example 4: Blosc2 + ZFP Precision<a class="anchor" aria-label="anchor" href="#example-4-blosc2-zfp-precision"></a>
@@ -435,6 +452,14 @@ will completely corrupt the dataset. You <strong>must not</strong> apply
 upstream HDF5 pre-filters (e.g., Shuffle, Bitshuffle, Scale-Offset)
 before ZFP in your property list.</p>
 </blockquote>
+<p>ZFP also needs the datatype in native byte order, and chunks with one
+to four dimensions longer than one. A single-value chunk, or a
+<code>2 x 2 x 2 x 2 x 2</code> one, does not qualify. On other datasets,
+a mandatory ZFP filter makes <code>H5Dcreate2()</code> fail. An optional
+one (see <a href="#non-finite-values">Non-finite values</a> for how to
+make it optional) stays in the dataset’s filter pipeline but refuses
+every chunk, so HDF5 stores the data unfiltered and any reader can read
+it without ZFP.</p>
 <p><em>(Note: While ZFP can be invoked as a codec within the Blosc2
 meta-compressor, doing so restricts it to floating-point data only and
 limits the available compression modes to Accuracy, Precision, and Rate.

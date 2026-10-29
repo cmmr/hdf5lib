@@ -182,7 +182,9 @@ pre-filters into a single mask.
   - `1` = Byte Shuffle
   - `2` = Bitshuffle (Prioritized if both 1 and 2 are passed)
   - `4` = Delta
-  - `8` = Truncate Precision
+  - `8` = Truncate Precision (native-order `float32` and `float64` data,
+    and arrays of them, only; the plugin drops it for every other
+    datatype, which it would corrupt)
 - **`cd_values[6]`:** Compressor ID (`0`=blosclz, `1`=lz4, `2`=lz4hc,
   `4`=zlib, `5`=zstd, `32`=ndlz, `33`=zfp_acc, `34`=zfp_prec,
   `35`=zfp_rate).
@@ -190,7 +192,11 @@ pre-filters into a single mask.
   on your configuration:
   - *Truncate Precision:* If the `truncprec` pre-filter is active
     (bitmask in `cd_values[5]` includes `8`), this integer defines the
-    number of bits of precision to keep.
+    number of mantissa bits to keep: `1` to `23` for `float32`, `1` to
+    `52` for `float64`. Blosc2 reads it as a signed byte, so a negative
+    value (`256 - n`) drops `n` bits instead. A value that would keep no
+    bits or drop the whole mantissa makes `H5Dcreate2()` fail; one that
+    keeps more bits than the mantissa holds keeps them all.
   - *ZFP Metadata:* Because `cd_values` are strictly passed as unsigned
     integers, Blosc2 applies specific internal formulas to map this
     8-bit integer (`uint8_t`) to ZFP’s required floating-point
@@ -238,6 +244,14 @@ compressing with LZ4.
 unsigned int cd_values[8] = { 0, 0, 0, 0, 5, 10, 1, 16 }; 
 H5Pset_filter(plist_id, 32026, H5Z_FLAG_MANDATORY, 8, cd_values);
 ```
+
+Truncation zeroes the low bits of every value, including the payload
+bits of a `NaN`. `Inf`, and a `NaN` whose payload has its top bit set
+(the usual quiet `NaN`), come through unchanged, but R’s `NA_real_`
+(bits `0x7FF00000000007A2`) does not. Its payload sits in the low 11
+bits, so keeping 41 or fewer bits of a `float64` turns `NA` into `Inf`,
+and keeping 42 to 50 bits turns it into a plain `NaN`. To keep `NA`,
+leave truncation off for data that contains it.
 
 #### Example 4: Blosc2 + ZFP Precision
 
@@ -319,6 +333,14 @@ required.
 > corrupt the dataset. You **must not** apply upstream HDF5 pre-filters
 > (e.g., Shuffle, Bitshuffle, Scale-Offset) before ZFP in your property
 > list.
+
+ZFP also needs the datatype in native byte order, and chunks with one to
+four dimensions longer than one. A single-value chunk, or a
+`2 x 2 x 2 x 2 x 2` one, does not qualify. On other datasets, a
+mandatory ZFP filter makes `H5Dcreate2()` fail. An optional one (see
+[Non-finite values](#non-finite-values) for how to make it optional)
+stays in the dataset’s filter pipeline but refuses every chunk, so HDF5
+stores the data unfiltered and any reader can read it without ZFP.
 
 *(Note: While ZFP can be invoked as a codec within the Blosc2
 meta-compressor, doing so restricts it to floating-point data only and
