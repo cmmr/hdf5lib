@@ -96,6 +96,7 @@ static herr_t H5Pset_zfp(hid_t plist, int mode, ...) {
     unsigned int cd_values[1];
     h5z_zfp_controls_t *ctrls_p = NULL;
     va_list ap;
+    int ap_open = 0;  /* errors jump to done, which must still va_end() */
     herr_t retval = 0;
 
     if (0 >= H5Pisa_class(plist, H5P_DATASET_CREATE))
@@ -105,6 +106,7 @@ static herr_t H5Pset_zfp(hid_t plist, int mode, ...) {
     if (!ctrls_p) PUSH_AND_GOTO(H5E_NOSPACE, -1, "allocation failed for ZFP controls");
 
     va_start(ap, mode);
+    ap_open = 1;
     ctrls_p->mode = mode;
     switch (mode) {
         case H5Z_ZFP_MODE_RATE:
@@ -130,6 +132,7 @@ static herr_t H5Pset_zfp(hid_t plist, int mode, ...) {
             PUSH_AND_GOTO(H5E_BADVALUE, -1, "bad ZFP mode.");
     }
     va_end(ap);
+    ap_open = 0;
 
     for (int i = 0; i < H5Pget_nfilters(plist); i++) {
         H5Z_filter_t fid;
@@ -150,6 +153,7 @@ static herr_t H5Pset_zfp(hid_t plist, int mode, ...) {
     }
 
 done:
+    if (ap_open) va_end(ap);
     if (ctrls_p) H5free_memory(ctrls_p);
     return retval;
 }

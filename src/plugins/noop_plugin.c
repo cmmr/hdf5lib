@@ -3,8 +3,8 @@
  * @brief No-op (Read-Only) HDF5 Filter Shims for Quantization Algorithms
  *
  * BACKGROUND & REASONING:
- * When datasets are written with quantization filters (like BitGroom, BitShave, 
- * or Granular BitRound) using the HDF5 filter pipeline, HDF5 stamps the chunk 
+ * When datasets are written with quantization filters (like BitGroom, Granular
+ * BitRound, or BitRound) using the HDF5 filter pipeline, HDF5 stamps the chunk
  * headers with the respective filter ID. Because quantization alters the IEEE 754 
  * floating-point bits in place (a form of lossy compression), the data written to 
  * disk remains in a standard floating-point format. 
@@ -31,13 +31,14 @@
 
 #include <hdf5.h>
 
-/* * Standard Community Codec Repository (CCR) IDs for Quantization.
- * Note: If your writer used custom or experimental IDs for BitShave/BitRound, 
- * update these macros to match the missing filter IDs in your HDF5 error logs.
+/* * Filter IDs from The HDF Group's registry of filter plugins.  A shim must
+ * only ever claim the ID of a quantizer: under any other filter's ID it would
+ * hand that filter's compressed bytes back as data, and HDF5 would never load
+ * the real plugin.  (32024, which this file once used for BitRound, is SZ3's.)
  */
-#define H5Z_FILTER_BITGROOM 32022
-#define H5Z_FILTER_BITSHAVE 32023 
-#define H5Z_FILTER_BITROUND 32024 
+#define H5Z_FILTER_BITGROOM   32022
+#define H5Z_FILTER_GRANULARBR 32023
+#define H5Z_FILTER_BITROUND   32032
 
 /**
  * @brief The shared no-op filter function.
@@ -85,13 +86,13 @@ const H5Z_class2_t bitgroom_shim_class = {
   noop_filter            /* The shared no-op function */
 };
 
-/* BitShave Shim Class */
-const H5Z_class2_t bitshave_shim_class = { 
+/* Granular BitRound Shim Class */
+const H5Z_class2_t granularbr_shim_class = { 
   H5Z_CLASS_T_VERS, 
-  H5Z_FILTER_BITSHAVE, 
+  H5Z_FILTER_GRANULARBR, 
   0, 
   1, 
-  "bitshave_read_shim", 
+  "granularbr_read_shim", 
   NULL, 
   NULL, 
   noop_filter 

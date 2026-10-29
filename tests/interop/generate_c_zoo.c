@@ -295,6 +295,14 @@ SEXP C_write_zoo(SEXP sexp_filename) {
         H5Pclose(plist); H5Sclose(declined_space);
     }
 
+    // Blosc2's ZFP codecs take native floats only: on int32 an optional filter
+    // records compression level 255, so every chunk is stored unfiltered.
+    plist = H5Pcreate(H5P_DATASET_CREATE); H5Pset_chunk(plist, 2, dims);
+    unsigned int cd_b2zfp[8] = {0, 0, 0, 0, 5, 0, 33, 253};
+    H5Pset_filter(plist, H5Z_FILTER_BLOSC2, H5Z_FLAG_OPTIONAL, 8, cd_b2zfp);
+    write_dset(file_id, space_id, "blosc2_zfp_declined_int32", H5T_NATIVE_INT, plist, buf_i32);
+    H5Pclose(plist);
+
     // Cleanup
     H5Sclose(space_id); H5Fclose(file_id); hdf5lib_destroy_all_filters();
     free(buf_f64); free(buf_f32); free(buf_i64); free(buf_i32); free(buf_i16);

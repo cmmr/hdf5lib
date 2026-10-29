@@ -23,6 +23,10 @@
 #define FILTER_BLOSC2 32026
 #define FILTER_BLOSC2_VERSION 2
 #define DEFAULT_CLEVEL 5
+/* The compression level recorded for a dataset a ZFP codec cannot take (see
+   blosc2_set_local()).  c-blosc2 rejects any level above 9, so every Blosc2
+   filter, the reference one included, refuses each chunk. */
+#define DECLINED_CLEVEL 255
 #define DEFAULT_SHUFFLE 1
 #define DEFAULT_COMPCODE BLOSC_BLOSCLZ
 
@@ -309,6 +313,30 @@ static herr_t blosc2_set_local(hid_t dcpl, hid_t type, hid_t space) {
   const char *compname = NULL;
   if (blosc2_compcode_to_compname((int)user_compcode, &compname) < 0) return -1;
 
+  /* DECLINED_CLEVEL comes from a list this function wrote for another
+     dataset; that dataset's own level is gone, so fall back to the default. */
+  if (user_clevel == DECLINED_CLEVEL) user_clevel = DEFAULT_CLEVEL;
+  if (user_clevel > 9) {
+    H5Epush(H5E_DEFAULT, __FILE__, __func__, __LINE__, H5E_ERR_CLS, H5E_PLINE, H5E_BADVALUE,
+            "blosc2: compression level must be 0 to 9, not %u", user_clevel);
+    return -1;
+  }
+
+  /* The ZFP codecs encode the bits of an IEEE float.  Handed integers, or
+     floats in the other byte order, they compress them as native floats all
+     the same, and the values read back as garbage (small integers as 0).  So
+     a mandatory filter refuses such a dataset here, and an optional one
+     records DECLINED_CLEVEL, which makes the filter refuse every chunk and
+     HDF5 store each one unfiltered. */
+  if (IS_ZFP_CODEC(user_compcode) && !float_items) {
+    if (!(flags & H5Z_FLAG_OPTIONAL)) {
+      H5Epush(H5E_DEFAULT, __FILE__, __func__, __LINE__, H5E_ERR_CLS, H5E_PLINE, H5E_CANAPPLY,
+              "blosc2: the ZFP codecs need float32 or float64 data in native byte order");
+      return -1;
+    }
+    user_clevel = DECLINED_CLEVEL;
+  }
+
   /* Truncate-precision zeroes the low bits of every 4- or 8-byte item as
      though it were a float's mantissa, whatever the item holds: it would
      wipe out small integers, corrupt compound records and floats in the other
@@ -486,6 +514,9 @@ static size_t blosc2_filter_function(
 
   /* ----- Compression Path ----- */
   if (!(flags & H5Z_FLAG_REVERSE)) {
+
+    if (clevel == DECLINED_CLEVEL)
+      PUSH_ERR("blosc2_filter: The ZFP codecs cannot compress this dataset's datatype");
 
     if (IS_ZFP_CODEC(compcode) && has_nonfinite(*buf, nbytes, typesize))
       PUSH_ERR("blosc2_filter: ZFP cannot encode the NaN or Inf values in this chunk");
