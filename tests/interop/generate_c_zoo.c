@@ -12,13 +12,6 @@
 #define CHUNK_X 128
 #define CHUNK_Y 128
 
-/* --- External ZFP Setters --- */
-extern herr_t H5Pset_zfp_rate(hid_t plist, double rate);
-extern herr_t H5Pset_zfp_precision(hid_t plist, unsigned int prec);
-extern herr_t H5Pset_zfp_accuracy(hid_t plist, double acc);
-extern herr_t H5Pset_zfp_expert(hid_t plist, unsigned int minbits, unsigned int maxbits, unsigned int maxprec, int minexp);
-extern herr_t H5Pset_zfp_reversible(hid_t plist);
-
 /* --- Filter IDs --- */
 #define H5Z_FILTER_BZIP2     307
 #define H5Z_FILTER_LZF       32000

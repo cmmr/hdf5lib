@@ -13,6 +13,7 @@
 #include <stdarg.h>
 #include <hdf5.h>
 #include <zfp.h>
+#include "hdf5lib.h"
 
 /* --- Versioning & Constants --- */
 #define H5Z_FILTER_ZFP 32013

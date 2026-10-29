@@ -91,11 +91,82 @@ H5Pset_filter(plist_id, 32004, H5Z_FLAG_MANDATORY, 2, cd_values);
 
 **Recommendation:** **Use for Parallel Compression and Complex Pipelines.** Blosc2 splits each chunk into blocks and can (de)compress those blocks on several threads at once; see [Multi-threading](#multi-threading) below. It also features a Programmable Filter Pipeline, allowing you to easily chain multiple pre-filters (like Delta followed by Bitshuffle) before the data hits the final compressor.
 
-The plugin's `cd_values` follow the layout of the reference HDF5-Blosc2 filter (the one `hdf5plugin`, PyTables and The HDF Group build) slot for slot, so other implementations can read, describe and append to `hdf5lib`'s datasets. The reference has room for a single pre-filter and no codec parameters, so the plugin packs the rest of its settings, the whole pre-filter pipeline and one parameter byte, into `cd_values[0]`, which the reference only uses for its revision number and never reads.
-
 > **Restrictions on ZFP:** When using a ZFP compressor codec (`33`, `34`, `35`), the data **must** be `float32` or `float64` in native byte order (alone or in arrays). On any other datatype, a mandatory filter makes `H5Dcreate2()` fail and an optional one stores the data unfiltered. ZFP performs lossy compression directly on numerical values; if bytes are shuffled before ZFP, it corrupts the dataset. To ensure safety, **this plugin automatically disables all Blosc2 pre-filters if a ZFP codec is selected**. You must also ensure no upstream native HDF5 filters (e.g., `H5Pset_shuffle`) are applied before Blosc2 in your property list. ZFP also cannot store `NaN` or `Inf` values; see [Non-finite values](#non-finite-values) under ZFP. Chunks of more than 4 dimensions, or with a dimension under 4, are compressed as one long row, because the codec cannot take them as they are.
 
 #### Plugin Configuration
+
+`hdf5lib.h` declares a setter that adds the filter to a dataset creation property list and builds its `cd_values` for you, along with names for the codecs and pre-filters:
+
+```c
+#include <hdf5lib.h>
+
+herr_t hdf5lib_set_blosc2(hid_t plist, unsigned int flags, unsigned int codec,
+                          unsigned int level, unsigned int prefilters, int meta);
+```
+
+* **`flags`:** `H5Z_FLAG_MANDATORY` or `H5Z_FLAG_OPTIONAL`, as for `H5Pset_filter()`. An optional filter lets the ZFP codecs store a chunk they cannot take unfiltered (see [Non-finite values](#non-finite-values) under ZFP).
+* **`codec`:** `HDF5LIB_BLOSC2_BLOSCLZ` (`0`), `HDF5LIB_BLOSC2_LZ4` (`1`), `HDF5LIB_BLOSC2_LZ4HC` (`2`), `HDF5LIB_BLOSC2_ZLIB` (`4`), `HDF5LIB_BLOSC2_ZSTD` (`5`), `HDF5LIB_BLOSC2_NDLZ` (`32`), `HDF5LIB_BLOSC2_ZFP_ACC` (`33`), `HDF5LIB_BLOSC2_ZFP_PREC` (`34`) or `HDF5LIB_BLOSC2_ZFP_RATE` (`35`).
+* **`level`:** the compression level, `0` to `9`.
+* **`prefilters`:** the pre-filters to chain, ORed together, or `0` for none. They run in the order trunc-prec, delta, then bitshuffle or shuffle, whatever the order you list them in:
+    * `HDF5LIB_BLOSC2_SHUFFLE` (`1`): Byte Shuffle
+    * `HDF5LIB_BLOSC2_BITSHUFFLE` (`2`): Bitshuffle, which wins if both are given
+    * `HDF5LIB_BLOSC2_DELTA` (`4`): Delta
+    * `HDF5LIB_BLOSC2_TRUNC_PREC` (`8`): Truncate Precision, for native-order `float32` and `float64` data, and arrays of them, only; the plugin drops it for every other datatype, which it would corrupt
+* **`meta`:** one more parameter, read according to the configuration:
+    * *Truncate Precision:* the number of mantissa bits to keep, `1` to `23` for `float32` and `1` to `52` for `float64`, or a negative number of bits to drop instead. A value that would keep no bits or drop the whole mantissa makes `H5Dcreate2()` fail; one that keeps more bits than the mantissa holds keeps them all.
+    * *NDLZ:* The cell size, `4` or `8`. Any other value is taken as `4`.
+    * *ZFP:* Blosc2 maps this one value to ZFP's parameter:
+        * **Precision (`34`):** the bits of precision to keep. For 16 bits of precision, pass `16`.
+        * **Accuracy (`33`):** a base-10 exponent: the error tolerance is `10^meta`. For a tolerance of `0.001`, pass `-3`.
+        * **Rate (`35`):** a *percentage* of the original data size. For example, to achieve a rate of 8 bits per value on 32-bit floats, the compressed output must be exactly 25% of the original size (`8 / 32 = 0.25`), so you pass `25`.
+    * Otherwise, pass `0`.
+
+The setter adds the filter to the end of the pipeline, or updates the Blosc2 filter already in it where it stands. It returns a negative value, with the reason on HDF5's error stack, for a level, pre-filter set or meta value out of range. The codec, and whether the settings suit the data, are checked by `H5Dcreate2()`.
+
+#### Example 1: Standard Compression
+Using Zstd (level 5) with the standard Bitshuffle pre-filter.
+```c
+hdf5lib_set_blosc2(plist_id, H5Z_FLAG_MANDATORY, HDF5LIB_BLOSC2_ZSTD, 5, HDF5LIB_BLOSC2_BITSHUFFLE, 0);
+```
+
+#### Example 2: Multi-Filter Pipeline
+Chaining the Delta filter and Bitshuffle before hitting Zstd (level 5).
+```c
+hdf5lib_set_blosc2(plist_id, H5Z_FLAG_MANDATORY, HDF5LIB_BLOSC2_ZSTD, 5,
+                   HDF5LIB_BLOSC2_DELTA | HDF5LIB_BLOSC2_BITSHUFFLE, 0);
+```
+
+#### Example 3: Truncate Precision Pipeline
+Truncating floats to 16 bits of precision, applying Bitshuffle, and compressing with LZ4.
+```c
+hdf5lib_set_blosc2(plist_id, H5Z_FLAG_MANDATORY, HDF5LIB_BLOSC2_LZ4, 5,
+                   HDF5LIB_BLOSC2_TRUNC_PREC | HDF5LIB_BLOSC2_BITSHUFFLE, 16);
+```
+
+Truncation zeroes the low bits of every value, including the payload bits of a `NaN`. `Inf`, and a `NaN` whose payload has its top bit set (the usual quiet `NaN`), come through unchanged, but R's `NA_real_` (bits `0x7FF00000000007A2`) does not. Its payload sits in the low 11 bits, so keeping 41 or fewer bits of a `float64` turns `NA` into `Inf`, and keeping 42 to 50 bits turns it into a plain `NaN`. To keep `NA`, leave truncation off for data that contains it.
+
+#### Example 4: Blosc2 + ZFP Precision
+Using Blosc2's meta-compressor to run ZFP in Fixed Precision mode, keeping exactly 16 bits of precision. ZFP skips the pre-filters, so pass none.
+```c
+hdf5lib_set_blosc2(plist_id, H5Z_FLAG_MANDATORY, HDF5LIB_BLOSC2_ZFP_PREC, 5, 0, 16);
+```
+
+#### Example 5: Blosc2 + ZFP Accuracy
+Using ZFP Accuracy mode to enforce an absolute error tolerance of `0.001` (`10^-3`).
+```c
+hdf5lib_set_blosc2(plist_id, H5Z_FLAG_MANDATORY, HDF5LIB_BLOSC2_ZFP_ACC, 5, 0, -3);
+```
+
+#### Example 6: Blosc2 + ZFP Rate
+Using ZFP Rate mode to compress 32-bit floats down to exactly 8 bits per value, 25% of their size.
+```c
+hdf5lib_set_blosc2(plist_id, H5Z_FLAG_MANDATORY, HDF5LIB_BLOSC2_ZFP_RATE, 5, 0, 25);
+```
+
+#### The `cd_values` layout
+You need this layout only to call `H5Pset_filter()` yourself, or to read the list `H5Pget_filter_by_id()` returns for a dataset.
+
+The plugin's `cd_values` follow the layout of the reference HDF5-Blosc2 filter (the one `hdf5plugin`, PyTables and The HDF Group build) slot for slot, so other implementations can read, describe and append to `hdf5lib`'s datasets. The reference has room for a single pre-filter and no codec parameters, so the plugin packs the rest of its settings, the whole pre-filter pipeline and one parameter byte, into `cd_values[0]`, which the reference only uses for its revision number and never reads.
 
 * **Filter ID:** `32026`
 * **Elements (`cd_nelmts`):** 7
@@ -121,79 +192,19 @@ The packed settings in `cd_values[0]`:
 | 15-8 | Meta value |
 | 7-0 | `1`, the reference filter's revision |
 
-That is, `cd_values[0] = 0xB2100001 + (bitmask << 16) + (meta << 8)`.
+That is, `cd_values[0] = 0xB2100001 + (bitmask << 16) + (meta << 8)`, where the bitmask and meta value are the setter's `prefilters` and `meta`. A negative meta value goes in as its 8-bit equivalent, `256 + meta`: `-3` is `253` (`0xFD`).
 
-* **Pre-filter bitmask:** the sum of the pre-filters to chain. They run in the order trunc-prec, delta, then bitshuffle or shuffle, whatever the order of the bits:
-    * `1` = Byte Shuffle
-    * `2` = Bitshuffle (wins if both `1` and `2` are given)
-    * `4` = Delta
-    * `8` = Truncate Precision (native-order `float32` and `float64` data, and arrays of them, only; the plugin drops it for every other datatype, which it would corrupt)
-* **Meta value:** one byte, read according to the configuration:
-    * *Truncate Precision:* If the bitmask includes `8`, the number of mantissa bits to keep: `1` to `23` for `float32`, `1` to `52` for `float64`. Blosc2 reads it as a signed byte, so a negative value (`256 - n`) drops `n` bits instead. A value that would keep no bits or drop the whole mantissa makes `H5Dcreate2()` fail; one that keeps more bits than the mantissa holds keeps them all.
-    * *NDLZ:* The cell size, `4` or `8`. Any other value is taken as `4`.
-    * *ZFP Metadata:* Blosc2 applies specific internal formulas to map this byte to ZFP's floating-point parameters:
-        * **Precision (`34`):** Passed directly as an integer. For 16 bits of precision, pass `16`.
-        * **Accuracy (`33`):** Interpreted as a base-10 exponent (`10^meta`). To pass a negative exponent like `-3` (for an accuracy tolerance of `0.001`), pass its 8-bit unsigned equivalent: `256 - 3 = 253`.
-        * **Rate (`35`):** Interpreted as a *percentage* of the original data size. For example, to achieve a rate of 8 bits per value on 32-bit floats, the compressed output must be exactly 25% of the original size (`8 / 32 = 0.25`), so you pass `25`.
-    * Otherwise, pass `0`.
 * **`cd_values[4]`:** Compression level (`0` to `9`). A higher level makes `H5Dcreate2()` fail; the plugin itself records `255` for a dataset a ZFP codec cannot take, so that every chunk is stored unfiltered.
 * **`cd_values[5]`:** the last pre-filter that runs, as a single Blosc2 filter code, which is what the reference filter keeps in this slot: `2` if the bitmask has bitshuffle, else `1` if shuffle, else `3` if delta, else `4` if trunc-prec, else `0`. The plugin works it out from the bitmask, so pass `0` or that code; any other value makes `H5Dcreate2()` fail with a message naming the code expected.
-* **`cd_values[6]`:** Compressor ID (`0`=blosclz, `1`=lz4, `2`=lz4hc, `4`=zlib, `5`=zstd, `32`=ndlz, `33`=zfp_acc, `34`=zfp_prec, `35`=zfp_rate).
+* **`cd_values[6]`:** the codec, as the setter's `codec` (`0`=blosclz, `1`=lz4, `2`=lz4hc, `4`=zlib, `5`=zstd, `32`=ndlz, `33`=zfp_acc, `34`=zfp_prec, `35`=zfp_rate).
 
 The list the plugin stores records only what runs, so it may differ from the one you passed. The ZFP codecs and NDLZ skip the pre-filters, so their bitmask and `cd_values[5]` are stored as `0`. With bitshuffle, the shuffle bit is dropped; truncate-precision is dropped on data it cannot take, or when it would keep every bit. The meta value is stored as `0` when nothing reads it, and NDLZ's as `4` or `8`. For chunks of 2 to 16 dimensions the plugin adds the rank and shape in `cd_values[7]` onwards, as the reference does, except for array datatypes, which it compresses as plain Blosc2, and ZFP chunks of more than 4 dimensions or with a dimension under 4, which it compresses as one long row. NDLZ always records the 2-D byte image it compresses. Values you pass after `cd_values[6]` are ignored.
 
-#### Example 1: Standard Compression
-Using Zstd (level 5) with the standard Bitshuffle pre-filter.
-```c
-// cd_values[0]: bitmask 2 (Bitshuffle), meta 0 -> 0xB2120001
-// cd_values[5]: Bitshuffle (2) is the last pre-filter
-unsigned int cd_values[7] = { 0xB2120001, 0, 0, 0, 5, 2, 5 };
-H5Pset_filter(plist_id, 32026, H5Z_FLAG_MANDATORY, 7, cd_values);
-```
-
-#### Example 2: Multi-Filter Pipeline
-Chaining the Delta filter and Bitshuffle before hitting Zstd (level 5).
-```c
-// cd_values[0]: bitmask Delta (4) + Bitshuffle (2) = 6, meta 0 -> 0xB2160001
-// cd_values[5]: Bitshuffle (2) runs last
-unsigned int cd_values[7] = { 0xB2160001, 0, 0, 0, 5, 2, 5 };
-H5Pset_filter(plist_id, 32026, H5Z_FLAG_MANDATORY, 7, cd_values);
-```
-
-#### Example 3: Truncate Precision Pipeline
-Truncating floats to 16 bits of precision, applying Bitshuffle, and compressing with LZ4.
+Example 3, passed to `H5Pset_filter()` directly:
 ```c
 // cd_values[0]: bitmask Truncprec (8) + Bitshuffle (2) = 10, meta 16 bits -> 0xB21A1001
 // cd_values[5]: Bitshuffle (2) runs last
 unsigned int cd_values[7] = { 0xB21A1001, 0, 0, 0, 5, 2, 1 };
-H5Pset_filter(plist_id, 32026, H5Z_FLAG_MANDATORY, 7, cd_values);
-```
-
-Truncation zeroes the low bits of every value, including the payload bits of a `NaN`. `Inf`, and a `NaN` whose payload has its top bit set (the usual quiet `NaN`), come through unchanged, but R's `NA_real_` (bits `0x7FF00000000007A2`) does not. Its payload sits in the low 11 bits, so keeping 41 or fewer bits of a `float64` turns `NA` into `Inf`, and keeping 42 to 50 bits turns it into a plain `NaN`. To keep `NA`, leave truncation off for data that contains it.
-
-#### Example 4: Blosc2 + ZFP Precision
-Using Blosc2's meta-compressor to run ZFP in Fixed Precision mode, keeping exactly 16 bits of precision. 
-```c
-// cd_values[0]: bitmask 0 (ZFP skips pre-filters), meta 16 bits -> 0xB2101001
-unsigned int cd_values[7] = { 0xB2101001, 0, 0, 0, 5, 0, 34 };
-H5Pset_filter(plist_id, 32026, H5Z_FLAG_MANDATORY, 7, cd_values);
-```
-
-#### Example 5: Blosc2 + ZFP Accuracy
-Using ZFP Accuracy mode to enforce an absolute error tolerance of `0.001` (`10^-3`).
-```c
-// ZFP Accuracy uses an exponent. The unsigned 8-bit equivalent of -3 is 253 (0xFD).
-// cd_values[0]: bitmask 0, meta 253 -> 0xB210FD01
-unsigned int cd_values[7] = { 0xB210FD01, 0, 0, 0, 5, 0, 33 };
-H5Pset_filter(plist_id, 32026, H5Z_FLAG_MANDATORY, 7, cd_values);
-```
-
-#### Example 6: Blosc2 + ZFP Rate
-Using ZFP Rate mode to compress 32-bit floats down to exactly 8 bits per value.
-```c
-// ZFP Rate requires a percentage of the original size. 8 / 32 = 0.25 (25%).
-// cd_values[0]: bitmask 0, meta 25 (0x19) -> 0xB2101901
-unsigned int cd_values[7] = { 0xB2101901, 0, 0, 0, 5, 0, 35 };
 H5Pset_filter(plist_id, 32026, H5Z_FLAG_MANDATORY, 7, cd_values);
 ```
 
@@ -256,18 +267,20 @@ ZFP also needs the datatype in native byte order, and chunks with one to four di
 * **`cd_values[0]`:** The compression mode (`1`=Rate, `2`=Precision, `3`=Accuracy, `4`=Expert, `5`=Reversible/Lossless).
 * **`cd_values[1-5]`:** Mode-specific parameters. For instance, in Precision mode (`cd_values[0]=2`), `cd_values[2]` specifies the bits of precision to keep, padding the rest with zeros (e.g., `{2, 0, 16, 0, 0, 0}`). Rate and Accuracy take a `double`, whose 8 bytes fill `cd_values[2]` and `cd_values[3]` in native memory order, as LLNL's H5Z-ZFP and `hdf5plugin` lay it out.
 
-While you can manually pack the 6-element `cd_values` array, the ZFP plugin exposes convenient external helper functions that you can declare in your C code to set the parameters effortlessly.
+While you can manually pack the 6-element `cd_values` array, `hdf5lib.h` declares a helper for each mode that sets the parameters for you. They keep the names that LLNL's H5Z-ZFP plugin gives them.
 
 ```c
-// Declare the external helpers provided by the bundled ZFP plugin
-extern herr_t H5Pset_zfp_rate(hid_t plist, double rate);
-extern herr_t H5Pset_zfp_precision(hid_t plist, unsigned int prec);
-extern herr_t H5Pset_zfp_accuracy(hid_t plist, double acc);
-extern herr_t H5Pset_zfp_expert(hid_t plist, unsigned int minbits, unsigned int maxbits, unsigned int maxprec, int minexp);
-extern herr_t H5Pset_zfp_reversible(hid_t plist); // Lossless mode
+#include <hdf5lib.h>
 
-// ... later in your code ...
+herr_t H5Pset_zfp_rate(hid_t plist, double rate);
+herr_t H5Pset_zfp_precision(hid_t plist, unsigned int prec);
+herr_t H5Pset_zfp_accuracy(hid_t plist, double acc);
+herr_t H5Pset_zfp_expert(hid_t plist, unsigned int minbits, unsigned int maxbits,
+                         unsigned int maxprec, int minexp);
+herr_t H5Pset_zfp_reversible(hid_t plist);  // Lossless mode
+```
 
+```c
 // Compress data using ZFP's Accuracy mode (maintaining 0.001 tolerance)
 H5Pset_zfp_accuracy(plist_id, 0.001);
 ```

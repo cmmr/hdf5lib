@@ -97,13 +97,6 @@ typedef struct {
   int          test_mask;
 } FilterConfig;
 
-/* Declare external helpers provided by the bundled ZFP plugin */
-extern herr_t H5Pset_zfp_rate(hid_t plist, double rate);
-extern herr_t H5Pset_zfp_precision(hid_t plist, unsigned int prec);
-extern herr_t H5Pset_zfp_accuracy(hid_t plist, double acc);
-extern herr_t H5Pset_zfp_expert(hid_t plist, unsigned int minbits, unsigned int maxbits, unsigned int maxprec, int minexp);
-extern herr_t H5Pset_zfp_reversible(hid_t plist);
-
 /* Helper to apply filter natively */
 static herr_t apply_filter(hid_t plist, const FilterConfig* cfg) {
   if (cfg->id == H5Z_FILTER_DEFLATE) {
@@ -2575,6 +2568,107 @@ cleanup:
   return errors ? -1 : 0;
 }
 
+/* 32. Blosc2's Setter */
+
+/* hdf5lib_set_blosc2() must put in the property list the list the compression
+   article spells out, which H5Dcreate2() then takes; update a Blosc2 filter
+   already there in place; and refuse what slot 0 cannot hold, adding nothing. */
+static int test_blosc2_setter(hid_t fid) {
+  struct {
+    const char *name; int type; unsigned int codec, level, prefilters; int meta; unsigned int want[7];
+  } cases[] = {
+    /* The compression article's examples */
+    {"/b2set_bitshuffle", B2_I32, HDF5LIB_BLOSC2_ZSTD, 5, HDF5LIB_BLOSC2_BITSHUFFLE, 0,
+     {0xB2120001u, 0, 0, 0, 5, 2, 5}},
+    {"/b2set_pipeline",   B2_I32, HDF5LIB_BLOSC2_ZSTD, 5, HDF5LIB_BLOSC2_DELTA | HDF5LIB_BLOSC2_BITSHUFFLE, 0,
+     {0xB2160001u, 0, 0, 0, 5, 2, 5}},
+    {"/b2set_trunc",      B2_F32, HDF5LIB_BLOSC2_LZ4, 5, HDF5LIB_BLOSC2_TRUNC_PREC | HDF5LIB_BLOSC2_BITSHUFFLE, 16,
+     {0xB21A1001u, 0, 0, 0, 5, 2, 1}},
+    {"/b2set_zfp_prec",   B2_F64, HDF5LIB_BLOSC2_ZFP_PREC, 5, 0, 16, {0xB2101001u, 0, 0, 0, 5, 0, 34}},
+    {"/b2set_zfp_acc",    B2_F64, HDF5LIB_BLOSC2_ZFP_ACC,  5, 0, -3, {0xB210FD01u, 0, 0, 0, 5, 0, 33}},
+    {"/b2set_zfp_rate",   B2_F32, HDF5LIB_BLOSC2_ZFP_RATE, 5, 0, 25, {0xB2101901u, 0, 0, 0, 5, 0, 35}},
+    /* The other codecs, and each other pre-filter as the last to run */
+    {"/b2set_blosclz",    B2_I32, HDF5LIB_BLOSC2_BLOSCLZ, 1, HDF5LIB_BLOSC2_SHUFFLE, 0,
+     {B2_SETTINGS(1, 0), 0, 0, 0, 1, 1, 0}},
+    {"/b2set_lz4hc",      B2_I32, HDF5LIB_BLOSC2_LZ4HC, 9, HDF5LIB_BLOSC2_DELTA, 0,
+     {B2_SETTINGS(4, 0), 0, 0, 0, 9, 3, 2}},
+    {"/b2set_zlib",       B2_F32, HDF5LIB_BLOSC2_ZLIB, 3, HDF5LIB_BLOSC2_TRUNC_PREC, -12,
+     {B2_SETTINGS(8, -12), 0, 0, 0, 3, 4, 4}},
+    {"/b2set_ndlz",       B2_I32, HDF5LIB_BLOSC2_NDLZ, 5, 0, 8, {B2_SETTINGS(0, 8), 0, 0, 0, 5, 0, 32}},
+  };
+  struct { unsigned int level, prefilters; int meta; } bad[] = {{10, 0, 0}, {5, 16, 0}, {5, 8, 256}, {5, 8, -129}};
+  b2_data_t d;
+  unsigned int vals[32], stored[32], flags;
+  size_t nelmts, n_stored;
+  hid_t plist = -1;
+  int errors = 0;
+
+  if (b2_data_init(&d) < 0) { errors++; goto cleanup; }
+  for (size_t k = 0; k < sizeof(cases) / sizeof(cases[0]); k++) {
+    int t = cases[k].type;
+    plist = H5Pcreate(H5P_DATASET_CREATE);
+    nelmts = 32;
+    int set = plist >= 0 &&
+              hdf5lib_set_blosc2(plist, H5Z_FLAG_MANDATORY, cases[k].codec, cases[k].level,
+                                 cases[k].prefilters, cases[k].meta) >= 0 &&
+              H5Pget_filter_by_id(plist, H5Z_FILTER_BLOSC2, &flags, &nelmts, vals, 0, NULL, NULL) >= 0;
+    if (plist >= 0) { H5Pclose(plist); plist = -1; }
+    if (!set) {
+      Rprintf("\n      -> %s: hdf5lib_set_blosc2() failed", cases[k].name);
+      errors++;
+    } else if (flags != H5Z_FLAG_MANDATORY || !b2_list_is(vals, nelmts, cases[k].want, 7)) {
+      b2_print_list(cases[k].name, vals, nelmts);
+      errors++;
+    } else if (b2_store(fid, cases[k].name, d.type[t], 1, vals, nelmts, d.data[t], d.out,
+                        stored, &n_stored, NULL, NULL) < 0) {
+      Rprintf("\n      -> %s: could not be written and read", cases[k].name);
+      errors++;
+    } else if (!(cases[k].prefilters & HDF5LIB_BLOSC2_TRUNC_PREC) && cases[k].codec < HDF5LIB_BLOSC2_ZFP_ACC &&
+               memcmp(d.data[t], d.out, B2_N * H5Tget_size(d.type[t])) != 0) {
+      Rprintf("\n      -> %s: values changed", cases[k].name);
+      errors++;
+    }
+  }
+
+  /* A second call updates the filter in place: one Blosc2 filter, still ahead of Fletcher32 */
+  unsigned int want_update[7] = {B2_SETTINGS(2, 0), 0, 0, 0, 7, 2, 1};
+  nelmts = 32;
+  if ((plist = H5Pcreate(H5P_DATASET_CREATE)) < 0 ||
+      hdf5lib_set_blosc2(plist, H5Z_FLAG_MANDATORY, HDF5LIB_BLOSC2_ZSTD, 5, HDF5LIB_BLOSC2_SHUFFLE, 0) < 0 ||
+      H5Pset_fletcher32(plist) < 0 ||
+      hdf5lib_set_blosc2(plist, H5Z_FLAG_OPTIONAL, HDF5LIB_BLOSC2_LZ4, 7, HDF5LIB_BLOSC2_BITSHUFFLE, 0) < 0 ||
+      H5Pget_nfilters(plist) != 2 ||
+      H5Pget_filter2(plist, 0, &flags, &nelmts, vals, 0, NULL, NULL) != H5Z_FILTER_BLOSC2 ||
+      flags != H5Z_FLAG_OPTIONAL || !b2_list_is(vals, nelmts, want_update, 7)) {
+    Rprintf("\n      -> A second call did not update the Blosc2 filter in place");
+    errors++;
+  }
+  if (plist >= 0) { H5Pclose(plist); plist = -1; }
+
+  for (size_t k = 0; k < sizeof(bad) / sizeof(bad[0]); k++) {
+    if ((plist = H5Pcreate(H5P_DATASET_CREATE)) < 0 ||
+        hdf5lib_set_blosc2(plist, H5Z_FLAG_MANDATORY, HDF5LIB_BLOSC2_ZSTD, bad[k].level,
+                           bad[k].prefilters, bad[k].meta) >= 0 ||
+        H5Pget_nfilters(plist) != 0) {
+      Rprintf("\n      -> Level %u, pre-filters %u, meta %d: not refused", bad[k].level, bad[k].prefilters, bad[k].meta);
+      errors++;
+    }
+    if (plist >= 0) { H5Pclose(plist); plist = -1; }
+  }
+
+  /* Only a dataset creation property list takes a filter */
+  if ((plist = H5Pcreate(H5P_FILE_CREATE)) < 0 ||
+      hdf5lib_set_blosc2(plist, H5Z_FLAG_MANDATORY, HDF5LIB_BLOSC2_ZSTD, 5, 0, 0) >= 0) {
+    Rprintf("\n      -> A file creation property list was not refused");
+    errors++;
+  }
+
+cleanup:
+  if (plist >= 0) H5Pclose(plist);
+  b2_data_free(&d);
+  return errors ? -1 : 0;
+}
+
 /* =========================================================================
  * MAIN R INVOCATION
  * ========================================================================= */
@@ -2847,6 +2941,14 @@ SEXP C_smoke_test(SEXP sexp_filename) {
 
   Rprintf("  Testing %-15s", "blosc2_refused");
   if (test_blosc2_refused(file_id) < 0) {
+    Rprintf(" [FAILED]\n");
+    total_errors++;
+  } else {
+    Rprintf(" [OK]\n");
+  }
+
+  Rprintf("  Testing %-15s", "blosc2_setter");
+  if (test_blosc2_setter(file_id) < 0) {
     Rprintf(" [FAILED]\n");
     total_errors++;
   } else {

@@ -125,6 +125,40 @@ static int prefilter_mask(unsigned int code) {
 }
 
 /* =========================================================================
+ * PROPERTY LIST SETTER (C API, declared in hdf5lib.h)
+ * ========================================================================= */
+herr_t hdf5lib_set_blosc2(hid_t plist, unsigned int flags, unsigned int codec,
+                          unsigned int level, unsigned int prefilters, int meta) {
+  if (H5Pisa_class(plist, H5P_DATASET_CREATE) <= 0) {
+    H5Epush(H5E_DEFAULT, __FILE__, __func__, __LINE__, H5E_ERR_CLS, H5E_PLIST, H5E_BADTYPE,
+            "hdf5lib_set_blosc2: not a dataset creation property list");
+    return -1;
+  }
+  /* Slot 0 has four bits for the pre-filters and a byte for the meta value;
+     refuse what would not fit rather than store something else */
+  if (level > 9 || prefilters > 0xF || meta < -128 || meta > 255) {
+    H5Epush(H5E_DEFAULT, __FILE__, __func__, __LINE__, H5E_ERR_CLS, H5E_PLIST, H5E_BADVALUE,
+            "hdf5lib_set_blosc2: level must be 0 to 9, prefilters 0 to 15 and meta -128 to 255, "
+            "not %u, %u and %d", level, prefilters, meta);
+    return -1;
+  }
+
+  unsigned int cd_values[7] = {PACK_SETTINGS(prefilters, (unsigned int)meta), 0, 0, 0,
+                               level, last_prefilter(prefilters), codec};
+
+  /* H5Pset_filter() would add a second Blosc2 filter; update the first instead */
+  int nfilters = H5Pget_nfilters(plist);
+  if (nfilters < 0) return -1;
+  for (int i = 0; i < nfilters; i++) {
+    unsigned int old_flags, old_values[1];
+    size_t old_nelmts = 0;
+    if (H5Pget_filter2(plist, (unsigned int)i, &old_flags, &old_nelmts, old_values, 0, NULL, NULL) == FILTER_BLOSC2)
+      return H5Pmodify_filter(plist, FILTER_BLOSC2, flags, 7, cd_values);
+  }
+  return H5Pset_filter(plist, FILTER_BLOSC2, flags, 7, cd_values);
+}
+
+/* =========================================================================
  * CONTEXT CACHE
  * =========================================================================
  * c-blosc2 starts a context's worker threads the first time the context does

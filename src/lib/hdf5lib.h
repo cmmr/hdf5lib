@@ -21,6 +21,51 @@ herr_t hdf5lib_destroy_all_filters(void);
 int hdf5lib_set_blosc_nthreads(int nthreads);
 int hdf5lib_get_blosc_nthreads(void);
 
+/* Add the Blosc2 filter (32026) to a dataset creation property list, or
+   update the one already there, building its cd_values from:
+     flags       H5Z_FLAG_MANDATORY or H5Z_FLAG_OPTIONAL, as for H5Pset_filter()
+     codec       one of the HDF5LIB_BLOSC2_* codecs below
+     level       compression level, 0 to 9
+     prefilters  the HDF5LIB_BLOSC2_* pre-filters below, ORed together; they run
+                 in the order trunc-prec, delta, then bitshuffle or shuffle
+     meta        trunc-prec's precision (bits to keep, or a negative number of
+                 bits to drop), NDLZ's cell size (4 or 8), or the ZFP codecs'
+                 parameter (accuracy 10^meta, precision in bits, or rate as a
+                 percentage of the input size); otherwise 0
+   Returns a negative value, with the reason on HDF5's error stack, for a level,
+   pre-filter or meta value out of range.  The codec, and how the settings suit
+   the data, are checked when H5Dcreate2() applies the filter. */
+#define HDF5LIB_BLOSC2_BLOSCLZ      0
+#define HDF5LIB_BLOSC2_LZ4          1
+#define HDF5LIB_BLOSC2_LZ4HC        2
+#define HDF5LIB_BLOSC2_ZLIB         4
+#define HDF5LIB_BLOSC2_ZSTD         5
+#define HDF5LIB_BLOSC2_NDLZ        32
+#define HDF5LIB_BLOSC2_ZFP_ACC     33
+#define HDF5LIB_BLOSC2_ZFP_PREC    34
+#define HDF5LIB_BLOSC2_ZFP_RATE    35
+
+#define HDF5LIB_BLOSC2_SHUFFLE      1
+#define HDF5LIB_BLOSC2_BITSHUFFLE   2
+#define HDF5LIB_BLOSC2_DELTA        4
+#define HDF5LIB_BLOSC2_TRUNC_PREC   8
+
+herr_t hdf5lib_set_blosc2(hid_t plist, unsigned int flags, unsigned int codec,
+                          unsigned int level, unsigned int prefilters, int meta);
+
+/* Add the ZFP filter (32013) to a dataset creation property list, replacing
+   any ZFP filter already there, in one of its modes: a fixed rate (bits per
+   value), precision (bits kept), accuracy (largest absolute error), expert
+   parameters, or reversible (lossless).  As in LLNL's H5Z-ZFP, whose names
+   they keep, each adds the filter as mandatory; H5Pmodify_filter(plist, 32013,
+   H5Z_FLAG_OPTIONAL, 0, NULL) makes it optional. */
+herr_t H5Pset_zfp_rate(hid_t plist, double rate);
+herr_t H5Pset_zfp_precision(hid_t plist, unsigned int prec);
+herr_t H5Pset_zfp_accuracy(hid_t plist, double acc);
+herr_t H5Pset_zfp_expert(hid_t plist, unsigned int minbits, unsigned int maxbits,
+                         unsigned int maxprec, int minexp);
+herr_t H5Pset_zfp_reversible(hid_t plist);
+
 #ifdef __cplusplus
 }
 #endif
