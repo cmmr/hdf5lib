@@ -69,4 +69,5 @@ result_write <- tryCatch({
 if (!identical(as.integer(result_write), 1L)) stop("Unexpected result from C writer.")
 if (!file.exists(c_h5)) stop("C Writer did not produce output file: ", c_h5)
 
-message("SUCCESS: C datasets generated successfully. Ready for Python verification.")
+message("SUCCESS: C datasets generated successfully. Ready for Python verification:\n",
+        "  python verify_c_zoo.py && python check_hdf5plugin_append.py")

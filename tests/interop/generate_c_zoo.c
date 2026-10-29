@@ -29,6 +29,12 @@ extern herr_t H5Pset_zfp_reversible(hid_t plist);
 #define H5Z_FILTER_ZSTD      32015
 #define H5Z_FILTER_BLOSC2    32026
 
+/* Blosc2's cd_values[0]: tag 0xB2, layout 1, the pre-filter bitmask (1
+   shuffle, 2 bitshuffle, 4 delta, 8 trunc-prec), the meta value, and the
+   reference filter's revision, 1 */
+#define B2_SETTINGS(mask, meta) ((0xB2u << 24) | (1u << 20) | (((mask) & 0xFu) << 16) | \
+                                 (((meta) & 0xFFu) << 8) | 0x01u)
+
 static void populate_float64(double *buf) {
     for (int i = 0; i < N_ELEMS; i++) buf[i] = (double)i / (N_ELEMS - 1) + sin((double)i * 50.0 / (N_ELEMS - 1)) * 0.1;
 }
@@ -52,16 +58,21 @@ static void write_dset(hid_t file, hid_t space, const char* name, hid_t type, hi
 /* One Blosc2 dataset per codec x pre-filter, plus Blosc2's ZFP codecs and NDLZ,
    in the given chunk geometry.  The plugin records cd_values differently by
    rank -- B2ND geometry for 2-D chunks, none for 1-D chunks or ranks beyond
-   B2ND's limit -- and h5py has to read every one of them. */
+   B2ND's limit -- and h5py has to read every one of them.  Axis 0 is
+   unlimited, so that h5py can append to them (check_hdf5plugin_append.py). */
 static void write_blosc2_matrix(hid_t file_id, const char *prefix, int rank, const hsize_t *dims,
                                 const hsize_t *chunk, double *buf_f64, float *buf_f32,
                                 int *buf_i32, short *buf_i16) {
-    hid_t space_id = H5Screate_simple(rank, dims, NULL);
+    hsize_t maxdims[H5S_MAX_RANK];
+    for (int i = 0; i < rank; i++) maxdims[i] = dims[i];
+    maxdims[0] = H5S_UNLIMITED;
+    hid_t space_id = H5Screate_simple(rank, dims, maxdims);
     hid_t plist;
     const char* b2_codecs[] = {"blosclz", "lz4", "lz4hc", "zlib", "zstd"};
     int b2_compcodes[] = {0, 1, 2, 4, 5};
     const char* b2_filters[] = {"nofilter", "shuffle", "bitshuffle", "delta", "truncprec"};
-    int b2_filter_masks[] = {0, 1, 2, 4, 8};  /* cd_values[5] is a bitmask */
+    unsigned int b2_filter_masks[] = {0, 1, 2, 4, 8};  /* the bitmask in cd_values[0] */
+    unsigned int b2_filter_codes[] = {0, 1, 2, 3, 4};  /* the same, as cd_values[5] names it */
 
     for (int c = 0; c < 5; c++) {
         for (int f = 0; f < 5; f++) {
@@ -70,7 +81,7 @@ static void write_blosc2_matrix(hid_t file_id, const char *prefix, int rank, con
 
             hid_t dtype = H5T_NATIVE_INT;
             void* dbuf = buf_i32;
-            int meta = 0;
+            unsigned int meta = 0;
 
             // TruncPrec strictly requires floating point data
             if (b2_filter_masks[f] == 8) {
@@ -91,26 +102,27 @@ static void write_blosc2_matrix(hid_t file_id, const char *prefix, int rank, con
 
             plist = H5Pcreate(H5P_DATASET_CREATE); H5Pset_chunk(plist, rank, chunk);
 
-            // cd_values mapping: [0..3] metadata, [4] clevel, [5] filter, [6] compcode, [7] meta
-            unsigned int cd[] = {0, 0, 0, 0, 5, b2_filter_masks[f], b2_compcodes[c], meta};
-            H5Pset_filter(plist, H5Z_FILTER_BLOSC2, H5Z_FLAG_MANDATORY, 8, cd);
+            // cd_values: [0] packed settings, [1..3] filled in, [4] clevel, [5] filter, [6] compcode
+            unsigned int cd[] = {B2_SETTINGS(b2_filter_masks[f], meta), 0, 0, 0, 5,
+                                 b2_filter_codes[f], b2_compcodes[c]};
+            H5Pset_filter(plist, H5Z_FILTER_BLOSC2, H5Z_FLAG_MANDATORY, 7, cd);
 
             write_dset(file_id, space_id, name, dtype, plist, dbuf);
             H5Pclose(plist);
         }
     }
 
-    /* ZFP (lossy, so float64) takes its parameter as cd_values[7]; NDLZ its cell size */
+    /* ZFP (lossy, so float64) takes its parameter as the meta value; NDLZ its cell size */
     const char* extra_names[] = {"zfp_accuracy", "zfp_precision", "zfp_rate", "ndlz"};
-    int extra_compcodes[] = {33, 34, 35, 32};
-    int extra_meta[] = {253, 16, 25, 4};  /* 10^-3, 16 bits, 25% of 64 bits, 4x4 cells */
+    unsigned int extra_compcodes[] = {33, 34, 35, 32};
+    unsigned int extra_meta[] = {253, 16, 25, 4};  /* 10^-3, 16 bits, 25% of 64 bits, 4x4 cells */
     for (int e = 0; e < 4; e++) {
         char name[128];
         snprintf(name, sizeof(name), "%sblosc2_%s", prefix, extra_names[e]);
         int is_ndlz = (extra_compcodes[e] == 32);
         plist = H5Pcreate(H5P_DATASET_CREATE); H5Pset_chunk(plist, rank, chunk);
-        unsigned int cd[] = {0, 0, 0, 0, 5, 0, extra_compcodes[e], extra_meta[e]};
-        H5Pset_filter(plist, H5Z_FILTER_BLOSC2, H5Z_FLAG_MANDATORY, 8, cd);
+        unsigned int cd[] = {B2_SETTINGS(0, extra_meta[e]), 0, 0, 0, 5, 0, extra_compcodes[e]};
+        H5Pset_filter(plist, H5Z_FILTER_BLOSC2, H5Z_FLAG_MANDATORY, 7, cd);
         write_dset(file_id, space_id, name, is_ndlz ? H5T_NATIVE_INT : H5T_NATIVE_DOUBLE, plist,
                    is_ndlz ? (void*)buf_i32 : (void*)buf_f64);
         H5Pclose(plist);
@@ -137,6 +149,8 @@ SEXP C_write_zoo(SEXP sexp_filename) {
     hid_t file_id = H5Fcreate(filename, H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT);
     hsize_t dims[2] = {CHUNK_X, CHUNK_Y};
     hid_t space_id = H5Screate_simple(2, dims, NULL);
+    hsize_t ext_maxdims[2] = {H5S_UNLIMITED, CHUNK_Y};  /* Blosc2 datasets h5py appends to */
+    hid_t ext_space_id = H5Screate_simple(2, dims, ext_maxdims);
     hid_t plist;
     unsigned int cd_values[8];
 
@@ -262,19 +276,35 @@ SEXP C_write_zoo(SEXP sexp_filename) {
     // ==========================================
     // 7. Blosc2 Multi-Filter Pipeline
     // ==========================================
-    // This dataset must be written using the upgraded blosc2_plugin.c 
-    // to correctly shift the pipeline parameters behind ndim/chunkshape.
-    // When done correctly, this chunk will be 100% readable by standard h5py.
-    plist = H5Pcreate(H5P_DATASET_CREATE); 
+    // Delta, then bitshuffle: the bitmask in cd_values[0], the last stage in
+    // cd_values[5].  Every chunk records its whole pipeline, so standard h5py
+    // reads it.
+    plist = H5Pcreate(H5P_DATASET_CREATE);
     H5Pset_chunk(plist, 2, dims);
 
     unsigned int cd_pipeline[7] = {0};
+    cd_pipeline[0] = B2_SETTINGS(4 | 2, 0); // DELTA (4) + BITSHUFFLE (2) = 0xB2160001
     cd_pipeline[4] = 1; // Compression level (1 = ~3 in Zstd's range)
-    cd_pipeline[5] = 6; // BITSHUFFLE (2) + DELTA (4)
+    cd_pipeline[5] = 2; // BITSHUFFLE, the last stage
     cd_pipeline[6] = 5; // Compressor code (ZSTD = 5)
-    
+
     H5Pset_filter(plist, H5Z_FILTER_BLOSC2, H5Z_FLAG_MANDATORY, 7, cd_pipeline);
-    write_dset(file_id, space_id, "blosc2_delta_bshuf_zstd", H5T_NATIVE_INT, plist, buf_i32);
+    write_dset(file_id, ext_space_id, "blosc2_delta_bshuf_zstd", H5T_NATIVE_INT, plist, buf_i32);
+    H5Pclose(plist);
+
+    // The same two, and trunc-prec(16) + bitshuffle, in the form hdf5lib took
+    // before (cd_values[0] = 0): the bitmask in cd_values[5], the precision as
+    // an 8th value.  The plugin stores them exactly as the new form.
+    plist = H5Pcreate(H5P_DATASET_CREATE); H5Pset_chunk(plist, 2, dims);
+    unsigned int cd_old_pipeline[7] = {0, 0, 0, 0, 1, 4 | 2, 5};
+    H5Pset_filter(plist, H5Z_FILTER_BLOSC2, H5Z_FLAG_MANDATORY, 7, cd_old_pipeline);
+    write_dset(file_id, ext_space_id, "blosc2_oldform_delta_bshuf_zstd", H5T_NATIVE_INT, plist, buf_i32);
+    H5Pclose(plist);
+
+    plist = H5Pcreate(H5P_DATASET_CREATE); H5Pset_chunk(plist, 2, dims);
+    unsigned int cd_old_trunc[8] = {0, 0, 0, 0, 5, 8 | 2, 1, 16};
+    H5Pset_filter(plist, H5Z_FILTER_BLOSC2, H5Z_FLAG_MANDATORY, 8, cd_old_trunc);
+    write_dset(file_id, ext_space_id, "blosc2_oldform_truncprec_bshuf_lz4", H5T_NATIVE_FLOAT, plist, buf_f32);
     H5Pclose(plist);
 
     // ==========================================
@@ -298,13 +328,13 @@ SEXP C_write_zoo(SEXP sexp_filename) {
     // Blosc2's ZFP codecs take native floats only: on int32 an optional filter
     // records compression level 255, so every chunk is stored unfiltered.
     plist = H5Pcreate(H5P_DATASET_CREATE); H5Pset_chunk(plist, 2, dims);
-    unsigned int cd_b2zfp[8] = {0, 0, 0, 0, 5, 0, 33, 253};
-    H5Pset_filter(plist, H5Z_FILTER_BLOSC2, H5Z_FLAG_OPTIONAL, 8, cd_b2zfp);
+    unsigned int cd_b2zfp[7] = {B2_SETTINGS(0, 253), 0, 0, 0, 5, 0, 33};  // accuracy 10^-3
+    H5Pset_filter(plist, H5Z_FILTER_BLOSC2, H5Z_FLAG_OPTIONAL, 7, cd_b2zfp);
     write_dset(file_id, space_id, "blosc2_zfp_declined_int32", H5T_NATIVE_INT, plist, buf_i32);
     H5Pclose(plist);
 
     // Cleanup
-    H5Sclose(space_id); H5Fclose(file_id); hdf5lib_destroy_all_filters();
+    H5Sclose(space_id); H5Sclose(ext_space_id); H5Fclose(file_id); hdf5lib_destroy_all_filters();
     free(buf_f64); free(buf_f32); free(buf_i64); free(buf_i32); free(buf_i16);
 
     return Rf_ScalarInteger(1);

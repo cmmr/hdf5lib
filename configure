@@ -317,8 +317,8 @@ cd bzip2
 
 for src in *.c; do
   dest=bzip2_$(basename "$src" .c).o
-  echo "  c_build -c $src -o $dest"
-  c_build -c $src -o $dest
+  echo "  c_build -DBZ_NO_STDIO -c $src -o $dest"
+  c_build -DBZ_NO_STDIO -c $src -o $dest
 done
 
 cd ..

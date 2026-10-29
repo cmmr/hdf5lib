@@ -3,7 +3,8 @@
  * @brief Standalone HDF5 Filter Plugin for LZF
  * 
  * Fully compatible with the h5py and PyTables LZF implementations (Filter ID 32000).
- * Features 64-bit uncompressed size support and dynamic buffer expansion.
+ * Grows its output buffer when the recorded chunk size is missing; like every
+ * LZF filter, it handles chunks of less than 4 GB only.
  */
 
 /* Define BEFORE includes so lzfP.h knows to expect the state argument */
@@ -24,6 +25,7 @@
 #include <hdf5.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <limits.h>
 #include <errno.h>
 
 #ifndef LZF_VERSION
@@ -45,7 +47,8 @@ return 0;                                                                       
 
 /* 
  * LZF requires the exact uncompressed size for decompression. 
- * We store the chunk size across cd_values[2] and [3] to support >4GB chunks.
+ * We store the chunk size across cd_values[2] and [3], though liblzf itself
+ * stops at 4 GB, so [3] is always 0 for a chunk it can compress.
  */
 static herr_t lzf_set_local(hid_t dcpl, hid_t type, hid_t space) {
   int ndims;
@@ -96,24 +99,31 @@ static size_t lzf_filter(
   unsigned int status = 0;
 
   if (nbytes == 0) {
-    return 0; 
+    return 0;
   }
-  
+
+  /* liblzf counts bytes in an unsigned int, so it would silently cut a chunk
+     of 4 GB or more (which HDF5 2.x allows) short */
+  if (nbytes > UINT_MAX) PUSH_ERR("lzf_filter: Chunk of %zu bytes exceeds LZF's 4 GB limit", nbytes);
+
   /* ----- Decompression Path ----- */
   if (flags & H5Z_FLAG_REVERSE) {
-    
+
     if (cd_nelmts >= 3 && cd_values[2] != 0) {
       outbuf_size = cd_values[2];
       if (cd_nelmts >= 4) {
         outbuf_size += ((uint64_t)cd_values[3]) << 32;
       }
-    } else {
-      outbuf_size = (*buf_size) * 2; 
     }
-    
+    /* No usable size recorded (none, or more than LZF can produce): guess */
+    if (outbuf_size == 0 || outbuf_size > UINT_MAX) {
+      outbuf_size = (*buf_size) * 2;
+    }
+
     while (!status) {
       if (outbuf) H5free_memory(outbuf);
-      
+      if (outbuf_size > UINT_MAX) PUSH_ERR("lzf_filter: Chunk decompresses to more than LZF's 4 GB limit");
+
       outbuf = H5allocate_memory(outbuf_size, 0);
       if (!outbuf) PUSH_ERR("lzf_filter: Memory allocation failed");
       
@@ -136,7 +146,8 @@ static size_t lzf_filter(
   /* ----- Compression Path ----- */
   else {
     outbuf_size = nbytes + (nbytes / 20) + 100;
-    
+    if (outbuf_size > UINT_MAX) outbuf_size = UINT_MAX;
+
     outbuf = H5allocate_memory(outbuf_size, 0);
     if (!outbuf) PUSH_ERR("lzf_filter: Memory allocation failed");
     

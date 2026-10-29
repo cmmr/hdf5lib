@@ -80,7 +80,7 @@ static size_t lz4_filter(
       
       uint32_t compBlockSize = read_be32(rpos); rpos += 4;
       
-      if (rpos + compBlockSize > r_end) {
+      if (compBlockSize > (size_t)(r_end - rpos)) {
         H5free_memory(outBuf);
         PUSH_ERR("lz4_filter: Corrupt data, block size exceeds remaining buffer");
       }
@@ -91,8 +91,8 @@ static size_t lz4_filter(
         /* Data was incompressible, stored uncompressed */
         memcpy(wpos, rpos, currentBlock);
       } else {
-        /* Decompress block */
-        if (LZ4_decompress_safe((const char*)rpos, (char*)wpos, (int)compBlockSize, (int)currentBlock) < 0) {
+        /* Decompress block; a short block would leave the rest of it unset */
+        if (LZ4_decompress_safe((const char*)rpos, (char*)wpos, (int)compBlockSize, (int)currentBlock) != (int)currentBlock) {
           H5free_memory(outBuf);
           PUSH_ERR("lz4_filter: LZ4 block decompression failed");
         }

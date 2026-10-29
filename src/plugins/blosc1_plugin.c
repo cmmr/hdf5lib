@@ -8,7 +8,6 @@
 #include <blosc.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdio.h> /* Required for stderr/fprintf */
 #include "hdf5lib.h"
 
 #define H5Z_FILTER_BLOSC 32001
@@ -16,13 +15,10 @@
 #define BLOSC_VERSION_FORMAT 2
 #define BLOSC_MAX_TYPESIZE 255
 
-/* Force the error message directly to the console before HDF5 has a chance to swallow it */
+/* Report through HDF5's error stack, which the caller prints (or not) through
+   R's console; writing to the C library's stderr would bypass R. */
 #define PUSH_ERR(...) do { \
-    fprintf(stderr, "\n>>> [BLOSC_PLUGIN ERROR at line %d]: ", __LINE__); \
-    fprintf(stderr, __VA_ARGS__); \
-    fprintf(stderr, " <<<\n"); \
-    fflush(stderr); \
-    H5Epush(H5E_DEFAULT, __FILE__, __func__, __LINE__, H5E_ERR_CLS_g, H5E_PLINE, H5E_CANTFILTER, "Filter failed"); \
+    H5Epush(H5E_DEFAULT, __FILE__, __func__, __LINE__, H5E_ERR_CLS, H5E_PLINE, H5E_CANTFILTER, __VA_ARGS__); \
     return 0; \
 } while(0)
 
@@ -106,10 +102,12 @@ static size_t blosc_filter(
 
   /* ----- Decompression Path ----- */
   if (flags & H5Z_FLAG_REVERSE) {
-    size_t uncomp_size, cbytes, blocksize;
-    
-    /* Safely extract the buffer sizes  */
-    blosc_cbuffer_sizes(*buf, &uncomp_size, &cbytes, &blocksize);
+    size_t uncomp_size;
+
+    /* blosc_decompress() trusts the sizes in the chunk's header, so make sure
+       the header describes exactly the nbytes HDF5 read */
+    if (blosc_cbuffer_validate(*buf, nbytes, &uncomp_size) < 0)
+      PUSH_ERR("Blosc chunk of %zu bytes is truncated or corrupt", nbytes);
     
     void *outbuf = H5allocate_memory(uncomp_size, 0);
     if (!outbuf) PUSH_ERR("Memory allocation failed for %zu bytes", uncomp_size);

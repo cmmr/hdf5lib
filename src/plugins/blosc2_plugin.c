@@ -21,7 +21,6 @@
 #include "hdf5lib.h"
 
 #define FILTER_BLOSC2 32026
-#define FILTER_BLOSC2_VERSION 2
 #define DEFAULT_CLEVEL 5
 /* The compression level recorded for a dataset a ZFP codec cannot take (see
    blosc2_set_local()).  c-blosc2 rejects any level above 9, so every Blosc2
@@ -30,13 +29,14 @@
 #define DEFAULT_SHUFFLE 1
 #define DEFAULT_COMPCODE BLOSC_BLOSCLZ
 
-/* Max possible size: Base(8) + MaxDims(B2ND_MAX_DIM) + Meta(1).
+/* Max possible size: Base(8) + MaxDims(B2ND_MAX_DIM) + Meta(1), the last
+   only in lists earlier versions stored (see CD_VALUES below).
    This used to read BLOSC2_MAX_DIM, which c-blosc2 3.x removed.  That macro was
    a stale duplicate: b2nd raised its own limit from 8 to 16 in c-blosc2 2.21.3
    while BLOSC2_MAX_DIM stayed at 8, so this array was half the size b2nd could
    actually produce.  The reference filter (Blosc/HDF5-Blosc2) tracks
    B2ND_MAX_DIM here, so we do too. */
-#define MAX_FILTER_VALUES (8 + B2ND_MAX_DIM + 1) 
+#define MAX_FILTER_VALUES (8 + B2ND_MAX_DIM + 1)
 
 #ifdef WORDS_BIGENDIAN
   #define B2ND_ENDIAN_PREFIX ">"
@@ -57,6 +57,72 @@
     H5Epush(H5E_DEFAULT, __FILE__, __func__, __LINE__, H5E_ERR_CLS, H5E_PLINE, H5E_CANTFILTER, __VA_ARGS__); \
     return 0; \
 } while(0)
+
+/* =========================================================================
+ * CD_VALUES
+ * =========================================================================
+ * Every slot holds what the reference filter (Blosc/HDF5-Blosc2, which h5py's
+ * hdf5plugin builds) keeps there, so that it can append to hdf5lib's datasets
+ * and hdf5plugin can describe them:
+ *
+ *   [0] revision (below)        [4] compression level, 0-9
+ *   [1] block size, 0 for auto  [5] pre-filter, as one Blosc2 filter code
+ *   [2] item size               [6] codec
+ *   [3] chunk size in bytes     [7], [8...] chunk rank and shape (B2ND chunks)
+ *
+ * The reference records its revision, 1, in slot 0 and never reads it back.
+ * hdf5lib packs there what no other slot can hold:
+ *
+ *   bits 31-24  0xB2, hdf5lib's tag
+ *   bits 23-20  layout version, 1
+ *   bits 19-16  pre-filters: 1 shuffle, 2 bitshuffle, 4 delta, 8 trunc-prec
+ *   bits 15-8   meta value: trunc-prec's precision (a signed byte), NDLZ's
+ *               cell size (4 or 8), or the ZFP codecs' parameter
+ *   bits  7-0   1, the reference's revision
+ *
+ * The pre-filters run in the order trunc-prec, delta, bitshuffle or shuffle,
+ * and slot 5 names the last of them: the one stage the reference runs.
+ * Lists hdf5lib did not write this way are read by their slot 0:
+ *
+ *   0  a caller's, in hdf5lib's earlier form: slot 5 the pre-filter
+ *      bitmask, and an 8th value the meta value
+ *   1  the reference's: slot 5 a single filter code, and no meta value
+ *   2  as earlier versions of hdf5lib stored them: slot 5's low byte the
+ *      bitmask; the meta value in its next byte (7 values) or after the
+ *      chunk shape */
+#define REFERENCE_REVISION 1
+#define LEGACY_REVISION    2
+#define SETTINGS_TAG       0xB2u
+#define SETTINGS_LAYOUT    1u
+#define PACK_SETTINGS(mask, meta) ((SETTINGS_TAG << 24) | (SETTINGS_LAYOUT << 20) | \
+                                   (((mask) & 0xFu) << 16) | (((meta) & 0xFFu) << 8) | \
+                                   REFERENCE_REVISION)
+#define IS_PACKED(v)     (((v) >> 24) == SETTINGS_TAG)
+#define PACKED_LAYOUT(v) (((v) >> 20) & 0xFu)
+#define PACKED_MASK(v)   (((v) >> 16) & 0xFu)
+#define PACKED_META(v)   (((v) >> 8) & 0xFFu)
+
+/* The filter code of the last pre-filter in `mask`, which slot 5 records */
+static unsigned int last_prefilter(unsigned int mask) {
+  if (mask & 2) return BLOSC_BITSHUFFLE;
+  if (mask & 1) return BLOSC_SHUFFLE;
+  if (mask & 4) return BLOSC_DELTA;
+  if (mask & 8) return BLOSC_TRUNC_PREC;
+  return BLOSC_NOSHUFFLE;
+}
+
+/* The bitmask for a filter code in a reference list's slot 5, or -1 for a
+   filter hdf5lib does not run */
+static int prefilter_mask(unsigned int code) {
+  switch (code) {
+    case BLOSC_NOSHUFFLE:  return 0;
+    case BLOSC_SHUFFLE:    return 1;
+    case BLOSC_BITSHUFFLE: return 2;
+    case BLOSC_DELTA:      return 4;
+    case BLOSC_TRUNC_PREC: return 8;
+    default:               return -1;
+  }
+}
 
 /* =========================================================================
  * CONTEXT CACHE
@@ -255,13 +321,74 @@ static int is_native_float(hid_t type) {
 /* =========================================================================
  * SET_LOCAL CALLBACK (METADATA INJECTION & PARSING)
  * ========================================================================= */
+
+/* Reads the settings from a list handed to set_local: a caller's, or one a
+   dataset's creation property list carried over from another dataset.  The
+   chunk geometry after slot 6 is worked out afresh.  Returns -1, with the
+   reason on HDF5's error stack, for a list it cannot read. */
+static int read_settings(const unsigned int *values, size_t nelements, unsigned int *clevel,
+                         unsigned int *mask, unsigned int *compcode, unsigned int *meta) {
+  unsigned int revision = (nelements >= 1) ? values[0] : 0;
+  *clevel   = (nelements >= 5) ? values[4] : DEFAULT_CLEVEL;
+  *compcode = (nelements >= 7) ? values[6] : DEFAULT_COMPCODE;
+  *meta     = 0;
+
+  if (IS_PACKED(revision)) {
+    if (PACKED_LAYOUT(revision) != SETTINGS_LAYOUT) {
+      H5Epush(H5E_DEFAULT, __FILE__, __func__, __LINE__, H5E_ERR_CLS, H5E_PLINE, H5E_BADVALUE,
+              "blosc2: cd_values[0] (0x%08X) is in settings layout %u; this hdf5lib reads layout %u",
+              revision, PACKED_LAYOUT(revision), SETTINGS_LAYOUT);
+      return -1;
+    }
+    *mask = PACKED_MASK(revision);
+    *meta = PACKED_META(revision);
+    /* Slot 5 may only restate the last stage of the pipeline slot 0 sets out */
+    if (nelements >= 6 && values[5] != 0 && values[5] != last_prefilter(*mask)) {
+      H5Epush(H5E_DEFAULT, __FILE__, __func__, __LINE__, H5E_ERR_CLS, H5E_PLINE, H5E_BADVALUE,
+              "blosc2: cd_values[5] must be 0 or %u, the last pre-filter cd_values[0] selects, not %u",
+              last_prefilter(*mask), values[5]);
+      return -1;
+    }
+  } else if (revision == 0 || revision == LEGACY_REVISION) {
+    /* The bitmask is in slot 5's low byte.  A caller gives the meta value as
+       an 8th value; earlier versions stored it in slot 5's next byte (seven
+       values) or last, after the chunk rank in slot 7 and the shape. */
+    *mask = (nelements >= 6) ? (values[5] & 0xFF) : DEFAULT_SHUFFLE;
+    *meta = (nelements >= 8) ? values[7]
+          : (nelements >= 6) ? (values[5] >> 8) & 0xFF : 0;
+    if (nelements >= 9 && nelements <= MAX_FILTER_VALUES && values[7] <= B2ND_MAX_DIM &&
+        nelements == 9 + (size_t)values[7])
+      *meta = values[nelements - 1];
+  } else if (revision == REFERENCE_REVISION) {
+    /* One filter code, and nowhere to keep a meta value */
+    unsigned int code = (nelements >= 6) ? values[5] : DEFAULT_SHUFFLE;
+    int code_mask = prefilter_mask(code);
+    if (code_mask < 0) {
+      H5Epush(H5E_DEFAULT, __FILE__, __func__, __LINE__, H5E_ERR_CLS, H5E_PLINE, H5E_BADVALUE,
+              "blosc2: cd_values[5] must be a pre-filter code from 0 to 4 when cd_values[0] is 1, not %u",
+              code);
+      return -1;
+    }
+    *mask = (unsigned int)code_mask;
+  } else {
+    H5Epush(H5E_DEFAULT, __FILE__, __func__, __LINE__, H5E_ERR_CLS, H5E_PLINE, H5E_BADVALUE,
+            "blosc2: cd_values[0] must be hdf5lib's packed settings (0xB21xxx01), 0, 1 or 2, not %u",
+            revision);
+    return -1;
+  }
+
+  *mask &= 0xF;
+  *meta &= 0xFF;  /* c-blosc2 keeps only a byte anyway */
+  return 0;
+}
+
 static herr_t blosc2_set_local(hid_t dcpl, hid_t type, hid_t space) {
   int ndim;
   herr_t r;
   unsigned int typesize, basetypesize, bufsize;
   hsize_t chunkshape[H5S_MAX_RANK];
   unsigned int flags;
-  
+
   size_t nelements = MAX_FILTER_VALUES;
   unsigned int values[MAX_FILTER_VALUES];
   memset(values, 0, sizeof(values));
@@ -269,19 +396,10 @@ static herr_t blosc2_set_local(hid_t dcpl, hid_t type, hid_t space) {
   r = H5Pget_filter_by_id(dcpl, FILTER_BLOSC2, &flags, &nelements, values, 0, NULL, NULL);
   if (r < 0) return -1;
 
-  /* 1. Extract User Inputs (Assuming user array: [0,0,0,0, clevel, filter, compcode, meta]).
-     The list may also be one this function already wrote (a copied DCPL, say).
-     Seven values keep the meta value in the high bits of slot 5, where a list
-     straight from the user has nothing.  Longer ones hold the chunk rank in
-     slot 7, then the shape, and the meta value last. */
-  unsigned int user_clevel      = (nelements >= 5) ? values[4] : DEFAULT_CLEVEL;
-  unsigned int user_filter_mask = (nelements >= 6) ? (values[5] & 0xFF) : DEFAULT_SHUFFLE;
-  unsigned int user_compcode    = (nelements >= 7) ? values[6] : DEFAULT_COMPCODE;
-  unsigned int user_meta        = (nelements >= 8) ? values[7]
-                                : (nelements >= 6) ? (values[5] >> 8) & 0xFF : 0;
-  if (nelements >= 9 && nelements <= MAX_FILTER_VALUES && values[7] <= B2ND_MAX_DIM &&
-      nelements == 9 + (size_t)values[7])
-    user_meta = values[nelements - 1];
+  /* 1. Read the caller's settings, in any of the forms CD_VALUES describes */
+  unsigned int user_clevel, user_filter_mask, user_compcode, user_meta;
+  if (read_settings(values, nelements, &user_clevel, &user_filter_mask, &user_compcode, &user_meta) < 0)
+    return -1;
 
   /* 2. Calculate Data Geometry */
   ndim = H5Pget_chunk(dcpl, H5S_MAX_RANK, chunkshape);
@@ -327,11 +445,13 @@ static herr_t blosc2_set_local(hid_t dcpl, hid_t type, hid_t space) {
      the same, and the values read back as garbage (small integers as 0).  So
      a mandatory filter refuses such a dataset here, and an optional one
      records DECLINED_CLEVEL, which makes the filter refuse every chunk and
-     HDF5 store each one unfiltered. */
-  if (IS_ZFP_CODEC(user_compcode) && !float_items) {
+     HDF5 store each one unfiltered.  A chunk of fewer than 4 values cannot
+     fill a ZFP block, so it is treated the same way. */
+  if (IS_ZFP_CODEC(user_compcode) && (!float_items || bufsize / basetypesize < 4)) {
     if (!(flags & H5Z_FLAG_OPTIONAL)) {
       H5Epush(H5E_DEFAULT, __FILE__, __func__, __LINE__, H5E_ERR_CLS, H5E_PLINE, H5E_CANAPPLY,
-              "blosc2: the ZFP codecs need float32 or float64 data in native byte order");
+              "blosc2: the ZFP codecs need float32 or float64 data in native byte order, "
+              "at least 4 values a chunk");
       return -1;
     }
     user_clevel = DECLINED_CLEVEL;
@@ -364,6 +484,22 @@ static herr_t blosc2_set_local(hid_t dcpl, hid_t type, hid_t space) {
     }
   }
 
+  /* Record only what runs.  The ZFP codecs and NDLZ skip the pre-filters,
+     bitshuffle takes the place of shuffle, and the meta value stays only
+     where something reads it. */
+  if (IS_ZFP_CODEC(user_compcode) || user_compcode == BLOSC_CODEC_NDLZ) user_filter_mask = 0;
+  if (user_filter_mask & 2) user_filter_mask &= ~1u;
+  if (user_compcode == BLOSC_CODEC_NDLZ)
+    user_meta = (user_meta == 8) ? 8 : NDLZ_DEFAULT_CELLSIZE;
+  else if (!IS_ZFP_CODEC(user_compcode) && !(user_filter_mask & 8))
+    user_meta = 0;
+
+  /* B2ND geometry must describe the chunk's bytes.  For an array datatype the
+     items Blosc2 sees are the array's base elements, which the chunk's
+     dimensions do not count, so such chunks go without it (NDLZ excepted: it
+     is handed the chunk's byte image below). */
+  int geometry_fits = (user_compcode == BLOSC_CODEC_NDLZ) || typesize == basetypesize;
+
   if (user_compcode == BLOSC_CODEC_NDLZ) {
     /* NDLZ reads its 4x4 / 8x8 cell grid straight out of the B2ND block shape,
        so it can only see a 2-D array of single-byte items.  Rather than refuse
@@ -372,13 +508,14 @@ static herr_t blosc2_set_local(hid_t dcpl, hid_t type, hid_t space) {
        bytes keep their original order, so this is a relabelling rather than a
        transform, and B2ND records the shape in the frame for the read path. */
     hsize_t rows, cols;
+    /* The full item size: an array datatype's items are whole arrays here */
     if (ndim == 1) {
       rows = chunkshape[0];
-      cols = basetypesize;
+      cols = typesize;
     } else {
       rows = 1;
       for (int i = 0; i < ndim - 1; i++) rows *= chunkshape[i];
-      cols = chunkshape[ndim - 1] * basetypesize;
+      cols = chunkshape[ndim - 1] * typesize;
     }
     ndim          = 2;
     chunkshape[0] = rows;
@@ -386,31 +523,38 @@ static herr_t blosc2_set_local(hid_t dcpl, hid_t type, hid_t space) {
     basetypesize  = 1;
   }
 
-  /* 3. Reconstruct cd_values: Strict Python Base Layout */
-  values[0] = FILTER_BLOSC2_VERSION;
+  /* 3. Reconstruct cd_values in the reference filter's layout (see CD_VALUES) */
+  values[0] = PACK_SETTINGS(user_filter_mask, user_meta);
   values[1] = 0; /* Blocksize: 0 tells Python/Blosc to calculate it automatically */
   values[2] = basetypesize;
-  values[3] = bufsize; 
+  values[3] = bufsize;
   values[4] = user_clevel;
-  values[5] = user_filter_mask; 
+  values[5] = last_prefilter(user_filter_mask);
   values[6] = user_compcode;
-  
-  /* 4. Append ndim and shape starting precisely at index 7, then the meta value.
+
+  /* 4. Append ndim and shape starting precisely at index 7, and nothing after.
      The reference filter (h5py's hdf5plugin) reads a rank from slot 7 whenever
      there is one and refuses any below 2, so, like it, record B2ND geometry
      only for ranks 2..B2ND_MAX_DIM.  Other chunks -- 1-D ones, and ranks that
      cd_values cannot carry -- get exactly its seven values and use plain
-     Blosc2 (or, for ZFP, 1-D B2ND).  Their meta value rides in bits 8-15 of
-     slot 5, which the reference reads only when it compresses. */
+     Blosc2 (or, for ZFP, 1-D B2ND). */
+  int use_geometry = geometry_fits && ndim >= 2 && ndim <= B2ND_MAX_DIM;
+
+  /* c-blosc2's ZFP codecs take B2ND ranks of 4 at most, and refuse blocks
+     narrower than 4 along any axis, which a chunk dimension under 4 gives.
+     Such chunks use 1-D ZFP instead. */
+  if (IS_ZFP_CODEC(user_compcode)) {
+    if (ndim > 4) use_geometry = 0;
+    for (int i = 0; i < ndim; i++)
+      if (chunkshape[i] < 4) use_geometry = 0;
+  }
+
   size_t idx = 7;
-  if (ndim >= 2 && ndim <= B2ND_MAX_DIM) {
+  if (use_geometry) {
       values[idx++] = (unsigned int)ndim;
       for (int i = 0; i < ndim; i++) {
           values[idx++] = (unsigned int)chunkshape[i];
       }
-      values[idx++] = user_meta;
-  } else {
-      values[5] |= (user_meta & 0xFF) << 8;  /* c-blosc2 keeps only a byte anyway */
   }
 
   nelements = idx;
@@ -478,15 +622,16 @@ static size_t blosc2_filter_function(
   void *outbuf = NULL;
   int64_t status = 0;
 
-  if (cd_nelmts < 7) PUSH_ERR("blosc2_filter: Filter parameters corrupted");
+  /* The reference filter reads with 4 values and fills in the rest, and its
+     set_local leaves a 1-D chunk's list as short as the user gave it */
+  if (cd_nelmts < 4) PUSH_ERR("blosc2_filter: Filter parameters corrupted");
 
   /* Match the strict Python layout indices exactly */
-  size_t blocksize   = cd_values[1]; 
-  size_t typesize    = cd_values[2]; 
-  size_t outbuf_size = cd_values[3]; 
-  int clevel         = cd_values[4];
-  int filter_mask    = cd_values[5] & 0xFF;
-  int compcode       = cd_values[6];
+  size_t blocksize   = cd_values[1];
+  size_t typesize    = cd_values[2];
+  size_t outbuf_size = cd_values[3];
+  int clevel         = (cd_nelmts > 4) ? (int)cd_values[4] : DEFAULT_CLEVEL;
+  int compcode       = (cd_nelmts > 6) ? (int)cd_values[6] : DEFAULT_COMPCODE;
   
   int ndim = -1;
   int32_t chunkshape[B2ND_MAX_DIM];
@@ -505,15 +650,45 @@ static size_t blosc2_filter_function(
       }
   }
 
-  /* The meta value follows the geometry; without geometry it sits in bits
-     8-15 of slot 5 (see blosc2_set_local()) */
-  int meta_value = (cd_values[5] >> 8) & 0xFF;
-  if (cd_nelmts > idx) {
-      meta_value = cd_values[idx];
+  /* The geometry must account for exactly the bytes HDF5 hands over.  It does
+     not when a filter that changes the size (scale-offset, or Fletcher32
+     placed first) runs ahead of this one, or for datasets earlier versions
+     wrote with an array datatype.  B2ND would then compress only as much of
+     the chunk as the geometry covers, so fall back as the reference filter
+     does: plain Blosc2, or 1-D ZFP.  NDLZ needs its 2-D shape and gives up. */
+  if (ndim >= 1 && !(flags & H5Z_FLAG_REVERSE)) {
+    size_t geometry_bytes = typesize;
+    for (int i = 0; i < ndim; i++) geometry_bytes *= (size_t)chunkshape[i];
+    if (geometry_bytes != nbytes) {
+      if (compcode == BLOSC_CODEC_NDLZ)
+        PUSH_ERR("blosc2_filter: Chunk of %zu bytes does not match its NDLZ geometry", nbytes);
+      ndim = -1;
+    }
   }
 
   /* ----- Compression Path ----- */
   if (!(flags & H5Z_FLAG_REVERSE)) {
+
+    /* The pre-filters and meta value, by the list's slot 0 (see CD_VALUES).
+       Reading needs neither: every chunk records its own. */
+    int filter_mask, meta_value = 0;
+    if (IS_PACKED(cd_values[0])) {
+      if (PACKED_LAYOUT(cd_values[0]) != SETTINGS_LAYOUT)
+        PUSH_ERR("blosc2_filter: Settings layout %u is from a newer hdf5lib", PACKED_LAYOUT(cd_values[0]));
+      filter_mask = (int)PACKED_MASK(cd_values[0]);
+      meta_value  = (int)PACKED_META(cd_values[0]);
+    } else if (cd_values[0] == LEGACY_REVISION) {
+      /* The meta value follows the geometry, or without any sits in bits
+         8-15 of slot 5 */
+      filter_mask = (cd_nelmts > 5) ? (int)(cd_values[5] & 0xFF) : DEFAULT_SHUFFLE;
+      if (cd_nelmts > idx) meta_value = (int)cd_values[idx];
+      else if (cd_nelmts > 5) meta_value = (int)((cd_values[5] >> 8) & 0xFF);
+    } else {
+      /* The reference filter's: one filter code, no meta value */
+      unsigned int code = (cd_nelmts > 5) ? cd_values[5] : DEFAULT_SHUFFLE;
+      filter_mask = prefilter_mask(code);
+      if (filter_mask < 0) PUSH_ERR("blosc2_filter: Pre-filter %u is not one hdf5lib runs", code);
+    }
 
     if (clevel == DECLINED_CLEVEL)
       PUSH_ERR("blosc2_filter: The ZFP codecs cannot compress this dataset's datatype");

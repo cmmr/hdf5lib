@@ -80,6 +80,17 @@ int hdf5lib_get_blosc_nthreads(void) {
     } \
 } while(0)
 
+/* The read-only quantizer shims, and whether each is registered.  A shim can
+   only read, and HDF5 consults registered filters before it searches
+   HDF5_PLUGIN_PATH, so registering one over a real plugin (which can also
+   write) would block writing that format.  Each is therefore registered only
+   where no filter has its ID already -- H5Zfilter_avail() loads the plugin if
+   one is installed -- and teardown unregisters only the shims registered. */
+static const H5Z_class2_t *const quantizer_shims[] = {
+  &bitgroom_shim_class, &granularbr_shim_class, &bitround_shim_class };
+#define N_SHIMS (sizeof(quantizer_shims) / sizeof(quantizer_shims[0]))
+static int shim_registered[N_SHIMS] = {0};
+
 
 /* --- Registration Function --- */
 herr_t hdf5lib_register_all_filters(void) {
@@ -106,9 +117,15 @@ herr_t hdf5lib_register_all_filters(void) {
     REG_HDF5_FILTER(&zfp_class, "zfp");
     REG_HDF5_FILTER(&zstd_class, "zstd");
 
-    REG_HDF5_FILTER(&bitgroom_shim_class, "bitgroom_read_shim");
-    REG_HDF5_FILTER(&granularbr_shim_class, "granularbr_read_shim");
-    REG_HDF5_FILTER(&bitround_shim_class, "bitround_read_shim");
+    for (size_t i = 0; i < N_SHIMS; i++) {
+        if (shim_registered[i] || H5Zfilter_avail(quantizer_shims[i]->id) > 0) continue;
+        if (H5Zregister(quantizer_shims[i]) < 0) {
+            Rf_warning("[HDF5LIB ERROR]: Failed to register HDF5 filter: %s", quantizer_shims[i]->name);
+            err = -1;
+        } else {
+            shim_registered[i] = 1;
+        }
+    }
 
     return err;
 }
@@ -129,9 +146,10 @@ herr_t hdf5lib_destroy_all_filters(void) {
   H5Zunregister(zfp_class.id);
   H5Zunregister(zstd_class.id);
 
-  H5Zunregister(bitgroom_shim_class.id);
-  H5Zunregister(granularbr_shim_class.id);
-  H5Zunregister(bitround_shim_class.id);
+  for (size_t i = 0; i < N_SHIMS; i++) {
+    if (shim_registered[i]) H5Zunregister(quantizer_shims[i]->id);
+    shim_registered[i] = 0;
+  }
 
   /* Safely tear down the Blosc thread pools and TLS memory.  The Blosc2 plugin's
      cached contexts hold worker threads of their own, so release them first. */

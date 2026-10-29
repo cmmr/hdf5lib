@@ -59,6 +59,33 @@ static uint32_t read_be32(const uint8_t *p) {
   return ((uint32_t)p[0] << 24) | ((uint32_t)p[1] << 16) | ((uint32_t)p[2] << 8) | ((uint32_t)p[3]);
 }
 
+/* Block sizes are a multiple of this (BSHUF_BLOCKED_MULT in bitshuffle's
+   internal headers) */
+#define BSHUF_BLOCK_MULT 8
+
+/* bshuf_decompress_lz4() and _zstd() take no input length: each block's
+   compressed size comes from the 4-byte big-endian header in front of it.
+   Walk those headers the way bshuf_blocked_wrap_fun() does -- full blocks,
+   then one partial block of a multiple of 8 elements, then the last
+   (num_elems % 8) elements copied as they are -- so that a truncated or
+   corrupt chunk is refused instead of read past its end. */
+static int bshuf_blocks_fit(const uint8_t *in, size_t avail, size_t num_elems,
+                            size_t elem_size, size_t block_size) {
+  size_t nblocks = num_elems / block_size;
+  size_t last = num_elems % block_size;
+  size_t pos = 0;
+  if (last - last % BSHUF_BLOCK_MULT) nblocks++;
+  for (size_t b = 0; b < nblocks; b++) {
+    if (avail - pos < 4) return 0;
+    uint32_t len = read_be32(in + pos);
+    if (len > INT32_MAX) return 0;  /* bitshuffle reads it as an int32_t */
+    pos += 4;
+    if (avail - pos < len) return 0;
+    pos += len;
+  }
+  return avail - pos >= (num_elems % BSHUF_BLOCK_MULT) * elem_size;
+}
+
 /* * Callback to intercept dataset types and populate cd_values.
  */
 static herr_t bshuf_set_local(hid_t dcpl, hid_t type, hid_t space) {
@@ -71,11 +98,30 @@ static herr_t bshuf_set_local(hid_t dcpl, hid_t type, hid_t space) {
     return -1;
   }
 
-  /* Shift user-provided options (block_size, compress_algo, comp_lvl) right by 3 */
-  for (size_t i = 0; i < nelements && i + 3 < 11; i++) {
-    values[i + 3] = tmp_values[i];
+  /* Shift user-provided options (block_size, compress_algo, comp_lvl) right by
+     3 -- unless this function already filled the list in (a copied DCPL, as
+     h5repack makes), which then starts with bitshuffle's version: major 0 and
+     a minor of 4 or more, where a user's second value is a codec (0, 2 or 3).
+     Shifting that again would make the minor version the codec. */
+  size_t shift = (nelements >= 3 && tmp_values[0] == 0 && tmp_values[1] >= 4) ? 0 : 3;
+  for (size_t i = 0; i < nelements && i + shift < 11; i++) {
+    values[i + shift] = tmp_values[i];
   }
-  nelements += 3;
+  nelements += shift;
+
+  /* Refuse what every chunk would fail on (bitshuffle error -81), while
+     H5Dcreate2() can still report it */
+  if (nelements > 3 && values[3] % BSHUF_BLOCK_MULT) {
+    H5Epush(H5E_DEFAULT, __FILE__, __func__, __LINE__, H5E_ERR_CLS, H5E_PLINE, H5E_BADVALUE,
+            "bitshuffle: block size must be a multiple of %d, not %u", BSHUF_BLOCK_MULT, values[3]);
+    return -1;
+  }
+  if (nelements > 4 && values[4] != BSHUF_H5_COMPRESS_NONE &&
+      values[4] != BSHUF_H5_COMPRESS_LZ4 && values[4] != BSHUF_H5_COMPRESS_ZSTD) {
+    H5Epush(H5E_DEFAULT, __FILE__, __func__, __LINE__, H5E_ERR_CLS, H5E_PLINE, H5E_BADVALUE,
+            "bitshuffle: compression must be 0 (none), 2 (lz4) or 3 (zstd), not %u", values[4]);
+    return -1;
+  }
 
   /* Slot 0 & 1: Versioning */
   values[0] = BSHUF_VERSION_MAJOR;
@@ -115,14 +161,16 @@ static size_t bshuf_filter(
   size_t block_size = (cd_nelmts > 3) ? cd_values[3] : 0;
   int comp_algo = (cd_nelmts > 4) ? cd_values[4] : BSHUF_H5_COMPRESS_NONE;
 
+  if (elem_size == 0) PUSH_ERR("bshuf_filter: Element size of 0 in filter parameters");
+
   if (block_size == 0) {
     block_size = bshuf_default_block_size(elem_size);
   }
 
-  if (comp_algo != BSHUF_H5_COMPRESS_NONE && 
-      comp_algo != BSHUF_H5_COMPRESS_LZ4 && 
-      comp_algo != BSHUF_H5_COMPRESS_ZSTD) {
-    PUSH_ERR("bshuf_filter: Unsupported compression algorithm ID %d", comp_algo);
+  /* Like the reference filter, treat any other codec ID as plain bitshuffle:
+     datasets it wrote that way exist, and it reads them so */
+  if (comp_algo != BSHUF_H5_COMPRESS_LZ4 && comp_algo != BSHUF_H5_COMPRESS_ZSTD) {
+    comp_algo = BSHUF_H5_COMPRESS_NONE;
   }
 
   /* ----- Decompression Path ----- */
@@ -137,6 +185,7 @@ static size_t bshuf_filter(
       size_t header_block_bytes = read_be32(in_buf + 8);
       block_size = header_block_bytes / elem_size;
       in_buf += 12; /* Skip header */
+      if (block_size == 0) block_size = bshuf_default_block_size(elem_size);
     } else {
       nbytes_uncomp = nbytes; /* Pure bitshuffle, sizes are identical */
     }
@@ -144,8 +193,14 @@ static size_t bshuf_filter(
     if (nbytes_uncomp % elem_size != 0) {
       PUSH_ERR("bshuf_filter: Uncompressed size is not a multiple of element size");
     }
-    
+
     size_t num_elems = nbytes_uncomp / elem_size;
+
+    if ((comp_algo == BSHUF_H5_COMPRESS_LZ4 || comp_algo == BSHUF_H5_COMPRESS_ZSTD) &&
+        (block_size % BSHUF_BLOCK_MULT != 0 ||
+         !bshuf_blocks_fit(in_buf, nbytes - 12, num_elems, elem_size, block_size))) {
+      PUSH_ERR("bshuf_filter: Chunk is truncated or corrupt");
+    }
 
     void *out_buf = H5allocate_memory(nbytes_uncomp, 0);
     if (!out_buf) PUSH_ERR("bshuf_filter: Memory allocation failed");

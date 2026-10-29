@@ -217,6 +217,27 @@ static htri_t zfp_chunk_supported(hid_t type_id, hid_t chunk_space_id, zfp_type 
         goto done;
     }
 
+    /* ZFP's header packs the dimensions into 48 bits: 2^48 values in 1-D,
+       down to 4096 per dimension in 4-D */
+    {
+        zfp_field *field = NULL;
+        switch (*ndims_used) {
+            case 1: field = zfp_field_1d(NULL, *zt, dims_used[0]); break;
+            case 2: field = zfp_field_2d(NULL, *zt, dims_used[1], dims_used[0]); break;
+            case 3: field = zfp_field_3d(NULL, *zt, dims_used[2], dims_used[1], dims_used[0]); break;
+#if ZFP_VERSION_NO >= 0x0540
+            case 4: field = zfp_field_4d(NULL, *zt, dims_used[3], dims_used[2], dims_used[1], dims_used[0]); break;
+#endif
+        }
+        if (!field) PUSH_AND_GOTO(H5E_NOSPACE, -1, "zfp_field alloc failed");
+        uint64_t meta = zfp_field_metadata(field);
+        zfp_field_free(field);
+        if (meta == ZFP_META_NULL) {
+            *why = "chunk dimensions are too large for the ZFP header";
+            goto done;
+        }
+    }
+
     /* The filter sees the data in the file's byte order */
     if (0 > (native_type_id = H5Tget_native_type(type_id, H5T_DIR_ASCEND)))
         PUSH_AND_GOTO(H5E_BADTYPE, -1, "unable to get native datatype");
@@ -278,13 +299,20 @@ static herr_t H5Z_zfp_set_local(hid_t dcpl_id, hid_t type_id, hid_t chunk_space_
     if (0 > (supported = zfp_chunk_supported(type_id, chunk_space_id, &zt, &ndims_used, dims_used, &why)))
         PUSH_AND_GOTO(H5E_BADTYPE, -1, "unable to check datatype and chunk shape");
 
+    /* A list copied from a dataset ZFP declined holds no mode to apply */
+    if (supported && mem_cd_nelmts == H5Z_ZFP_CD_NELMTS_DECLINE && mem_cd_values[1] == 0 &&
+        0 >= H5Pexist(dcpl_id, "zfp_controls")) {
+        supported = 0;
+        why = "the ZFP parameters were copied from a dataset ZFP declined";
+    }
+
     if (!supported) {
         /* can_apply() turned this chunk down, which fails H5Dcreate2() for a
            mandatory filter, so this one is optional.  It cannot take itself
            out of the pipeline here: HDF5 is walking the pipeline as it calls
            us, and removing an entry shifts the others under it.  Record values
            that make the filter refuse every chunk instead, so HDF5 stores them
-           all unfiltered. */
+           all unfiltered.  A copy of such a list is declined again. */
         if (!(flags & H5Z_FLAG_OPTIONAL)) {
             H5Epush(H5E_DEFAULT, __FILE__, __func__, __LINE__, H5E_ERR_CLS, H5E_PLINE, H5E_CANAPPLY, "%s", why);
             retval = -1;
@@ -524,6 +552,7 @@ static size_t H5Z_filter_zfp(unsigned int flags, size_t cd_nelmts, const unsigne
     if (nbytes == 0) return 0;
     
     void *newbuf = NULL;
+    void *scratch = NULL;  /* padded copy to decode, or byte-swapped copy to encode */
     size_t retval = 0;
     unsigned int cd_vals_h5zzfpver, cd_vals_zfpcodec, cd_vals_zfpver;
     H5T_order_t swap = H5T_ORDER_NONE;
@@ -546,8 +575,10 @@ static size_t H5Z_filter_zfp(unsigned int flags, size_t cd_nelmts, const unsigne
     if (0 == get_zfp_info_from_cd_values(cd_nelmts-1, &cd_values[1], &zfp_mode, &zfp_meta, &swap)) PUSH_AND_GOTO(H5E_CANTGET, 0, "can't get ZFP mode/meta");
 
     if (flags & H5Z_FLAG_REVERSE) {
-        int status;
+        size_t status, msize;
         size_t bsize, dsize;
+        void *src = *buf;
+        size_t src_size = nbytes;
 
         if (zfp_codec_version_mismatch(cd_vals_h5zzfpver, cd_vals_zfpver, cd_vals_zfpcodec)) PUSH_AND_GOTO(H5E_READERROR, 0, "ZFP codec version mismatch");
 
@@ -568,10 +599,23 @@ static size_t H5Z_filter_zfp(unsigned int flags, size_t cd_nelmts, const unsigne
 
         zfp_field_set_pointer(zfld, newbuf);
 
-        if (0 == (bstr = stream_open(*buf, *buf_size))) PUSH_AND_GOTO(H5E_NOSPACE, 0, "bitstream open failed");
-        if (0 == (zstr = zfp_stream_open(bstr))) PUSH_AND_GOTO(H5E_NOSPACE, 0, "zfp stream open failed");
-
+        if (0 == (zstr = zfp_stream_open(NULL))) PUSH_AND_GOTO(H5E_NOSPACE, 0, "zfp stream open failed");
         zfp_stream_set_mode(zstr, zfp_mode);
+
+        /* zfp's bit stream does no bounds checking, so a truncated or corrupt
+           chunk would be read past its end.  Decode a short one from a copy
+           padded with zeros to as much as ZFP can ever read, and refuse it if
+           decoding used more than the chunk holds. */
+        msize = zfp_stream_maximum_size(zstr, zfld);
+        if (nbytes < msize) {
+            if (NULL == (scratch = H5allocate_memory(msize, 1))) PUSH_AND_GOTO(H5E_NOSPACE, 0, "memory allocation failed for ZFP decompression");
+            memcpy(scratch, *buf, nbytes);
+            src = scratch;
+            src_size = msize;
+        }
+
+        if (0 == (bstr = stream_open(src, src_size))) PUSH_AND_GOTO(H5E_NOSPACE, 0, "bitstream open failed");
+        zfp_stream_set_bit_stream(zstr, bstr);
         status = zfp_decompress(zstr, zfld);
 
         zfp_field_free(zfld); zfld = NULL;
@@ -579,6 +623,7 @@ static size_t H5Z_filter_zfp(unsigned int flags, size_t cd_nelmts, const unsigne
         stream_close(bstr); bstr = NULL;
 
         if (!status) PUSH_AND_GOTO(H5E_CANTFILTER, 0, "decompression failed");
+        if (status > nbytes) PUSH_AND_GOTO(H5E_CANTFILTER, 0, "ZFP chunk is truncated or corrupt");
 
         if (swap != H5T_ORDER_NONE) {
             hid_t src = dsize == 4 ? H5T_STD_U32BE : H5T_STD_U64BE; 
@@ -593,18 +638,40 @@ static size_t H5Z_filter_zfp(unsigned int flags, size_t cd_nelmts, const unsigne
         *buf_size = bsize; 
         retval = bsize;
     } else {
-        size_t msize, zsize;
+        size_t msize, zsize, dsize;
+        void *src = *buf;
 
         if (0 == (zfld = zfp_field_alloc())) PUSH_AND_GOTO(H5E_NOSPACE, 0, "field alloc failed");
-        zfp_field_set_pointer(zfld, *buf);
         zfp_field_set_metadata(zfld, zfp_meta);
+
+        /* The header must describe this very chunk.  One left from another
+           dataset (a copied creation property list whose header another
+           filter's set_local did not replace) would have ZFP read past the end
+           of the buffer, or compress only part of it. */
+        dsize = zfp_type_size(zfp_field_type(zfld));
+        if (dsize == 0 || zfp_field_size(zfld, NULL) * dsize != nbytes)
+            PUSH_AND_GOTO(H5E_CANTFILTER, 0, "ZFP header does not describe this chunk's size");
+
+        /* A header written on a machine of the other byte order means the data
+           is in that order too: byte-swap a copy to native before encoding,
+           as the read path swaps the decoded values back */
+        if (swap != H5T_ORDER_NONE) {
+            hid_t from = dsize == 4 ? H5T_STD_U32BE : H5T_STD_U64BE;
+            hid_t to   = dsize == 4 ? H5T_NATIVE_UINT32 : H5T_NATIVE_UINT64;
+            if (swap == H5T_ORDER_BE) from = dsize == 4 ? H5T_STD_U32LE : H5T_STD_U64LE;
+            if (NULL == (scratch = H5allocate_memory(nbytes, 0))) PUSH_AND_GOTO(H5E_NOSPACE, 0, "memory allocation failed for ZFP compression");
+            memcpy(scratch, *buf, nbytes);
+            if (H5Tconvert(from, to, nbytes / dsize, scratch, 0, H5P_DEFAULT) < 0) PUSH_AND_GOTO(H5E_BADVALUE, 0, "endian-swap failed");
+            src = scratch;
+        }
+        zfp_field_set_pointer(zfld, src);
 
         if (0 == (zstr = zfp_stream_open(0))) PUSH_AND_GOTO(H5E_NOSPACE, 0, "zfp stream open failed");
         zfp_stream_set_mode(zstr, zfp_mode);
 
         /* Reversible mode reproduces any bit pattern, NaN and Inf included */
         if (zfp_stream_compression_mode(zstr) != zfp_mode_reversible &&
-            has_nonfinite(*buf, nbytes, zfp_field_type(zfld)))
+            has_nonfinite(src, nbytes, zfp_field_type(zfld)))
             PUSH_AND_GOTO(H5E_CANTFILTER, 0, "ZFP cannot encode the NaN or Inf values in this chunk");
 
         msize = zfp_stream_maximum_size(zstr, zfld);
@@ -633,6 +700,7 @@ done:
     if (zstr) zfp_stream_close(zstr);
     if (bstr) stream_close(bstr);
     if (newbuf) H5free_memory(newbuf);
+    if (scratch) H5free_memory(scratch);
     return retval ;
 }
 

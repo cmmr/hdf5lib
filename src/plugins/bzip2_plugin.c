@@ -5,11 +5,21 @@
  * Compatible with standard PyTables/HDF5 bzip2 filter implementations (Filter ID 307).
  */
 
+/* bzlib is built with BZ_NO_STDIO (see configure) so that it never writes to
+   stderr; its internal consistency checks then call bz_internal_error() */
+#define BZ_NO_STDIO
 #include <hdf5.h>
 #include <bzlib.h>
 #include <stdlib.h>
+#include <R_ext/Error.h>
 
 #define H5Z_FILTER_BZIP2 307
+
+/* A failed check means a bug or memory corruption, and bzlib must not carry
+   on, so stop with an R error as its own handler would have stopped bzip2. */
+void bz_internal_error(int errcode) {
+  Rf_error("bzip2 internal error %d", errcode);
+}
 
 #define PUSH_ERR(...) do {                                                                               \
 H5Epush(H5E_DEFAULT, __FILE__, __func__, __LINE__, H5E_ERR_CLS, H5E_PLINE, H5E_CANTFILTER, __VA_ARGS__); \
@@ -59,6 +69,10 @@ static size_t bzip2_filter(
     
     int ret;
     while ((ret = BZ2_bzDecompress(&strm)) == BZ_OK) {
+      /* bzlib answers BZ_OK, not an error, when the input runs out before the
+         end of the stream, so a truncated chunk would spin here forever */
+      if (strm.avail_in == 0 && strm.avail_out > 0) break;
+
       /* If the output buffer is full, double it and continue */
       if (strm.avail_out == 0) {
         size_t current_out = (size_t)(strm.next_out - (char *)outbuf);
@@ -82,6 +96,7 @@ static size_t bzip2_filter(
     if (ret != BZ_STREAM_END) {
       BZ2_bzDecompressEnd(&strm);
       H5free_memory(outbuf);
+      if (ret == BZ_OK) PUSH_ERR("bzip2_filter: Chunk is truncated");
       PUSH_ERR("bzip2_filter: Decompression failed with error code %d", ret);
     }
     
