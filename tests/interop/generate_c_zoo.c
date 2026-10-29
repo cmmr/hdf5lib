@@ -274,8 +274,26 @@ SEXP C_write_zoo(SEXP sexp_filename) {
     cd_pipeline[6] = 5; // Compressor code (ZSTD = 5)
     
     H5Pset_filter(plist, H5Z_FILTER_BLOSC2, H5Z_FLAG_MANDATORY, 7, cd_pipeline);
-    write_dset(file_id, space_id, "blosc2_delta_bshuf_zstd", H5T_NATIVE_INT, plist, buf_i32); 
+    write_dset(file_id, space_id, "blosc2_delta_bshuf_zstd", H5T_NATIVE_INT, plist, buf_i32);
     H5Pclose(plist);
+
+    // ==========================================
+    // 8. Optional ZFP on Chunks It Cannot Take
+    // ==========================================
+    // A single value and a 5-D chunk: ZFP records values that refuse every
+    // chunk, so each one is stored unfiltered and h5py reads it without ZFP.
+    hsize_t dims_single[1] = {1}, dims_5d[5] = {2, 2, 2, 2, 2};
+    const char* declined_names[] = {"zfp_declined_single", "zfp_declined_5d"};
+    const hsize_t* declined_dims[] = {dims_single, dims_5d};
+    int declined_ranks[] = {1, 5};
+    for (int d = 0; d < 2; d++) {
+        hid_t declined_space = H5Screate_simple(declined_ranks[d], declined_dims[d], NULL);
+        plist = H5Pcreate(H5P_DATASET_CREATE); H5Pset_chunk(plist, declined_ranks[d], declined_dims[d]);
+        H5Pset_zfp_reversible(plist);
+        H5Pmodify_filter(plist, H5Z_FILTER_ZFP, H5Z_FLAG_OPTIONAL, 0, NULL);
+        write_dset(file_id, declined_space, declined_names[d], H5T_NATIVE_INT, plist, buf_i32);
+        H5Pclose(plist); H5Sclose(declined_space);
+    }
 
     // Cleanup
     H5Sclose(space_id); H5Fclose(file_id); hdf5lib_destroy_all_filters();

@@ -19,6 +19,9 @@
 #define H5Z_FILTER_BSHUF     32008
 #define H5Z_FILTER_ZFP       32013
 #define H5Z_FILTER_ZSTD      32015
+#define H5Z_FILTER_BITGROOM  32022
+#define H5Z_FILTER_BITSHAVE  32023
+#define H5Z_FILTER_BITROUND  32024
 #define H5Z_FILTER_BLOSC2    32026
 
 /* --- Test Mask Architecture --- */
@@ -947,6 +950,464 @@ cleanup:
   return ret;
 }
 
+/* 15. ZFP on Chunks It Cannot Take */
+
+/* ZFP compresses 4- or 8-byte numbers in native byte order, in chunks with 1
+   to 4 dimensions longer than one.  For anything else a mandatory ZFP filter
+   must fail H5Dcreate2(), and an optional one must leave every chunk
+   unfiltered and exact, recording values that make a ZFP filter refuse them.
+   It used to record no values for a single value or a 5-D chunk (and then
+   read cd_values that were not there), fail H5Dcreate2() for int16, and
+   compress the other byte order as though it were native. */
+static const char *zfp_unsupported_names[] = {"single", "5d", "int16", "swapped"};
+
+static int test_zfp_unsupported(hid_t fid, int which, unsigned int flags) {
+  const char *what = zfp_unsupported_names[which];
+  hsize_t dims[5] = {2, 2, 2, 2, 2}, n = 1;
+  int rank = (which == 1) ? 5 : 1;
+  if (which == 0) dims[0] = 1;
+  if (which >= 2) dims[0] = 64;
+  for (int i = 0; i < rank; i++) n *= dims[i];
+
+  hid_t mtype = (which == 2) ? H5T_NATIVE_SHORT : H5T_NATIVE_DOUBLE, ftype = mtype;
+  if (which == 3) ftype = (H5Tget_order(H5T_NATIVE_DOUBLE) == H5T_ORDER_LE) ? H5T_IEEE_F64BE : H5T_IEEE_F64LE;
+  size_t tsize = H5Tget_size(mtype);
+
+  unsigned char *data = malloc(n * tsize), *data_out = malloc(n * tsize);
+  unsigned int vals[16], fflags;
+  size_t nelmts = 16;
+  hid_t sid = -1, plist = -1, dset = -1, dcpl = -1;
+  int ret = -1;
+
+  if (!data || !data_out) goto cleanup;
+
+  /* Small whole numbers: read in the other byte order they are subnormals,
+     which lossy ZFP rounds to zero */
+  for (hsize_t i = 0; i < n; i++) {
+    if (which == 2) { short s = (short)(3 * (int)i - 50); memcpy(data + i * tsize, &s, tsize); }
+    else            { double d = (double)i + 1.0;         memcpy(data + i * tsize, &d, tsize); }
+  }
+
+  CHECK(sid = H5Screate_simple(rank, dims, NULL), "H5Screate_simple");
+  CHECK(plist = H5Pcreate(H5P_DATASET_CREATE), "H5Pcreate");
+  CHECK(H5Pset_chunk(plist, rank, dims), "H5Pset_chunk");
+  CHECK(H5Pset_zfp_accuracy(plist, 0.01), "H5Pset_zfp_accuracy");
+  if (flags == H5Z_FLAG_OPTIONAL) CHECK(make_filter_optional(plist, H5Z_FILTER_ZFP), "make_filter_optional");
+
+  char dset_name[64];
+  snprintf(dset_name, sizeof(dset_name), "/zfp_unsupported_%s_%s", what,
+           flags == H5Z_FLAG_OPTIONAL ? "opt" : "man");
+  dset = H5Dcreate2(fid, dset_name, ftype, sid, H5P_DEFAULT, plist, H5P_DEFAULT);
+
+  if (flags == H5Z_FLAG_MANDATORY) {
+    if (dset >= 0) Rprintf("\n      -> Mandatory ZFP accepted a %s chunk", what);
+    else ret = 0;
+    goto cleanup;
+  }
+  CHECK(dset, "H5Dcreate2");
+
+  /* Look at the recorded values before any chunk reaches the filter */
+  CHECK(dcpl = H5Dget_create_plist(dset), "H5Dget_create_plist");
+  CHECK(H5Pget_filter_by_id(dcpl, H5Z_FILTER_ZFP, &fflags, &nelmts, vals, 0, NULL, NULL), "H5Pget_filter_by_id");
+  if (nelmts != 2 || vals[1] != 0) {
+    Rprintf("\n      -> %s chunk recorded %zu ZFP values, not the 2 that refuse it", what, nelmts);
+    goto cleanup;
+  }
+
+  CHECK(H5Dwrite(dset, mtype, H5S_ALL, H5S_ALL, H5P_DEFAULT, data), "H5Dwrite");
+  if (H5Dclose(dset) < 0) { dset = -1; Rprintf("\n      -> H5Dclose failed"); goto cleanup; }
+  CHECK(dset = H5Dopen2(fid, dset_name, H5P_DEFAULT), "H5Dopen2");
+  CHECK(H5Dread(dset, mtype, H5S_ALL, H5S_ALL, H5P_DEFAULT, data_out), "H5Dread");
+
+  hsize_t offset[5], size;
+  unsigned mask;
+  haddr_t addr;
+  CHECK(H5Dget_chunk_info(dset, H5S_ALL, 0, offset, &mask, &addr, &size), "H5Dget_chunk_info");
+  if (mask != 1) {
+    Rprintf("\n      -> %s chunk went through ZFP", what);
+    goto cleanup;
+  }
+  if (memcmp(data, data_out, n * tsize) != 0) {
+    Rprintf("\n      -> %s chunk did not read back exactly", what);
+    goto cleanup;
+  }
+  ret = 0;
+
+cleanup:
+  if (data) free(data);
+  if (data_out) free(data_out);
+  if (dcpl >= 0) H5Pclose(dcpl);
+  CLOSE_DSET(dset);
+  if (plist >= 0) H5Pclose(plist);
+  if (sid >= 0) H5Sclose(sid);
+  return ret;
+}
+
+/* 16. ZFP Creation Property List Copied From Another Dataset */
+
+/* A dataset's creation property list holds the ZFP header written for its own
+   chunks.  A dataset created from a copy of it, as h5repack creates them, needs
+   a header for its chunks in the same mode; it used to inherit the first one's
+   and compress its chunks as though they had the first one's shape.  A fixed
+   rate is stored as bits per block, so it must be rescaled for a chunk with a
+   different number of dimensions: 1-D blocks hold 4 values, 2-D blocks 16. */
+static int test_zfp_copied_dcpl(hid_t fid, int use_rate) {
+  hsize_t dims_a[1] = {256}, dims_b[2] = {32, 32}, chunk_b[2] = {16, 32};
+  size_t n = 1024;
+  double *data = malloc(n * sizeof(double)), *data_out = malloc(n * sizeof(double));
+  unsigned int vals_a[16], vals_b[16], flags;
+  size_t n_a = 16, n_b = 16;
+  hid_t sid = -1, plist = -1, dset = -1, dcpl = -1, dcpl_b = -1;
+  int ret = -1;
+  char name_a[64], name_b[64];
+
+  if (!data || !data_out) goto cleanup;
+  for (size_t i = 0; i < n; i++) { data[i] = sin((double)i / 20.0) * 100.0; data_out[i] = -1.0; }
+  snprintf(name_a, sizeof(name_a), "/zfp_copy_src_%s", use_rate ? "rate" : "acc");
+  snprintf(name_b, sizeof(name_b), "/zfp_copy_dst_%s", use_rate ? "rate" : "acc");
+
+  CHECK(sid = H5Screate_simple(1, dims_a, NULL), "H5Screate_simple");
+  CHECK(plist = H5Pcreate(H5P_DATASET_CREATE), "H5Pcreate");
+  CHECK(H5Pset_chunk(plist, 1, dims_a), "H5Pset_chunk");
+  CHECK(use_rate ? H5Pset_zfp_rate(plist, 16.0) : H5Pset_zfp_accuracy(plist, 0.01), "H5Pset_zfp_*");
+  CHECK(dset = H5Dcreate2(fid, name_a, H5T_NATIVE_DOUBLE, sid, H5P_DEFAULT, plist, H5P_DEFAULT), "H5Dcreate2");
+  CHECK(H5Dwrite(dset, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT, data), "H5Dwrite");
+  if (H5Dclose(dset) < 0) { dset = -1; Rprintf("\n      -> H5Dclose failed"); goto cleanup; }
+  H5Sclose(sid);
+  sid = -1;
+
+  /* Reopened, its property list comes from the file alone, without the
+     setting the H5Pset_zfp_*() helper left in the original */
+  CHECK(dset = H5Dopen2(fid, name_a, H5P_DEFAULT), "H5Dopen2");
+  CHECK(dcpl = H5Dget_create_plist(dset), "H5Dget_create_plist");
+  CHECK(H5Pget_filter_by_id(dcpl, H5Z_FILTER_ZFP, &flags, &n_a, vals_a, 0, NULL, NULL), "H5Pget_filter_by_id");
+  if (H5Dclose(dset) < 0) { dset = -1; Rprintf("\n      -> H5Dclose failed"); goto cleanup; }
+  dset = -1;
+
+  CHECK(H5Pset_chunk(dcpl, 2, chunk_b), "H5Pset_chunk");
+  CHECK(sid = H5Screate_simple(2, dims_b, NULL), "H5Screate_simple");
+  CHECK(dset = H5Dcreate2(fid, name_b, H5T_NATIVE_DOUBLE, sid, H5P_DEFAULT, dcpl, H5P_DEFAULT), "H5Dcreate2");
+  CHECK(dcpl_b = H5Dget_create_plist(dset), "H5Dget_create_plist");
+  CHECK(H5Pget_filter_by_id(dcpl_b, H5Z_FILTER_ZFP, &flags, &n_b, vals_b, 0, NULL, NULL), "H5Pget_filter_by_id");
+  if (n_a == n_b && memcmp(vals_a, vals_b, n_a * sizeof(vals_a[0])) == 0) {
+    Rprintf("\n      -> The copy kept the first dataset's ZFP header (%s)", use_rate ? "rate" : "accuracy");
+    goto cleanup;
+  }
+
+  CHECK(H5Dwrite(dset, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT, data), "H5Dwrite");
+  if (H5Dclose(dset) < 0) { dset = -1; Rprintf("\n      -> H5Dclose failed"); goto cleanup; }
+  CHECK(dset = H5Dopen2(fid, name_b, H5P_DEFAULT), "H5Dopen2");
+  CHECK(H5Dread(dset, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT, data_out), "H5Dread");
+
+  for (size_t i = 0; i < n; i++) {
+    if (!(fabs(data[i] - data_out[i]) <= (use_rate ? 0.5 : 0.01))) {
+      Rprintf("\n      -> Mismatch at index %zu (in: %f, out: %f)", i, data[i], data_out[i]);
+      goto cleanup;
+    }
+  }
+  /* 16 bits a value, exactly, in two chunks of 32 blocks */
+  if (use_rate && H5Dget_storage_size(dset) != n * 16 / 8) {
+    Rprintf("\n      -> Fixed rate stored %llu bytes, not %zu", (unsigned long long)H5Dget_storage_size(dset), n * 16 / 8);
+    goto cleanup;
+  }
+  ret = 0;
+
+cleanup:
+  if (data) free(data);
+  if (data_out) free(data_out);
+  if (dcpl_b >= 0) H5Pclose(dcpl_b);
+  if (dcpl >= 0) H5Pclose(dcpl);
+  CLOSE_DSET(dset);
+  if (plist >= 0) H5Pclose(plist);
+  if (sid >= 0) H5Sclose(sid);
+  return ret;
+}
+
+/* 17. ZFP Filter Without Its Parameters */
+
+/* HDF5 passes cd_values = NULL to a filter that has none, and earlier versions
+   of the ZFP filter left none for a chunk ZFP could not take.  The filter has
+   to refuse such a chunk, both ways, without reading cd_values; it used to read
+   cd_values[0] first. */
+extern const H5Z_class2_t zfp_class;
+
+static int test_zfp_no_params(void) {
+  double chunk[4] = {1.0, 2.0, 3.0, 4.0};
+  unsigned int declined[2] = {0, 0};
+  int ret = 0;
+
+  for (int reverse = 0; reverse <= 1; reverse++) {
+    for (size_t nelmts = 0; nelmts <= 2; nelmts++) {
+      size_t buf_size = sizeof(chunk);
+      void *buf = H5allocate_memory(buf_size, 0);
+      if (!buf) return -1;
+      memcpy(buf, chunk, buf_size);
+      size_t got = zfp_class.filter(reverse ? H5Z_FLAG_REVERSE : 0, nelmts, nelmts ? declined : NULL,
+                                    sizeof(chunk), &buf_size, &buf);
+      if (got != 0 || buf_size != sizeof(chunk) || memcmp(buf, chunk, sizeof(chunk)) != 0) {
+        Rprintf("\n      -> Filter accepted a chunk with %zu cd_values (%s)", nelmts, reverse ? "read" : "write");
+        ret = -1;
+      }
+      H5free_memory(buf);
+    }
+  }
+  return ret;
+}
+
+/* 18. Blosc2 Truncation Rounds Native Floats Only */
+
+/* Truncate-precision zeroes the low bits of every 4- or 8-byte item.  It must
+   leave integers, compound records and floats in the other byte order alone
+   (with prec 10 it used to read every int32 below 8192 back as 0), and keep
+   rounding native floats, alone or in arrays.  A precision Blosc2 cannot apply
+   must fail H5Dcreate2() rather than every chunk, and one with more bits than
+   the mantissa keeps them all.
+
+   Writes the items through trunc-prec(prec) + bitshuffle + lz4 and reads them
+   back.  Returns the pre-filter mask stored in the file, -2 if H5Dcreate2()
+   refused, or -1 on any other failure. */
+#define TRUNC_N 4096
+
+static int blosc2_trunc_roundtrip(hid_t fid, const char *name, hid_t ftype, hid_t mtype,
+                                  int rank, int prec, const void *data, void *data_out) {
+  hsize_t dims[2] = {TRUNC_N, 1}, chunkdims[2] = {TRUNC_N / 4, 1};
+  if (rank == 2) { dims[0] = dims[1] = 64; chunkdims[0] = chunkdims[1] = 32; }
+  unsigned int cd[8] = {0, 0, 0, 0, 5, 8 | 2, 1, (unsigned int)prec};
+  unsigned int vals[32], flags;
+  size_t nelmts = 32;
+  hid_t sid = -1, plist = -1, dset = -1, dcpl = -1;
+  int ret = -1;
+
+  CHECK(sid = H5Screate_simple(rank, dims, NULL), "H5Screate_simple");
+  CHECK(plist = H5Pcreate(H5P_DATASET_CREATE), "H5Pcreate");
+  CHECK(H5Pset_chunk(plist, rank, chunkdims), "H5Pset_chunk");
+  CHECK(H5Pset_filter(plist, H5Z_FILTER_BLOSC2, H5Z_FLAG_MANDATORY, 8, cd), "H5Pset_filter");
+  if ((dset = H5Dcreate2(fid, name, ftype, sid, H5P_DEFAULT, plist, H5P_DEFAULT)) < 0) {
+    ret = -2;
+    goto cleanup;
+  }
+  CHECK(H5Dwrite(dset, mtype, H5S_ALL, H5S_ALL, H5P_DEFAULT, data), "H5Dwrite");
+  if (H5Dclose(dset) < 0) { dset = -1; Rprintf("\n      -> %s: H5Dclose failed", name); goto cleanup; }
+  CHECK(dset = H5Dopen2(fid, name, H5P_DEFAULT), "H5Dopen2");
+  CHECK(H5Dread(dset, mtype, H5S_ALL, H5S_ALL, H5P_DEFAULT, data_out), "H5Dread");
+  CHECK(dcpl = H5Dget_create_plist(dset), "H5Dget_create_plist");
+  CHECK(H5Pget_filter_by_id(dcpl, H5Z_FILTER_BLOSC2, &flags, &nelmts, vals, 0, NULL, NULL), "H5Pget_filter_by_id");
+  ret = (int)(vals[5] & 0xFF);
+
+cleanup:
+  if (dcpl >= 0) H5Pclose(dcpl);
+  CLOSE_DSET(dset);
+  if (plist >= 0) H5Pclose(plist);
+  if (sid >= 0) H5Sclose(sid);
+  return ret;
+}
+
+/* Whether every value kept at most `keep` mantissa bits and stayed within that precision */
+static int f32_truncated(const float *in, const float *out, size_t n, int keep) {
+  for (size_t i = 0; i < n; i++) {
+    uint32_t bits;
+    memcpy(&bits, &out[i], sizeof(bits));
+    if ((bits & ((UINT32_C(1) << (23 - keep)) - 1)) != 0 || fabs(in[i] - out[i]) > fabs(in[i]) / (1 << keep)) return 0;
+  }
+  return 1;
+}
+
+static int f64_truncated(const double *in, const double *out, size_t n, int keep) {
+  for (size_t i = 0; i < n; i++) {
+    uint64_t bits;
+    memcpy(&bits, &out[i], sizeof(bits));
+    if ((bits & ((UINT64_C(1) << (52 - keep)) - 1)) != 0 || fabs(in[i] - out[i]) > fabs(in[i]) / ldexp(1.0, keep)) return 0;
+  }
+  return 1;
+}
+
+static int test_blosc2_trunc_types(hid_t fid) {
+  int32_t *ints = malloc(TRUNC_N * 3 * sizeof(int32_t)), *ints_out = malloc(TRUNC_N * 3 * sizeof(int32_t));
+  float *flts = malloc(TRUNC_N * 4 * sizeof(float)), *flts_out = malloc(TRUNC_N * 4 * sizeof(float));
+  double *dbls = malloc(TRUNC_N * sizeof(double)), *dbls_out = malloc(TRUNC_N * sizeof(double));
+  hsize_t arr_dims[1] = {4};
+  hid_t cmp8 = -1, cmp12 = -1, arr = -1;
+  hid_t f64_swapped = (H5Tget_order(H5T_NATIVE_DOUBLE) == H5T_ORDER_LE) ? H5T_IEEE_F64BE : H5T_IEEE_F64LE;
+  int errors = 0, mask;
+  char name[64];
+
+  if (!ints || !ints_out || !flts || !flts_out || !dbls || !dbls_out) { errors++; goto cleanup; }
+  for (int i = 0; i < TRUNC_N * 3; i++) ints[i] = i % 8000;
+  for (int i = 0; i < TRUNC_N * 4; i++) flts[i] = (float)(sin(i / 20.0) * 1000.0);
+  for (int i = 0; i < TRUNC_N; i++) dbls[i] = sin(i / 20.0) * 1000.0;
+
+  if ((cmp8 = H5Tcreate(H5T_COMPOUND, 8)) < 0 ||
+      H5Tinsert(cmp8, "a", 0, H5T_NATIVE_INT32) < 0 || H5Tinsert(cmp8, "b", 4, H5T_NATIVE_INT32) < 0 ||
+      (cmp12 = H5Tcreate(H5T_COMPOUND, 12)) < 0 || H5Tinsert(cmp12, "a", 0, H5T_NATIVE_INT32) < 0 ||
+      H5Tinsert(cmp12, "b", 4, H5T_NATIVE_INT32) < 0 || H5Tinsert(cmp12, "c", 8, H5T_NATIVE_INT32) < 0 ||
+      (arr = H5Tarray_create2(H5T_NATIVE_FLOAT, 1, arr_dims)) < 0) { errors++; goto cleanup; }
+
+  /* Integers, in 1-D and 2-D chunks (which keep the precision in different slots) */
+  for (int rank = 1; rank <= 2; rank++) {
+    snprintf(name, sizeof(name), "/b2trunc_int32_%dd", rank);
+    mask = blosc2_trunc_roundtrip(fid, name, H5T_NATIVE_INT32, H5T_NATIVE_INT32, rank, 10, ints, ints_out);
+    if (mask != 2 || memcmp(ints, ints_out, TRUNC_N * sizeof(int32_t)) != 0) {
+      Rprintf("\n      -> %s: mask %d, or values changed", name, mask);
+      errors++;
+    }
+  }
+
+  /* Compound records: 8 bytes look like doubles to Blosc2; 12 bytes it cannot truncate at all */
+  mask = blosc2_trunc_roundtrip(fid, "/b2trunc_cmp8", cmp8, cmp8, 1, 10, ints, ints_out);
+  if (mask != 2 || memcmp(ints, ints_out, TRUNC_N * 8) != 0) {
+    Rprintf("\n      -> 8-byte compound: mask %d, or values changed", mask);
+    errors++;
+  }
+  mask = blosc2_trunc_roundtrip(fid, "/b2trunc_cmp12", cmp12, cmp12, 1, 10, ints, ints_out);
+  if (mask != 2 || memcmp(ints, ints_out, TRUNC_N * 12) != 0) {
+    Rprintf("\n      -> 12-byte compound: mask %d, or values changed", mask);
+    errors++;
+  }
+
+  /* Doubles in the other byte order: their bytes are not the mantissa it would clear */
+  mask = blosc2_trunc_roundtrip(fid, "/b2trunc_f64_swapped", f64_swapped, H5T_NATIVE_DOUBLE, 1, 10, dbls, dbls_out);
+  if (mask != 2 || memcmp(dbls, dbls_out, TRUNC_N * sizeof(double)) != 0) {
+    Rprintf("\n      -> Byte-swapped float64: mask %d, or values changed", mask);
+    errors++;
+  }
+
+  /* Native floats are still rounded, in arrays too */
+  mask = blosc2_trunc_roundtrip(fid, "/b2trunc_f32_array", arr, arr, 1, 10, flts, flts_out);
+  if (mask != 10 || !f32_truncated(flts, flts_out, TRUNC_N * 4, 10)) {
+    Rprintf("\n      -> Array of float32: mask %d, or not truncated to 10 bits", mask);
+    errors++;
+  }
+  mask = blosc2_trunc_roundtrip(fid, "/b2trunc_f64_30", H5T_NATIVE_DOUBLE, H5T_NATIVE_DOUBLE, 1, 30, dbls, dbls_out);
+  if (mask != 10 || !f64_truncated(dbls, dbls_out, TRUNC_N, 30)) {
+    Rprintf("\n      -> float64: mask %d, or not truncated to 30 bits", mask);
+    errors++;
+  }
+
+  /* 30 bits is more than a float32 has, so it keeps them all */
+  mask = blosc2_trunc_roundtrip(fid, "/b2trunc_f32_30", H5T_NATIVE_FLOAT, H5T_NATIVE_FLOAT, 1, 30, flts, flts_out);
+  if (mask != 2 || memcmp(flts, flts_out, TRUNC_N * sizeof(float)) != 0) {
+    Rprintf("\n      -> float32 keeping 30 bits: mask %d, or values changed", mask);
+    errors++;
+  }
+
+  /* Keeping no bits, or dropping all 23, is refused up front */
+  int bad_prec[2] = {0, -23};
+  for (int k = 0; k < 2; k++) {
+    snprintf(name, sizeof(name), "/b2trunc_f32_bad%d", k);
+    mask = blosc2_trunc_roundtrip(fid, name, H5T_NATIVE_FLOAT, H5T_NATIVE_FLOAT, 1, bad_prec[k], flts, flts_out);
+    if (mask != -2) {
+      Rprintf("\n      -> float32 with precision %d: H5Dcreate2() accepted it (mask %d)", bad_prec[k], mask);
+      errors++;
+    }
+  }
+
+cleanup:
+  if (ints) free(ints);
+  if (ints_out) free(ints_out);
+  if (flts) free(flts);
+  if (flts_out) free(flts_out);
+  if (dbls) free(dbls);
+  if (dbls_out) free(dbls_out);
+  if (cmp8 >= 0) H5Tclose(cmp8);
+  if (cmp12 >= 0) H5Tclose(cmp12);
+  if (arr >= 0) H5Tclose(arr);
+  return errors ? -1 : 0;
+}
+
+/* 19. Blosc2 Creation Property List Copied From Another Dataset */
+
+/* A dataset created from a copy of another's creation property list, as
+   h5repack creates them, must keep the meta value.  For chunks with B2ND
+   geometry the list holds the rank and shape before it, and the rank used to
+   be taken for it: a 2-D copy kept 2 bits instead of 8, or turned ZFP's
+   accuracy of 10^-3 into 10^2.  1-D chunks keep it in slot 5 instead. */
+static int test_blosc2_copied_dcpl(hid_t fid, int rank, int zfp) {
+  hsize_t dims[2] = {4096, 1}, chunkdims[2] = {1024, 1};
+  if (rank == 2) { dims[0] = dims[1] = 64; chunkdims[0] = chunkdims[1] = 32; }
+  size_t n = 4096;
+  unsigned int meta = zfp ? 253 : 8;  /* accuracy 10^-3, or keep 8 bits */
+  unsigned int cd[8] = {0, 0, 0, 0, 5, zfp ? 0 : 8 | 2, zfp ? 33 : 1, meta};
+  float *data = malloc(n * sizeof(float)), *data_out = malloc(n * sizeof(float));
+  unsigned int vals[32], flags;
+  size_t nelmts = 32;
+  hid_t sid = -1, plist = -1, dset = -1, dcpl = -1, dcpl_b = -1;
+  int ret = -1;
+  char name_a[64], name_b[64];
+
+  if (!data || !data_out) goto cleanup;
+  for (size_t i = 0; i < n; i++) { data[i] = (float)(sin((double)i / 20.0) * (zfp ? 10.0 : 1000.0)); data_out[i] = -1.0f; }
+  snprintf(name_a, sizeof(name_a), "/b2copy_src_%s_%dd", zfp ? "zfp" : "trunc", rank);
+  snprintf(name_b, sizeof(name_b), "/b2copy_dst_%s_%dd", zfp ? "zfp" : "trunc", rank);
+
+  CHECK(sid = H5Screate_simple(rank, dims, NULL), "H5Screate_simple");
+  CHECK(plist = H5Pcreate(H5P_DATASET_CREATE), "H5Pcreate");
+  CHECK(H5Pset_chunk(plist, rank, chunkdims), "H5Pset_chunk");
+  CHECK(H5Pset_filter(plist, H5Z_FILTER_BLOSC2, H5Z_FLAG_MANDATORY, 8, cd), "H5Pset_filter");
+  CHECK(dset = H5Dcreate2(fid, name_a, H5T_NATIVE_FLOAT, sid, H5P_DEFAULT, plist, H5P_DEFAULT), "H5Dcreate2");
+  if (H5Dclose(dset) < 0) { dset = -1; Rprintf("\n      -> H5Dclose failed"); goto cleanup; }
+
+  CHECK(dset = H5Dopen2(fid, name_a, H5P_DEFAULT), "H5Dopen2");
+  CHECK(dcpl = H5Dget_create_plist(dset), "H5Dget_create_plist");
+  if (H5Dclose(dset) < 0) { dset = -1; Rprintf("\n      -> H5Dclose failed"); goto cleanup; }
+  dset = -1;
+
+  CHECK(dset = H5Dcreate2(fid, name_b, H5T_NATIVE_FLOAT, sid, H5P_DEFAULT, dcpl, H5P_DEFAULT), "H5Dcreate2");
+  CHECK(H5Dwrite(dset, H5T_NATIVE_FLOAT, H5S_ALL, H5S_ALL, H5P_DEFAULT, data), "H5Dwrite");
+  if (H5Dclose(dset) < 0) { dset = -1; Rprintf("\n      -> H5Dclose failed"); goto cleanup; }
+  CHECK(dset = H5Dopen2(fid, name_b, H5P_DEFAULT), "H5Dopen2");
+  CHECK(H5Dread(dset, H5T_NATIVE_FLOAT, H5S_ALL, H5S_ALL, H5P_DEFAULT, data_out), "H5Dread");
+  CHECK(dcpl_b = H5Dget_create_plist(dset), "H5Dget_create_plist");
+  CHECK(H5Pget_filter_by_id(dcpl_b, H5Z_FILTER_BLOSC2, &flags, &nelmts, vals, 0, NULL, NULL), "H5Pget_filter_by_id");
+
+  unsigned int copied = (rank == 1) ? (vals[5] >> 8) & 0xFF : vals[nelmts - 1];
+  if (copied != meta) {
+    Rprintf("\n      -> %dD %s copy recorded meta value %u, not %u", rank, zfp ? "ZFP" : "trunc-prec", copied, meta);
+    goto cleanup;
+  }
+  if (zfp) {
+    for (size_t i = 0; i < n; i++) {
+      if (!(fabs(data[i] - data_out[i]) <= 0.01)) {
+        Rprintf("\n      -> %dD ZFP copy mismatch at index %zu (in: %f, out: %f)", rank, i, data[i], data_out[i]);
+        goto cleanup;
+      }
+    }
+  } else if (!f32_truncated(data, data_out, n, 8)) {
+    Rprintf("\n      -> %dD trunc-prec copy not truncated to 8 bits", rank);
+    goto cleanup;
+  }
+  ret = 0;
+
+cleanup:
+  if (data) free(data);
+  if (data_out) free(data_out);
+  if (dcpl_b >= 0) H5Pclose(dcpl_b);
+  if (dcpl >= 0) H5Pclose(dcpl);
+  CLOSE_DSET(dset);
+  if (plist >= 0) H5Pclose(plist);
+  if (sid >= 0) H5Sclose(sid);
+  return ret;
+}
+
+/* 20. Tear-Down Unregisters Every Filter */
+static int test_filters_unregistered(void) {
+  H5Z_filter_t ids[] = {H5Z_FILTER_BLOSC, H5Z_FILTER_BLOSC2, H5Z_FILTER_BSHUF, H5Z_FILTER_BZIP2,
+                        H5Z_FILTER_LZ4, H5Z_FILTER_LZF, H5Z_FILTER_SNAPPY, H5Z_FILTER_ZFP,
+                        H5Z_FILTER_ZSTD, H5Z_FILTER_BITGROOM, H5Z_FILTER_BITSHAVE, H5Z_FILTER_BITROUND};
+  unsigned int state;
+  int ret = 0;
+
+  /* Look in HDF5's filter table only, not in the plugin directories */
+  if (H5PLget_loading_state(&state) < 0 || H5PLset_loading_state(0) < 0) return -1;
+  for (size_t i = 0; i < sizeof(ids) / sizeof(ids[0]); i++) {
+    if (H5Zfilter_avail(ids[i]) != 0) {
+      Rprintf("\n      -> Filter %d is still registered", (int)ids[i]);
+      ret = -1;
+    }
+  }
+  H5PLset_loading_state(state);
+  return ret;
+}
+
 /* =========================================================================
  * MAIN R INVOCATION
  * ========================================================================= */
@@ -1078,8 +1539,65 @@ SEXP C_smoke_test(SEXP sexp_filename) {
     Rprintf(" [OK]\n");
   }
 
+  Rprintf("  Testing %-15s", "zfp_unsupported");
+  int unsupported_errors = 0;
+  for (int which = 0; which < 4; which++) {
+    if (test_zfp_unsupported(file_id, which, H5Z_FLAG_OPTIONAL)  < 0) unsupported_errors++;
+    if (test_zfp_unsupported(file_id, which, H5Z_FLAG_MANDATORY) < 0) unsupported_errors++;
+  }
+  if (unsupported_errors > 0) {
+    Rprintf(" [FAILED]\n");
+    total_errors++;
+  } else {
+    Rprintf(" [OK]\n");
+  }
+
+  Rprintf("  Testing %-15s", "zfp_copied_dcpl");
+  if (test_zfp_copied_dcpl(file_id, 0) < 0 || test_zfp_copied_dcpl(file_id, 1) < 0) {
+    Rprintf(" [FAILED]\n");
+    total_errors++;
+  } else {
+    Rprintf(" [OK]\n");
+  }
+
+  Rprintf("  Testing %-15s", "zfp_no_params");
+  if (test_zfp_no_params() < 0) {
+    Rprintf(" [FAILED]\n");
+    total_errors++;
+  } else {
+    Rprintf(" [OK]\n");
+  }
+
+  Rprintf("  Testing %-15s", "blosc2_trunc");
+  if (test_blosc2_trunc_types(file_id) < 0) {
+    Rprintf(" [FAILED]\n");
+    total_errors++;
+  } else {
+    Rprintf(" [OK]\n");
+  }
+
+  Rprintf("  Testing %-15s", "blosc2_copied");
+  int copied_errors = 0;
+  for (int rank = 1; rank <= 2; rank++)
+    for (int zfp = 0; zfp <= 1; zfp++)
+      if (test_blosc2_copied_dcpl(file_id, rank, zfp) < 0) copied_errors++;
+  if (copied_errors > 0) {
+    Rprintf(" [FAILED]\n");
+    total_errors++;
+  } else {
+    Rprintf(" [OK]\n");
+  }
+
   H5Fclose(file_id);
   hdf5lib_destroy_all_filters();
+
+  Rprintf("  Testing %-15s", "unregistered");
+  if (test_filters_unregistered() < 0) {
+    Rprintf(" [FAILED]\n");
+    total_errors++;
+  } else {
+    Rprintf(" [OK]\n");
+  }
 
   if (total_errors > 0) {
     Rf_error("HDF5 Plugin Smoke Tests Failed! (%d filters broken). Check compilation and linking.", total_errors);

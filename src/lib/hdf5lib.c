@@ -129,6 +129,10 @@ herr_t hdf5lib_destroy_all_filters(void) {
   H5Zunregister(zfp_class.id);
   H5Zunregister(zstd_class.id);
 
+  H5Zunregister(bitgroom_shim_class.id);
+  H5Zunregister(bitshave_shim_class.id);
+  H5Zunregister(bitround_shim_class.id);
+
   /* Safely tear down the Blosc thread pools and TLS memory.  The Blosc2 plugin's
      cached contexts hold worker threads of their own, so release them first. */
   blosc2_plugin_free_contexts();
