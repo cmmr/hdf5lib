@@ -30,6 +30,12 @@
 #define H5Z_ZFP_CD_NELMTS_MEM 6
 #define H5Z_ZFP_CD_NELMTS_MAX 6
 
+/* For a chunk ZFP cannot take, set_local() records the version word and one
+   zero word where the ZFP header would go.  No ZFP header starts with a zero
+   word, so this filter and the upstream H5Z-ZFP filter alike refuse every
+   chunk, and HDF5 stores each one unfiltered. */
+#define H5Z_ZFP_CD_NELMTS_DECLINE 2
+
 #define ZFP_VERSION_NO__(Maj,Min,Pat,Twk)  (0x ## Maj ## Min ## Pat ## Twk)
 #define ZFP_VERSION_NO_(Maj,Min,Pat,Twk)   ZFP_VERSION_NO__(Maj,Min,Pat,Twk)
 
@@ -161,45 +167,59 @@ herr_t H5Pset_zfp_reversible(hid_t plist) { return H5Pset_zfp(plist, H5Z_ZFP_MOD
  *  CORE PLUGIN IMPLEMENTATION
  * ========================================================================= */
 
-static htri_t H5Z_zfp_can_apply(hid_t dcpl_id, hid_t type_id, hid_t chunk_space_id) {   
-    int const max_ndims = (ZFP_VERSION_NO <= 0x0053) ? 3 : 4;
-    int ndims, ndims_used = 0;
+/* Whether ZFP can compress chunks of this datatype and shape: 4- or 8-byte
+   floats (or, from ZFP 0.5.1, integers) in native byte order, with 1...3 (from
+   ZFP 0.5.4, 1...4) dimensions longer than one.  Returns 1 and fills in the ZFP
+   type and those dimensions if it can, 0 with *why saying why not, or -1 on
+   error.  can_apply() and set_local() both ask here, so they cannot disagree. */
+static htri_t zfp_chunk_supported(hid_t type_id, hid_t chunk_space_id, zfp_type *zt,
+                                  int *ndims_used, hsize_t dims_used[], const char **why) {
+    int const max_ndims = (ZFP_VERSION_NO >= 0x0540) ? 4 : 3;
+    int ndims;
     size_t dsize;
     htri_t retval = 0;
     hsize_t dims[H5S_MAX_RANK];
     H5T_class_t dclass;
     hid_t native_type_id = H5I_INVALID_HID;
 
-    if ((int) stream_word_bits != 8)
-        PUSH_AND_GOTO(H5E_CANTINIT, -1, "ZFP lib not compiled with -DBIT_STREAM_WORD_TYPE=uint8");
+    *ndims_used = 0;
+    *why = NULL;
 
     if (H5T_NO_CLASS == (dclass = H5Tget_class(type_id))) PUSH_AND_GOTO(H5E_BADTYPE, -1, "bad datatype class");
     if (0 == (dsize = H5Tget_size(type_id))) PUSH_AND_GOTO(H5E_BADTYPE, -1, "bad datatype size");
     if (0 > (ndims = H5Sget_simple_extent_dims(chunk_space_id, dims, 0))) PUSH_AND_GOTO(H5E_BADTYPE, -1, "bad chunk data space");
 
-#if ZFP_VERSION_NO < 0x0510
-    if (!(dclass == H5T_FLOAT)) PUSH_AND_GOTO(H5E_BADTYPE, 0, "requires datatype class of H5T_FLOAT");
+    if (dclass == H5T_FLOAT && dsize == sizeof(float)) *zt = zfp_type_float;
+    else if (dclass == H5T_FLOAT && dsize == sizeof(double)) *zt = zfp_type_double;
+#if ZFP_VERSION_NO >= 0x0510
+    else if (dclass == H5T_INTEGER && dsize == sizeof(int32_t)) *zt = zfp_type_int32;
+    else if (dclass == H5T_INTEGER && dsize == sizeof(int64_t)) *zt = zfp_type_int64;
+    else { *why = "requires a datatype of class H5T_FLOAT or H5T_INTEGER and size 4 or 8"; goto done; }
 #else
-    if (!(dclass == H5T_FLOAT || dclass == H5T_INTEGER)) PUSH_AND_GOTO(H5E_BADTYPE, 0, "requires datatype class of H5T_FLOAT or H5T_INTEGER");
+    else { *why = "requires a datatype of class H5T_FLOAT and size 4 or 8"; goto done; }
 #endif
-
-    if (!(dsize == 4 || dsize == 8)) PUSH_AND_GOTO(H5E_BADTYPE, 0, "requires datatype size of 4 or 8");
 
     for (int i = 0; i < ndims; i++) {
         if (dims[i] <= 1) continue;
-        ndims_used++;
+        dims_used[(*ndims_used)++] = dims[i];
     }
 
-    if (ndims_used == 0 || ndims_used > max_ndims)
-#if ZFP_VERSION_NO < 0x0530
-        PUSH_AND_GOTO(H5E_BADVALUE, 0, "chunk must have only 1...3 non-unity dimensions");
+    if (*ndims_used == 0 || *ndims_used > max_ndims) {
+#if ZFP_VERSION_NO >= 0x0540
+        *why = "chunk must have only 1...4 non-unity dimensions";
 #else
-        PUSH_AND_GOTO(H5E_BADVALUE, 0, "chunk must have only 1...4 non-unity dimensions");
+        *why = "chunk must have only 1...3 non-unity dimensions";
 #endif
+        goto done;
+    }
 
-    native_type_id = H5Tget_native_type(type_id, H5T_DIR_ASCEND);
-    if (H5Tget_order(type_id) != H5Tget_order(native_type_id))
-        PUSH_AND_GOTO(H5E_BADTYPE, 0, "endian targetting non-sensical in conjunction with ZFP filter");
+    /* The filter sees the data in the file's byte order */
+    if (0 > (native_type_id = H5Tget_native_type(type_id, H5T_DIR_ASCEND)))
+        PUSH_AND_GOTO(H5E_BADTYPE, -1, "unable to get native datatype");
+    if (H5Tget_order(type_id) != H5Tget_order(native_type_id)) {
+        *why = "requires a datatype in native byte order";
+        goto done;
+    }
 
     retval = 1;
 done:
@@ -207,43 +227,69 @@ done:
     return retval;
 }
 
-static herr_t H5Z_zfp_set_local(hid_t dcpl_id, hid_t type_id, hid_t chunk_space_id) {   
-    int ndims, ndims_used = 0;
-    size_t dsize, hdr_bits, hdr_bytes;
+static htri_t H5Z_zfp_can_apply(hid_t dcpl_id, hid_t type_id, hid_t chunk_space_id) {
+    int ndims_used;
+    hsize_t dims_used[H5S_MAX_RANK];
+    zfp_type zt;
+    const char *why;
+    htri_t retval = 0;
+
+    if ((int) stream_word_bits != 8)
+        PUSH_AND_GOTO(H5E_CANTINIT, -1, "ZFP lib not compiled with -DBIT_STREAM_WORD_TYPE=uint8");
+
+    /* A mandatory filter that cannot apply fails H5Dcreate2(), with this reason */
+    if (0 == (retval = zfp_chunk_supported(type_id, chunk_space_id, &zt, &ndims_used, dims_used, &why)))
+        H5Epush(H5E_DEFAULT, __FILE__, __func__, __LINE__, H5E_ERR_CLS, H5E_PLINE, H5E_CANAPPLY, "%s", why);
+
+done:
+    return retval;
+}
+
+static int get_zfp_info_from_cd_values(size_t cd_nelmts, unsigned int const *cd_values, uint64_t *zfp_mode, uint64_t *zfp_meta, H5T_order_t *swap);
+
+static herr_t H5Z_zfp_set_local(hid_t dcpl_id, hid_t type_id, hid_t chunk_space_id) {
+    int ndims_used = 0;
+    size_t hdr_bits, hdr_bytes;
     size_t mem_cd_nelmts = H5Z_ZFP_CD_NELMTS_MEM;
     unsigned int mem_cd_values[H5Z_ZFP_CD_NELMTS_MEM] = {0};
     size_t hdr_cd_nelmts = H5Z_ZFP_CD_NELMTS_MAX;
     unsigned int hdr_cd_values[H5Z_ZFP_CD_NELMTS_MAX] = {0};
     unsigned int flags = 0;
     herr_t retval = 0;
-    hsize_t dims[H5S_MAX_RANK], dims_used[H5S_MAX_RANK];
-    H5T_class_t dclass;
+    htri_t supported;
+    hsize_t dims_used[H5S_MAX_RANK];
     zfp_type zt;
+    const char *why;
     zfp_field *dummy_field = NULL;
     bitstream *dummy_bstr = NULL;
     zfp_stream *dummy_zstr = NULL;
-    int have_zfp_controls = 0;
+    int have_mode_list, have_zfp_controls = 0, have_header = 0;
     h5z_zfp_controls_t ctrls;
 
-    if (0 > (dclass = H5Tget_class(type_id))) PUSH_AND_GOTO(H5E_BADTYPE, -1, "not a datatype");
-    if (0 == (dsize = H5Tget_size(type_id))) PUSH_AND_GOTO(H5E_BADTYPE, -1, "not a datatype");
-    if (0 > (ndims = H5Sget_simple_extent_dims(chunk_space_id, dims, 0))) PUSH_AND_GOTO(H5E_BADTYPE, -1, "not a data space");
+    if (0 > H5Pget_filter_by_id(dcpl_id, H5Z_FILTER_ZFP, &flags, &mem_cd_nelmts, mem_cd_values, 0, NULL, NULL))
+        PUSH_AND_GOTO(H5E_CANTGET, -1, "unable to get current ZFP cd_values");
 
-    if (dclass == H5T_FLOAT) {
-        if (dsize == sizeof(float)) zt = zfp_type_float;
-        else if (dsize == sizeof(double)) zt = zfp_type_double;
-        else PUSH_AND_GOTO(H5E_BADTYPE, -1, "invalid datatype size");
-    } else if (dclass == H5T_INTEGER) {
-        if (dsize == sizeof(int32_t)) zt = zfp_type_int32;
-        else if (dsize == sizeof(int64_t)) zt = zfp_type_int64;
-        else PUSH_AND_GOTO(H5E_BADTYPE, -1, "invalid datatype size");
-    } else {
-        PUSH_AND_GOTO(H5E_BADTYPE, 0, "datatype class must be H5T_FLOAT or H5T_INTEGER");
-    }
+    hdr_cd_values[0] = (unsigned int) ((ZFP_VERSION_NO<<16) | (ZFP_CODEC<<12) | H5Z_FILTER_ZFP_VERSION_NO);
 
-    for (int i = 0; i < ndims; i++) {
-        if (dims[i] <= 1) continue;
-        dims_used[ndims_used++] = dims[i];
+    if (0 > (supported = zfp_chunk_supported(type_id, chunk_space_id, &zt, &ndims_used, dims_used, &why)))
+        PUSH_AND_GOTO(H5E_BADTYPE, -1, "unable to check datatype and chunk shape");
+
+    if (!supported) {
+        /* can_apply() turned this chunk down, which fails H5Dcreate2() for a
+           mandatory filter, so this one is optional.  It cannot take itself
+           out of the pipeline here: HDF5 is walking the pipeline as it calls
+           us, and removing an entry shifts the others under it.  Record values
+           that make the filter refuse every chunk instead, so HDF5 stores them
+           all unfiltered. */
+        if (!(flags & H5Z_FLAG_OPTIONAL)) {
+            H5Epush(H5E_DEFAULT, __FILE__, __func__, __LINE__, H5E_ERR_CLS, H5E_PLINE, H5E_CANAPPLY, "%s", why);
+            retval = -1;
+            goto done;
+        }
+        if (0 > H5Pmodify_filter(dcpl_id, H5Z_FILTER_ZFP, flags, H5Z_ZFP_CD_NELMTS_DECLINE, hdr_cd_values))
+            PUSH_AND_GOTO(H5E_BADVALUE, -1, "failed to modify cd_values");
+        retval = 1;
+        goto done;
     }
 
     switch (ndims_used) {
@@ -253,35 +299,62 @@ static herr_t H5Z_zfp_set_local(hid_t dcpl_id, hid_t type_id, hid_t chunk_space_
 #if ZFP_VERSION_NO >= 0x0540
         case 4: dummy_field = zfp_field_4d(0, zt, dims_used[3], dims_used[2], dims_used[1], dims_used[0]); break;
 #endif
-        default: PUSH_AND_GOTO(H5E_BADVALUE, 0, "chunks may have only 1...3/4 non-unity dims");
+        default: PUSH_AND_GOTO(H5E_BADVALUE, -1, "chunks may have only 1...3/4 non-unity dims");
     }
-    if (!dummy_field) PUSH_AND_GOTO(H5E_NOSPACE, 0, "zfp_field alloc failed");
+    if (!dummy_field) PUSH_AND_GOTO(H5E_NOSPACE, -1, "zfp_field alloc failed");
 
-    if (0 > H5Pget_filter_by_id(dcpl_id, H5Z_FILTER_ZFP, &flags, &mem_cd_nelmts, mem_cd_values, 0, NULL, NULL))
-        PUSH_AND_GOTO(H5E_CANTGET, 0, "unable to get current ZFP cd_values");
+    /* The mode comes from cd_values that name one, else from the property the
+       H5Pset_zfp_*() helpers set, else from a ZFP header in cd_values: one
+       this function recorded for another dataset whose creation property list
+       was copied (h5repack does that, for one).  No cd_values at all means
+       ZFP's expert-mode defaults. */
+    have_mode_list = mem_cd_nelmts > 0 &&
+        mem_cd_values[0] >= H5Z_ZFP_MODE_RATE && mem_cd_values[0] <= H5Z_ZFP_MODE_REVERSIBLE;
 
-    if (mem_cd_nelmts == 0) {
+    if (!have_mode_list) {
         if (0 < H5Pexist(dcpl_id, "zfp_controls")) {
             if (0 > H5Pget(dcpl_id, "zfp_controls", &ctrls))
-                PUSH_AND_GOTO(H5E_CANTGET, 0, "unable to get ZFP controls");
+                PUSH_AND_GOTO(H5E_CANTGET, -1, "unable to get ZFP controls");
             have_zfp_controls = 1;
-        } else {
+        } else if (mem_cd_nelmts == 0) {
             mem_cd_nelmts = H5Z_ZFP_CD_NELMTS_MEM;
             /* ZFP default: Expert mode defaults */
             mem_cd_values[0] = H5Z_ZFP_MODE_EXPERT;
             mem_cd_values[2] = ZFP_MIN_BITS; mem_cd_values[3] = ZFP_MAX_BITS; 
             mem_cd_values[4] = ZFP_MAX_PREC; mem_cd_values[5] = ZFP_MIN_EXP;
+        } else {
+            have_header = 1;
         }
     }
-        
-    hdr_cd_values[0] = (unsigned int) ((ZFP_VERSION_NO<<16) | (ZFP_CODEC<<12) | H5Z_FILTER_ZFP_VERSION_NO);
+
     if (0 == (dummy_bstr = stream_open(&hdr_cd_values[1], sizeof(hdr_cd_values))))
-        PUSH_AND_GOTO(H5E_NOSPACE, 0, "stream_open() failed");
+        PUSH_AND_GOTO(H5E_NOSPACE, -1, "stream_open() failed");
 
     if (0 == (dummy_zstr = zfp_stream_open(dummy_bstr)))
-        PUSH_AND_GOTO(H5E_NOSPACE, 0, "zfp_stream_open() failed");
+        PUSH_AND_GOTO(H5E_NOSPACE, -1, "zfp_stream_open() failed");
 
-    if (have_zfp_controls) {
+    if (have_header) {
+        /* That header describes the other dataset's chunks; keep only its mode */
+        uint64_t zfp_mode, zfp_meta;
+        H5T_order_t swap = H5T_ORDER_NONE;
+
+        if (mem_cd_nelmts < 2 || mem_cd_nelmts > H5Z_ZFP_CD_NELMTS_MEM ||
+            0 == get_zfp_info_from_cd_values(mem_cd_nelmts - 1, &mem_cd_values[1], &zfp_mode, &zfp_meta, &swap) ||
+            zfp_mode_null == zfp_stream_set_mode(dummy_zstr, zfp_mode))
+            PUSH_AND_GOTO(H5E_BADVALUE, -1, "cd_values hold neither a ZFP mode nor a ZFP header");
+
+        /* A fixed rate is stored as bits per block, and a block of d dimensions holds 4^d values */
+        if (zfp_stream_compression_mode(dummy_zstr) == zfp_mode_fixed_rate) {
+            zfp_field *src_field = zfp_field_alloc();
+            if (!src_field || !zfp_field_set_metadata(src_field, zfp_meta)) {
+                if (src_field) zfp_field_free(src_field);
+                PUSH_AND_GOTO(H5E_BADVALUE, -1, "unable to read the ZFP header in cd_values");
+            }
+            double rate = zfp_stream_rate(dummy_zstr, zfp_field_dimensionality(src_field));
+            zfp_field_free(src_field);
+            zfp_stream_set_rate(dummy_zstr, rate, zt, ndims_used, 0);
+        }
+    } else if (have_zfp_controls) {
         switch (ctrls.mode) {
             case H5Z_ZFP_MODE_RATE:
                 zfp_stream_set_rate(dummy_zstr, ctrls.details.rate, zt, ndims_used, 0); break;
@@ -303,9 +376,9 @@ static herr_t H5Z_zfp_set_local(hid_t dcpl_id, hid_t type_id, hid_t chunk_space_
             case H5Z_ZFP_MODE_REVERSIBLE:
                 zfp_stream_set_reversible(dummy_zstr); break;
 #endif
-            default: PUSH_AND_GOTO(H5E_BADVALUE, 0, "invalid ZFP mode");
+            default: PUSH_AND_GOTO(H5E_BADVALUE, -1, "invalid ZFP mode");
         }
-} else {
+    } else {
         /* Define a temporary variable for strict-aliasing safe type punning */
         double tmp_dbl = 0.0; 
         
@@ -332,12 +405,12 @@ static herr_t H5Z_zfp_set_local(hid_t dcpl_id, hid_t type_id, hid_t chunk_space_
             case H5Z_ZFP_MODE_REVERSIBLE:
                 zfp_stream_set_reversible(dummy_zstr); break;
 #endif
-            default: PUSH_AND_GOTO(H5E_BADVALUE, 0, "invalid ZFP mode");
+            default: PUSH_AND_GOTO(H5E_BADVALUE, -1, "invalid ZFP mode");
         }
     }
 
     if (0 == (hdr_bits = zfp_write_header(dummy_zstr, dummy_field, ZFP_HEADER_FULL)))
-        PUSH_AND_GOTO(H5E_CANTINIT, 0, "unable to write header");
+        PUSH_AND_GOTO(H5E_CANTINIT, -1, "unable to write header");
 
     zfp_stream_flush(dummy_zstr);
 
@@ -346,7 +419,7 @@ static herr_t H5Z_zfp_set_local(hid_t dcpl_id, hid_t type_id, hid_t chunk_space_
     hdr_cd_nelmts++; 
 
     if (hdr_cd_nelmts > H5Z_ZFP_CD_NELMTS_MAX) PUSH_AND_GOTO(H5E_BADVALUE, -1, "buffer overrun in hdr_cd_values");
-    if (0 > H5Pmodify_filter(dcpl_id, H5Z_FILTER_ZFP, flags, hdr_cd_nelmts, hdr_cd_values)) PUSH_AND_GOTO(H5E_BADVALUE, 0, "failed to modify cd_values");
+    if (0 > H5Pmodify_filter(dcpl_id, H5Z_FILTER_ZFP, flags, hdr_cd_nelmts, hdr_cd_values)) PUSH_AND_GOTO(H5E_BADVALUE, -1, "failed to modify cd_values");
 
     retval = 1;
 done:
@@ -448,14 +521,23 @@ static size_t H5Z_filter_zfp(unsigned int flags, size_t cd_nelmts, const unsigne
     
     void *newbuf = NULL;
     size_t retval = 0;
-    unsigned int cd_vals_h5zzfpver = cd_values[0]&0x00000FFF;
-    unsigned int cd_vals_zfpcodec = (cd_values[0]>>12)&0x0000000F;
-    unsigned int cd_vals_zfpver = (cd_values[0]>>16)&0x0000FFFF;
+    unsigned int cd_vals_h5zzfpver, cd_vals_zfpcodec, cd_vals_zfpver;
     H5T_order_t swap = H5T_ORDER_NONE;
     uint64_t zfp_mode, zfp_meta;
     bitstream *bstr = NULL;
     zfp_stream *zstr = NULL;
     zfp_field *zfld = NULL;
+
+    /* The version word and a ZFP header take more than this.  Fewer values are
+       what set_local() records for a chunk ZFP cannot take, or, with none at
+       all (when HDF5 passes cd_values = NULL), what earlier versions of this
+       filter left for one. */
+    if (cd_nelmts <= H5Z_ZFP_CD_NELMTS_DECLINE)
+        PUSH_AND_GOTO(H5E_CANTFILTER, 0, "no ZFP header in the filter parameters: ZFP cannot compress chunks of this datatype or shape");
+
+    cd_vals_h5zzfpver = cd_values[0]&0x00000FFF;
+    cd_vals_zfpcodec = (cd_values[0]>>12)&0x0000000F;
+    cd_vals_zfpver = (cd_values[0]>>16)&0x0000FFFF;
 
     if (0 == get_zfp_info_from_cd_values(cd_nelmts-1, &cd_values[1], &zfp_mode, &zfp_meta, &swap)) PUSH_AND_GOTO(H5E_CANTGET, 0, "can't get ZFP mode/meta");
 

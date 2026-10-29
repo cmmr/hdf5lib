@@ -240,6 +240,14 @@ static int has_nonfinite(const void *buf, size_t nbytes, size_t typesize) {
   return 0;
 }
 
+/* A 4- or 8-byte float in native byte order: the items truncate-precision
+   knows how to round, since the filter sees data in the file's byte order. */
+static int is_native_float(hid_t type) {
+  if (H5Tget_class(type) != H5T_FLOAT) return 0;
+  size_t size = H5Tget_size(type);
+  return (size == 4 || size == 8) && H5Tget_order(type) == H5Tget_order(H5T_NATIVE_DOUBLE);
+}
+
 /* =========================================================================
  * SET_LOCAL CALLBACK (METADATA INJECTION & PARSING)
  * ========================================================================= */
@@ -258,14 +266,18 @@ static herr_t blosc2_set_local(hid_t dcpl, hid_t type, hid_t space) {
   if (r < 0) return -1;
 
   /* 1. Extract User Inputs (Assuming user array: [0,0,0,0, clevel, filter, compcode, meta]).
-     A seven-value list may also be one this function already wrote (a copied
-     DCPL, say), which keeps the meta value in the high bits of slot 5; a list
-     straight from the user has nothing there. */
+     The list may also be one this function already wrote (a copied DCPL, say).
+     Seven values keep the meta value in the high bits of slot 5, where a list
+     straight from the user has nothing.  Longer ones hold the chunk rank in
+     slot 7, then the shape, and the meta value last. */
   unsigned int user_clevel      = (nelements >= 5) ? values[4] : DEFAULT_CLEVEL;
   unsigned int user_filter_mask = (nelements >= 6) ? (values[5] & 0xFF) : DEFAULT_SHUFFLE;
   unsigned int user_compcode    = (nelements >= 7) ? values[6] : DEFAULT_COMPCODE;
   unsigned int user_meta        = (nelements >= 8) ? values[7]
                                 : (nelements >= 6) ? (values[5] >> 8) & 0xFF : 0;
+  if (nelements >= 9 && nelements <= MAX_FILTER_VALUES && values[7] <= B2ND_MAX_DIM &&
+      nelements == 9 + (size_t)values[7])
+    user_meta = values[nelements - 1];
 
   /* 2. Calculate Data Geometry */
   ndim = H5Pget_chunk(dcpl, H5S_MAX_RANK, chunkshape);
@@ -275,12 +287,16 @@ static herr_t blosc2_set_local(hid_t dcpl, hid_t type, hid_t space) {
   if (typesize == 0) return -1;
 
   H5T_class_t classt = H5Tget_class(type);
+  int float_items;
   if (classt == H5T_ARRAY) {
     hid_t super_type = H5Tget_super(type);
+    if (super_type < 0) return -1;
     basetypesize = (unsigned int)H5Tget_size(super_type);
+    float_items = is_native_float(super_type);
     H5Tclose(super_type);
   } else {
     basetypesize = typesize;
+    float_items = is_native_float(type);
   }
 
   bufsize = typesize;
@@ -292,6 +308,33 @@ static herr_t blosc2_set_local(hid_t dcpl, hid_t type, hid_t space) {
      callers never look at the return value: the data is lost silently. */
   const char *compname = NULL;
   if (blosc2_compcode_to_compname((int)user_compcode, &compname) < 0) return -1;
+
+  /* Truncate-precision zeroes the low bits of every 4- or 8-byte item as
+     though it were a float's mantissa, whatever the item holds: it would
+     wipe out small integers, corrupt compound records and floats in the other
+     byte order, and fail the chunk for any other item size.  So it only runs
+     on native float32 and float64 values (alone or in arrays); for other data
+     the flag is dropped, which lets one pipeline serve a whole file. */
+  if (!float_items) user_filter_mask &= ~8u;
+
+  /* Blosc2 reads the precision as a signed byte: n > 0 keeps n bits of the
+     mantissa and n < 0 drops -n.  It refuses to clear the whole mantissa, and
+     then fails every chunk, so refuse that here.  Keeping as many bits as the
+     mantissa holds, or more, keeps them all.  The ZFP codecs and NDLZ skip the
+     pre-filters, and use the same byte for parameters of their own. */
+  if ((user_filter_mask & 8) && !IS_ZFP_CODEC(user_compcode) && user_compcode != BLOSC_CODEC_NDLZ) {
+    int mantissa = (basetypesize == 4) ? 23 : 52;
+    int prec = (int)(user_meta & 0xFF);
+    if (prec > 127) prec -= 256;
+    if (prec >= mantissa) {
+      user_filter_mask &= ~8u;
+    } else if (prec == 0 || prec <= -mantissa) {
+      H5Epush(H5E_DEFAULT, __FILE__, __func__, __LINE__, H5E_ERR_CLS, H5E_PLINE, H5E_BADVALUE,
+              "blosc2: truncate-precision must keep 1 to %d bits of a %u-byte float (or drop 1 to %d), not %d",
+              mantissa, basetypesize, mantissa - 1, prec);
+      return -1;
+    }
+  }
 
   if (user_compcode == BLOSC_CODEC_NDLZ) {
     /* NDLZ reads its 4x4 / 8x8 cell grid straight out of the B2ND block shape,
