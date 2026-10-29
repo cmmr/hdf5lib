@@ -33,6 +33,17 @@ utils::untar(
 
 
 
+# Apply patches
+cat('Applying bzip2 patches files...\n')
+patch_dir   <- paste0("src/patches/bzip2-", VER)
+patch_files <- list.files(patch_dir, ".patch$", full.names = TRUE)
+for (patch_file in patch_files) {
+  cat("->", basename(patch_file), "\n")
+  system2(command = 'patch', args = c('-p0', '-i', patch_file))
+}
+
+
+
 # Convert C Files to R API
 # Global search and replace incompatible C functions.
 c_files <- list.files(exdir, "\\.c$", full.names = TRUE, recursive = TRUE)
