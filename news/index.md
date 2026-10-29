@@ -13,6 +13,18 @@
   Blosc (v1) previously ignored, now applies to both filters and takes
   precedence, though the function is the better choice (see the
   compression article).
+- New C API `hdf5lib_set_blosc2()` in `hdf5lib.h` adds the Blosc2 filter
+  to a dataset creation property list from a codec, compression level,
+  pre-filters and meta value, so callers no longer work out the packed
+  `cd_values[0]` by hand. `hdf5lib.h` also names the codecs and
+  pre-filters (`HDF5LIB_BLOSC2_ZSTD`, `HDF5LIB_BLOSC2_BITSHUFFLE` and so
+  on), and a negative meta value, such as ZFP accuracy’s exponent, is
+  passed as it is.
+- `hdf5lib.h` now declares the ZFP helpers `H5Pset_zfp_rate()`,
+  `H5Pset_zfp_precision()`, `H5Pset_zfp_accuracy()`,
+  `H5Pset_zfp_expert()` and `H5Pset_zfp_reversible()`, so callers no
+  longer need to write `extern` declarations for them. Existing `extern`
+  declarations still compile.
 - ZFP no longer silently corrupts `NaN`, `NA`, and `Inf` values. The
   standalone ZFP filter (except in reversible mode) and Blosc2’s ZFP
   codecs now refuse chunks that hold them, so an optional filter stores
