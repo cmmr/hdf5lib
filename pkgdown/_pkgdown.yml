@@ -8,3 +8,18 @@ template:
     code-bg: "#2b2b2b"
     base_font: {google: "Noto Sans"}
     heading_font: {google: "Noto Sans"}
+
+articles:
+- title: All vignettes
+  navbar: ~
+  contents:
+  - "`articles/api-versioning`"
+  - "`articles/comparison`"
+  - "`articles/compression`"
+  - "`articles/integration`"
+  - "`articles/parallelism`"
+# Reference pages that the articles above link to, kept off the navbar and
+# the articles index
+- title: internal
+  contents:
+  - "`articles/blosc2-cd-values`"

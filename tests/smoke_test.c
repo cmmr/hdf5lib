@@ -2570,9 +2570,10 @@ cleanup:
 
 /* 32. Blosc2's Setter */
 
-/* hdf5lib_set_blosc2() must put in the property list the list the compression
-   article spells out, which H5Dcreate2() then takes; update a Blosc2 filter
-   already there in place; and refuse what slot 0 cannot hold, adding nothing. */
+/* hdf5lib_set_blosc2() must put in the property list the list the Blosc2
+   cd_values reference article spells out, which H5Dcreate2() then takes;
+   update a Blosc2 filter already there in place; and refuse what slot 0
+   cannot hold, adding nothing. */
 static int test_blosc2_setter(hid_t fid) {
   struct {
     const char *name; int type; unsigned int codec, level, prefilters; int meta; unsigned int want[7];
