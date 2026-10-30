@@ -140,6 +140,73 @@ omit the argument.</p>
 </blockquote>
 </div>
 </div>
+<div class="section level2">
+<h2 id="checking-the-hdf5lib-version">Checking the <code>hdf5lib</code> Version<a class="anchor" aria-label="anchor" href="#checking-the-hdf5lib-version"></a>
+</h2>
+<p>The <code>api</code> argument pins HDF5’s functions. To use something
+a later <code>hdf5lib</code> release added, such as
+<code>hdf5lib_set_blosc_nthreads()</code>, while still building against
+earlier releases, test the version that <code>hdf5lib.h</code>
+defines:</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;hdf5lib.h&gt;</span></span>
+<span id="cb2-2"><a href="#cb2-2" tabindex="-1"></a></span>
+<span id="cb2-3"><a href="#cb2-3" tabindex="-1"></a><span class="pp">#if defined(HDF5LIB_VERSION) &amp;&amp; HDF5LIB_VERSION &gt;= 2020001   </span><span class="co">/* 2.2.0.1 or later */</span></span>
+<span id="cb2-4"><a href="#cb2-4" tabindex="-1"></a>  hdf5lib_set_blosc_nthreads<span class="op">(</span><span class="dv">4</span><span class="op">);</span></span>
+<span id="cb2-5"><a href="#cb2-5" tabindex="-1"></a><span class="pp">#endif</span></span></code></pre></div>
+<p><code>hdf5lib</code>’s version is the version of HDF5 it bundles
+followed by a revision of the package, and <code>hdf5lib.h</code>
+defines:</p>
+<table class="table">
+<colgroup>
+<col width="50%">
+<col width="50%">
+</colgroup>
+<thead><tr class="header">
+<th>Macro</th>
+<th>Value in 2.2.0.1</th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td>
+<code>HDF5LIB_VERSION_MAJOR</code>,
+<code>HDF5LIB_VERSION_MINOR</code>,
+<code>HDF5LIB_VERSION_PATCH</code>
+</td>
+<td>
+<code>2</code>, <code>2</code>, <code>0</code> (HDF5’s version)</td>
+</tr>
+<tr class="even">
+<td><code>HDF5LIB_VERSION_REVISION</code></td>
+<td><code>1</code></td>
+</tr>
+<tr class="odd">
+<td><code>HDF5LIB_VERSION_STRING</code></td>
+<td><code>"2.2.0.1"</code></td>
+</tr>
+<tr class="even">
+<td><code>HDF5LIB_VERSION</code></td>
+<td>
+<code>2020001</code>: major × 1000000 + minor × 10000 + patch × 100
++ revision</td>
+</tr>
+<tr class="odd">
+<td><code>HDF5LIB_VERSION_NUMBER(major, minor, patch, revision)</code></td>
+<td>Packs any version the same way</td>
+</tr>
+</tbody>
+</table>
+<p>These macros first appear in 2.2.0.1. In earlier headers
+<code>HDF5LIB_VERSION</code> is undefined, so the test above is false.
+Compare against a plain number, as above: an <code>#if</code> that calls
+<code>HDF5LIB_VERSION_NUMBER()</code> is a syntax error against those
+headers, even behind <code>defined()</code>. For the version of HDF5
+itself, <code>hdf5.h</code> provides
+<code>H5_VERSION_GE(2, 2, 0)</code>.</p>
+<p>If your package simply requires a newer <code>hdf5lib</code>, a
+version requirement is simpler than <code>#if</code> tests. R checks it
+when your package is installed:</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a><span class="fu">LinkingTo</span><span class="kw">:</span><span class="at"> hdf5lib (&gt;= 2.2.0.1)</span></span></code></pre></div>
+</div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside>
 </div>

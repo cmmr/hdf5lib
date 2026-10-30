@@ -6,6 +6,13 @@
   byte order, Blosc2’s ZFP codecs and truncate-precision pre-filter on
   non-float data, and Blosc2 with array datatypes or after
   Fletcher32/scale-offset.
+- Fixed silent data corruption in Blosc2 with both delta and
+  truncate-precision: every block of a chunk after the first came back
+  wrong. Chunks already written that way cannot be read back correctly.
+- Fixed silent data corruption in lossy ZFP on integers. It now declines
+  unsigned types (values near 0 came back near the type’s maximum), and
+  refuses chunks holding values of magnitude 2^30 or more (2^62 for
+  64-bit), which overflowed. Reversible ZFP still takes any integer.
 - Blosc2 `cd_values` now follow the reference HDF5-Blosc2 layout, so
   `h5py`/`hdf5plugin` can read and append to hdf5lib’s Blosc2 datasets
   (including 1-D chunks). The old layout is still accepted.
@@ -13,10 +20,14 @@
   hdf5lib 2.2.0.0 and earlier can’t read the new chunks.
 - The BitRound read shim moved off SZ3’s filter ID (32024) to its own
   (32032). Read shims no longer override real plugins.
-- Blosc and Blosc2 now reuse worker threads across chunks.
+- Blosc and Blosc2 now reuse worker threads across chunks, and join them
+  when HDF5 shuts down.
 - New C API: `hdf5lib_set_blosc2()`, `hdf5lib_set_blosc_nthreads()`,
   `hdf5lib_get_blosc_nthreads()`, Blosc2 codec/pre-filter constants, and
   declarations for the `H5Pset_zfp_*()` helpers.
+- `hdf5lib.h` now defines `HDF5LIB_VERSION` (`2020001` for 2.2.0.1), its
+  parts, and `HDF5LIB_VERSION_STRING`, so packages can test the hdf5lib
+  version with `#if`.
 - All filters fail cleanly on truncated or corrupt chunks.
 - Datasets copied from another’s creation property list (e.g. by
   `h5repack`) keep their ZFP, Blosc2, and Bitshuffle settings.
@@ -25,6 +36,9 @@
   chunk.
 - Fixed oversized-chunk overflows in Snappy and LZF, a ZFP datatype
   leak, and UBSan issues in the bundled ZFP.
+- Fixed a UBSan error in the bundled c-blosc, which called its
+  bitshuffle routine through a mismatched function pointer on every
+  bitshuffled Blosc chunk.
 - Compiled code no longer references `stderr` (R CMD check).
 - Documentation corrections and expanded `h5py`/`hdf5plugin`
   interoperability tests.

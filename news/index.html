@@ -45,15 +45,20 @@
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="2.2.0.1" id="hdf5lib-2201">hdf5lib 2.2.0.1<a class="anchor" aria-label="anchor" href="#hdf5lib-2201"></a></h2>
 <ul><li>Fixed silent data corruption: ZFP with <code>NaN</code>/<code>NA</code>/<code>Inf</code> or non-native byte order, Blosc2’s ZFP codecs and truncate-precision pre-filter on non-float data, and Blosc2 with array datatypes or after Fletcher32/scale-offset.</li>
+<li>Fixed silent data corruption in Blosc2 with both delta and truncate-precision: every block of a chunk after the first came back wrong. Chunks already written that way cannot be read back correctly.</li>
+<li>Fixed silent data corruption in lossy ZFP on integers. It now declines unsigned types (values near 0 came back near the type’s maximum), and refuses chunks holding values of magnitude 2^30 or more (2^62 for 64-bit), which overflowed. Reversible ZFP still takes any integer.</li>
 <li>Blosc2 <code>cd_values</code> now follow the reference HDF5-Blosc2 layout, so <code>h5py</code>/<code>hdf5plugin</code> can read and append to hdf5lib’s Blosc2 datasets (including 1-D chunks). The old layout is still accepted.</li>
 <li>Snappy (<code>32003</code>) now writes snappy-cuda’s chunk format and reads both; hdf5lib 2.2.0.0 and earlier can’t read the new chunks.</li>
 <li>The BitRound read shim moved off SZ3’s filter ID (32024) to its own (32032). Read shims no longer override real plugins.</li>
-<li>Blosc and Blosc2 now reuse worker threads across chunks.</li>
+<li>Blosc and Blosc2 now reuse worker threads across chunks, and join them when HDF5 shuts down.</li>
 <li>New C API: <code>hdf5lib_set_blosc2()</code>, <code>hdf5lib_set_blosc_nthreads()</code>, <code>hdf5lib_get_blosc_nthreads()</code>, Blosc2 codec/pre-filter constants, and declarations for the <code>H5Pset_zfp_*()</code> helpers.</li>
+<li>
+<code>hdf5lib.h</code> now defines <code>HDF5LIB_VERSION</code> (<code>2020001</code> for 2.2.0.1), its parts, and <code>HDF5LIB_VERSION_STRING</code>, so packages can test the hdf5lib version with <code>#if</code>.</li>
 <li>All filters fail cleanly on truncated or corrupt chunks.</li>
 <li>Datasets copied from another’s creation property list (e.g. by <code>h5repack</code>) keep their ZFP, Blosc2, and Bitshuffle settings.</li>
 <li>Invalid settings or unsupported chunks now fail at <code>H5Dcreate2()</code>, or are stored unfiltered by optional filters, instead of failing every chunk.</li>
 <li>Fixed oversized-chunk overflows in Snappy and LZF, a ZFP datatype leak, and UBSan issues in the bundled ZFP.</li>
+<li>Fixed a UBSan error in the bundled c-blosc, which called its bitshuffle routine through a mismatched function pointer on every bitshuffled Blosc chunk.</li>
 <li>Compiled code no longer references <code>stderr</code> (R CMD check).</li>
 <li>Documentation corrections and expanded <code>h5py</code>/<code>hdf5plugin</code> interoperability tests.</li>
 </ul></div>
