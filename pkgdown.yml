@@ -3,12 +3,13 @@ pkgdown: 2.2.1
 pkgdown_sha: ~
 articles:
   articles/api-versioning: api-versioning.html
+  articles/blosc2-cd-values: blosc2-cd-values.html
   articles/comparison: comparison.html
   articles/compression: compression.html
   articles/hdf5lib: hdf5lib.html
   articles/integration: integration.html
   articles/parallelism: parallelism.html
-last_built: 2026-10-29T23:22Z
+last_built: 2026-10-30T00:01Z
 urls:
   reference: https://cmmr.github.io/hdf5lib/reference
   article: https://cmmr.github.io/hdf5lib/articles

@@ -56,8 +56,8 @@
   converted too, and chunks appended to those datasets keep their
   settings. hdf5lib used to read a reference dataset’s `cd_values[5]` as
   a bitmask when appending to it, running delta (`3`) as bitshuffle. See
-  the compression article for the layout and for what `h5py` does with
-  each kind of dataset.
+  the Blosc2 `cd_values` reference article for the layout, and the
+  compression article for what `h5py` does with each kind of dataset.
 - Patched the bundled ZFP to remove undefined behaviour that UBSan
   reports. Its lifting transforms now do their arithmetic in unsigned
   integers instead of relying on signed overflow and left shifts of
