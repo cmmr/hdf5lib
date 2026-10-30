@@ -91,6 +91,17 @@ static const H5Z_class2_t *const quantizer_shims[] = {
 #define N_SHIMS (sizeof(quantizer_shims) / sizeof(quantizer_shims[0]))
 static int shim_registered[N_SHIMS] = {0};
 
+/* HDF5 runs this as it shuts down, at H5close() or at exit.  Both Blosc plugins
+   keep worker threads between chunks: c-blosc in its global pool, the Blosc2
+   plugin in its cached contexts.  Join them here, so that a process does not end
+   with them still running (valgrind reports their thread-local storage as
+   "possibly lost").  Both calls are safe in a forked child, which has none. */
+static void release_blosc_threads(void *ctx) {
+  (void)ctx;
+  blosc2_plugin_free_contexts();
+  blosc_free_resources();
+}
+
 
 /* --- Registration Function --- */
 herr_t hdf5lib_register_all_filters(void) {
@@ -99,6 +110,11 @@ herr_t hdf5lib_register_all_filters(void) {
     /* Initialize Blosc engines globally */
     blosc_init();
     blosc2_init();
+
+    if (H5atclose(release_blosc_threads, NULL) < 0) {
+        Rf_warning("[HDF5LIB ERROR]: Failed to register the Blosc thread cleanup");
+        err = -1;
+    }
 
     /* Use the standard API for modern codecs (IDs >= 32) and verify success */
     REG_BLOSC2_CODEC(&ndlz_codec, "ndlz");

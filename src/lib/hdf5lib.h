@@ -2,6 +2,27 @@
 #define HDF5LIB_FILTERS_H
 #include <hdf5.h>
 
+/* hdf5lib's version: the version of HDF5 it bundles, then the package's
+   revision.  HDF5LIB_VERSION packs the four parts into one number,
+   major * 1000000 + minor * 10000 + patch * 100 + revision, for tests like
+     #if defined(HDF5LIB_VERSION) && HDF5LIB_VERSION >= 2020001
+   which are false for hdf5lib before 2.2.0.1, whose header has none of these
+   macros.  HDF5LIB_VERSION_NUMBER(2, 2, 0, 1) packs a version the same way,
+   but an #if that uses it is a syntax error against those older headers, even
+   behind defined().  HDF5's own version is in H5_VERS_MAJOR, H5_VERS_MINOR,
+   H5_VERS_RELEASE, and H5_VERSION_GE(). */
+#define HDF5LIB_VERSION_MAJOR     2
+#define HDF5LIB_VERSION_MINOR     2
+#define HDF5LIB_VERSION_PATCH     0
+#define HDF5LIB_VERSION_REVISION  1
+#define HDF5LIB_VERSION_STRING    "2.2.0.1"
+
+#define HDF5LIB_VERSION_NUMBER(major, minor, patch, revision) \
+  ((major) * 1000000 + (minor) * 10000 + (patch) * 100 + (revision))
+#define HDF5LIB_VERSION \
+  HDF5LIB_VERSION_NUMBER(HDF5LIB_VERSION_MAJOR, HDF5LIB_VERSION_MINOR, \
+                         HDF5LIB_VERSION_PATCH, HDF5LIB_VERSION_REVISION)
+
 #ifdef __cplusplus
 extern "C" {
 #endif

@@ -352,6 +352,36 @@ static int is_native_float(hid_t type) {
   return (size == 4 || size == 8) && H5Tget_order(type) == H5Tget_order(H5T_NATIVE_DOUBLE);
 }
 
+/* Truncates a chunk's 4- or 8-byte floats in place as Blosc2's trunc-prec
+   does: with the meta value read as a signed byte, n > 0 keeps n bits of each
+   mantissa and n < 0 drops -n.  A chunk trunc-prec would refuse is left for
+   Blosc2 to refuse. */
+static void truncate_chunk(void *buf, size_t nbytes, size_t typesize, int meta) {
+  int prec = (meta & 0xFF) > 127 ? (meta & 0xFF) - 256 : (meta & 0xFF);
+  int mantissa = (typesize == 4) ? 23 : (typesize == 8) ? 52 : 0;
+  int zeroed = (prec >= 0) ? mantissa - prec : -prec;
+  unsigned char *p = buf;
+
+  if (mantissa == 0 || prec > mantissa || -prec > mantissa || zeroed <= 0 || zeroed >= mantissa) return;
+  if (typesize == 4) {
+    uint32_t keep = ~((UINT32_C(1) << zeroed) - 1);
+    for (size_t i = 0; i + 4 <= nbytes; i += 4) {
+      uint32_t u;
+      memcpy(&u, p + i, 4);
+      u &= keep;
+      memcpy(p + i, &u, 4);
+    }
+  } else {
+    uint64_t keep = ~((UINT64_C(1) << zeroed) - 1);
+    for (size_t i = 0; i + 8 <= nbytes; i += 8) {
+      uint64_t u;
+      memcpy(&u, p + i, 8);
+      u &= keep;
+      memcpy(p + i, &u, 8);
+    }
+  }
+}
+
 /* =========================================================================
  * SET_LOCAL CALLBACK (METADATA INJECTION & PARSING)
  * ========================================================================= */
@@ -785,6 +815,17 @@ static size_t blosc2_filter_function(
             f_idx++;
         }
     }
+
+    /* c-blosc2's delta encodes each block after a chunk's first against the
+       first block as it was handed over, not as trunc-prec left it, while
+       decoding uses the first block as decoded.  With trunc-prec ahead of
+       delta the two differ in the truncated bits, and every later block came
+       back wrong.  So truncate the chunk here: trunc-prec then changes
+       nothing, and both sides use the same block.  The chunk is HDF5's own
+       copy; if compression then fails and HDF5 stores the chunk unfiltered,
+       it stores it truncated, as asked. */
+    if (cparams.filters[0] == BLOSC_TRUNC_PREC && cparams.filters[1] == BLOSC_DELTA)
+      truncate_chunk(*buf, nbytes, typesize, meta_value);
 
     blosc2_storage storage = {.cparams = &cparams, .contiguous = false};
 

@@ -307,23 +307,7 @@ static herr_t H5Z_zfp_set_local(hid_t dcpl_id, hid_t type_id, hid_t chunk_space_
         why = "the ZFP parameters were copied from a dataset ZFP declined";
     }
 
-    if (!supported) {
-        /* can_apply() turned this chunk down, which fails H5Dcreate2() for a
-           mandatory filter, so this one is optional.  It cannot take itself
-           out of the pipeline here: HDF5 is walking the pipeline as it calls
-           us, and removing an entry shifts the others under it.  Record values
-           that make the filter refuse every chunk instead, so HDF5 stores them
-           all unfiltered.  A copy of such a list is declined again. */
-        if (!(flags & H5Z_FLAG_OPTIONAL)) {
-            H5Epush(H5E_DEFAULT, __FILE__, __func__, __LINE__, H5E_ERR_CLS, H5E_PLINE, H5E_CANAPPLY, "%s", why);
-            retval = -1;
-            goto done;
-        }
-        if (0 > H5Pmodify_filter(dcpl_id, H5Z_FILTER_ZFP, flags, H5Z_ZFP_CD_NELMTS_DECLINE, hdr_cd_values))
-            PUSH_AND_GOTO(H5E_BADVALUE, -1, "failed to modify cd_values");
-        retval = 1;
-        goto done;
-    }
+    if (!supported) goto decline;
 
     switch (ndims_used) {
         case 1: dummy_field = zfp_field_1d(0, zt, dims_used[0]); break;
@@ -442,6 +426,17 @@ static herr_t H5Z_zfp_set_local(hid_t dcpl_id, hid_t type_id, hid_t chunk_space_
         }
     }
 
+    /* ZFP has no unsigned integers: it takes them for signed ones of the same
+       size.  Its lossy modes return values a little off, so one just above
+       zero can come back from the top of an unsigned type's range, and one
+       near the top from the bottom.  Only reversible mode returns them as
+       they were; decline the others as for a datatype ZFP cannot take. */
+    if (H5Tget_class(type_id) == H5T_INTEGER && H5Tget_sign(type_id) == H5T_SGN_NONE &&
+        zfp_stream_compression_mode(dummy_zstr) != zfp_mode_reversible) {
+        why = "lossy ZFP cannot take unsigned integers; only reversible mode returns them intact";
+        goto decline;
+    }
+
     if (0 == (hdr_bits = zfp_write_header(dummy_zstr, dummy_field, ZFP_HEADER_FULL)))
         PUSH_AND_GOTO(H5E_CANTINIT, -1, "unable to write header");
 
@@ -454,6 +449,24 @@ static herr_t H5Z_zfp_set_local(hid_t dcpl_id, hid_t type_id, hid_t chunk_space_
     if (hdr_cd_nelmts > H5Z_ZFP_CD_NELMTS_MAX) PUSH_AND_GOTO(H5E_BADVALUE, -1, "buffer overrun in hdr_cd_values");
     if (0 > H5Pmodify_filter(dcpl_id, H5Z_FILTER_ZFP, flags, hdr_cd_nelmts, hdr_cd_values)) PUSH_AND_GOTO(H5E_BADVALUE, -1, "failed to modify cd_values");
 
+    retval = 1;
+    goto done;
+
+decline:
+    /* A mandatory filter fails H5Dcreate2() (can_apply() has already failed it
+       for a datatype or shape it turns down).  An optional one cannot take
+       itself out of the pipeline here: HDF5 is walking the pipeline as it
+       calls us, and removing an entry shifts the others under it.  Record
+       values that make the filter refuse every chunk instead, so HDF5 stores
+       them all unfiltered.  A copy of such a list is declined again. */
+    if (!(flags & H5Z_FLAG_OPTIONAL)) {
+        H5Epush(H5E_DEFAULT, __FILE__, __func__, __LINE__, H5E_ERR_CLS, H5E_PLINE, H5E_CANAPPLY, "%s", why);
+        retval = -1;
+        goto done;
+    }
+    hdr_cd_values[1] = 0;
+    if (0 > H5Pmodify_filter(dcpl_id, H5Z_FILTER_ZFP, flags, H5Z_ZFP_CD_NELMTS_DECLINE, hdr_cd_values))
+        PUSH_AND_GOTO(H5E_BADVALUE, -1, "failed to modify cd_values");
     retval = 1;
 done:
     if (dummy_field) zfp_field_free(dummy_field);
@@ -544,6 +557,27 @@ static int has_nonfinite(const void *buf, size_t nbytes, zfp_type type) {
             uint32_t u;
             memcpy(&u, p + i, 4);
             if ((u & UINT32_C(0x7F800000)) == UINT32_C(0x7F800000)) return 1;
+        }
+    }
+    return 0;
+}
+
+/* ZFP's lossy modes take integers of magnitude below 2^30, or 2^62 for 64-bit
+   ones; larger ones overflow its transform and come back from the other end
+   of the range.  Refuse a chunk holding any, as one holding NaN above. */
+static int has_wide_ints(const void *buf, size_t nbytes, zfp_type type) {
+    const unsigned char *p = (const unsigned char *)buf;
+    if (type == zfp_type_int32) {
+        for (size_t i = 0; i + 4 <= nbytes; i += 4) {
+            int32_t v;
+            memcpy(&v, p + i, 4);
+            if (v <= -(INT32_C(1) << 30) || v >= (INT32_C(1) << 30)) return 1;
+        }
+    } else if (type == zfp_type_int64) {
+        for (size_t i = 0; i + 8 <= nbytes; i += 8) {
+            int64_t v;
+            memcpy(&v, p + i, 8);
+            if (v <= -(INT64_C(1) << 62) || v >= (INT64_C(1) << 62)) return 1;
         }
     }
     return 0;
@@ -671,9 +705,12 @@ static size_t H5Z_filter_zfp(unsigned int flags, size_t cd_nelmts, const unsigne
         zfp_stream_set_mode(zstr, zfp_mode);
 
         /* Reversible mode reproduces any bit pattern, NaN and Inf included */
-        if (zfp_stream_compression_mode(zstr) != zfp_mode_reversible &&
-            has_nonfinite(src, nbytes, zfp_field_type(zfld)))
-            PUSH_AND_GOTO(H5E_CANTFILTER, 0, "ZFP cannot encode the NaN or Inf values in this chunk");
+        if (zfp_stream_compression_mode(zstr) != zfp_mode_reversible) {
+            if (has_nonfinite(src, nbytes, zfp_field_type(zfld)))
+                PUSH_AND_GOTO(H5E_CANTFILTER, 0, "ZFP cannot encode the NaN or Inf values in this chunk");
+            if (has_wide_ints(src, nbytes, zfp_field_type(zfld)))
+                PUSH_AND_GOTO(H5E_CANTFILTER, 0, "lossy ZFP cannot encode the integers of magnitude 2^30 (2^62 for 64-bit) or more in this chunk");
+        }
 
         msize = zfp_stream_maximum_size(zstr, zfld);
 

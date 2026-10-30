@@ -988,9 +988,11 @@ cleanup:
    must fail H5Dcreate2(), and an optional one must leave every chunk
    unfiltered and exact, recording values that make a ZFP filter refuse them.
    It used to record no values for a single value or a 5-D chunk (and then
-   read cd_values that were not there), fail H5Dcreate2() for int16, and
-   compress the other byte order as though it were native. */
-static const char *zfp_unsupported_names[] = {"single", "5d", "int16", "swapped"};
+   read cd_values that were not there), fail H5Dcreate2() for int16, compress
+   the other byte order as though it were native, and take unsigned integers
+   for signed ones in lossy modes (returning values just above 0 from the top
+   of the range). */
+static const char *zfp_unsupported_names[] = {"single", "5d", "int16", "swapped", "uint32"};
 
 static int test_zfp_unsupported(hid_t fid, int which, unsigned int flags) {
   const char *what = zfp_unsupported_names[which];
@@ -1000,7 +1002,7 @@ static int test_zfp_unsupported(hid_t fid, int which, unsigned int flags) {
   if (which >= 2) dims[0] = 64;
   for (int i = 0; i < rank; i++) n *= dims[i];
 
-  hid_t mtype = (which == 2) ? H5T_NATIVE_SHORT : H5T_NATIVE_DOUBLE, ftype = mtype;
+  hid_t mtype = (which == 2) ? H5T_NATIVE_SHORT : (which == 4) ? H5T_NATIVE_UINT32 : H5T_NATIVE_DOUBLE, ftype = mtype;
   if (which == 3) ftype = (H5Tget_order(H5T_NATIVE_DOUBLE) == H5T_ORDER_LE) ? H5T_IEEE_F64BE : H5T_IEEE_F64LE;
   size_t tsize = H5Tget_size(mtype);
 
@@ -1015,8 +1017,9 @@ static int test_zfp_unsupported(hid_t fid, int which, unsigned int flags) {
   /* Small whole numbers: read in the other byte order they are subnormals,
      which lossy ZFP rounds to zero */
   for (hsize_t i = 0; i < n; i++) {
-    if (which == 2) { short s = (short)(3 * (int)i - 50); memcpy(data + i * tsize, &s, tsize); }
-    else            { double d = (double)i + 1.0;         memcpy(data + i * tsize, &d, tsize); }
+    if      (which == 2) { short s = (short)(3 * (int)i - 50); memcpy(data + i * tsize, &s, tsize); }
+    else if (which == 4) { uint32_t u = (uint32_t)i;          memcpy(data + i * tsize, &u, tsize); }
+    else                 { double d = (double)i + 1.0;         memcpy(data + i * tsize, &d, tsize); }
   }
 
   CHECK(sid = H5Screate_simple(rank, dims, NULL), "H5Screate_simple");
@@ -1068,6 +1071,138 @@ cleanup:
   if (data) free(data);
   if (data_out) free(data_out);
   if (dcpl >= 0) H5Pclose(dcpl);
+  CLOSE_DSET(dset);
+  if (plist >= 0) H5Pclose(plist);
+  if (sid >= 0) H5Sclose(sid);
+  return ret;
+}
+
+/* 15b. Integers Lossy ZFP Cannot Take */
+
+/* ZFP's lossy modes take integers of magnitude below 2^30 (2^62 for 64-bit
+   ones), and used to return larger ones from the other end of the range.  A
+   chunk holding one must be refused like one holding NaN: an optional filter
+   leaves just that chunk unfiltered and exact, and a mandatory one fails the
+   write.  Reversible ZFP must still take any integer, unsigned ones too. */
+#define WI_CHUNK  256
+#define WI_NCHUNK 4
+#define WI_BAD    1   /* index of the chunk that holds the wide value */
+
+static int test_zfp_wide_ints(hid_t fid, int use64, unsigned int flags) {
+  size_t tsize = use64 ? sizeof(int64_t) : sizeof(int32_t);
+  hid_t mtype = use64 ? H5T_NATIVE_INT64 : H5T_NATIVE_INT32;
+  hsize_t dims[1] = {WI_CHUNK * WI_NCHUNK}, chunkdims[1] = {WI_CHUNK};
+  unsigned char *data = malloc(dims[0] * tsize), *data_out = malloc(dims[0] * tsize);
+  hid_t sid = -1, plist = -1, dset = -1;
+  int ret = -1;
+  char name[64];
+
+  if (!data || !data_out) goto cleanup;
+  for (hsize_t i = 0; i < dims[0]; i++) {
+    int64_t v = (int64_t)(sin((double)i / 50.0) * 1000000.0);
+    if (i == WI_BAD * WI_CHUNK + 10) v = use64 ? -(INT64_C(1) << 62) : (INT64_C(1) << 30);
+    if (use64) { memcpy(data + i * tsize, &v, tsize); }
+    else       { int32_t w = (int32_t)v; memcpy(data + i * tsize, &w, tsize); }
+  }
+
+  CHECK(sid = H5Screate_simple(1, dims, NULL), "H5Screate_simple");
+  CHECK(plist = H5Pcreate(H5P_DATASET_CREATE), "H5Pcreate");
+  CHECK(H5Pset_chunk(plist, 1, chunkdims), "H5Pset_chunk");
+  CHECK(H5Pset_zfp_rate(plist, 16), "H5Pset_zfp_rate");
+  if (flags == H5Z_FLAG_OPTIONAL) CHECK(make_filter_optional(plist, H5Z_FILTER_ZFP), "make_filter_optional");
+
+  snprintf(name, sizeof(name), "/zfp_wide_%s_%s", use64 ? "i64" : "i32", flags == H5Z_FLAG_OPTIONAL ? "opt" : "man");
+  CHECK(dset = H5Dcreate2(fid, name, mtype, sid, H5P_DEFAULT, plist, H5P_DEFAULT), "H5Dcreate2");
+
+  herr_t wrote = H5Dwrite(dset, mtype, H5S_ALL, H5S_ALL, H5P_DEFAULT, data);
+  if (wrote >= 0) wrote = H5Dflush(dset);
+
+  if (flags == H5Z_FLAG_MANDATORY) {
+    if (wrote >= 0) {
+      Rprintf("\n      -> %s: mandatory lossy ZFP accepted a wide integer", name);
+      goto cleanup;
+    }
+    /* The failed chunk is still dirty, so closing fails again; that is expected */
+    H5Dclose(dset);
+    dset = -1;
+    ret = 0;
+    goto cleanup;
+  }
+
+  CHECK(wrote, "H5Dwrite/H5Dflush");
+  if (H5Dclose(dset) < 0) { dset = -1; Rprintf("\n      -> %s: H5Dclose failed", name); goto cleanup; }
+  CHECK(dset = H5Dopen2(fid, name, H5P_DEFAULT), "H5Dopen2");
+  CHECK(H5Dread(dset, mtype, H5S_ALL, H5S_ALL, H5P_DEFAULT, data_out), "H5Dread");
+
+  for (hsize_t c = 0; c < WI_NCHUNK; c++) {
+    hsize_t offset[1], size;
+    unsigned mask;
+    haddr_t addr;
+    CHECK(H5Dget_chunk_info(dset, H5S_ALL, c, offset, &mask, &addr, &size), "H5Dget_chunk_info");
+    if ((mask != 0) != (offset[0] / WI_CHUNK == WI_BAD)) {
+      Rprintf("\n      -> %s: chunk at %llu was %sfiltered", name, (unsigned long long)offset[0], mask ? "not " : "");
+      goto cleanup;
+    }
+  }
+  /* The refused chunk is exact; the others went through lossy ZFP */
+  if (memcmp(data + WI_BAD * WI_CHUNK * tsize, data_out + WI_BAD * WI_CHUNK * tsize, WI_CHUNK * tsize) != 0) {
+    Rprintf("\n      -> %s: the refused chunk did not read back exactly", name);
+    goto cleanup;
+  }
+  for (hsize_t i = 0; i < dims[0]; i++) {
+    int64_t a, b;
+    if (use64) { memcpy(&a, data + i * tsize, tsize); memcpy(&b, data_out + i * tsize, tsize); }
+    else       { int32_t x, y; memcpy(&x, data + i * tsize, tsize); memcpy(&y, data_out + i * tsize, tsize); a = x; b = y; }
+    if (llabs((long long)(a - b)) > (1LL << 20)) {
+      Rprintf("\n      -> %s: mismatch at index %llu (in: %lld, out: %lld)", name,
+              (unsigned long long)i, (long long)a, (long long)b);
+      goto cleanup;
+    }
+  }
+  ret = 0;
+
+cleanup:
+  if (data) free(data);
+  if (data_out) free(data_out);
+  CLOSE_DSET(dset);
+  if (plist >= 0) H5Pclose(plist);
+  if (sid >= 0) H5Sclose(sid);
+  return ret;
+}
+
+static int test_zfp_unsigned_reversible(hid_t fid) {
+  hsize_t dims[1] = {WI_CHUNK};
+  uint32_t data[WI_CHUNK], data_out[WI_CHUNK];
+  hid_t sid = -1, plist = -1, dset = -1;
+  int ret = -1;
+
+  /* 0 and UINT32_MAX side by side, and values on both sides of 2^31 */
+  for (int i = 0; i < WI_CHUNK; i++) data[i] = (i % 2) ? UINT32_MAX - (uint32_t)i : (uint32_t)i * 16777259u;
+
+  CHECK(sid = H5Screate_simple(1, dims, NULL), "H5Screate_simple");
+  CHECK(plist = H5Pcreate(H5P_DATASET_CREATE), "H5Pcreate");
+  CHECK(H5Pset_chunk(plist, 1, dims), "H5Pset_chunk");
+  CHECK(H5Pset_zfp_reversible(plist), "H5Pset_zfp_reversible");
+  CHECK(dset = H5Dcreate2(fid, "/zfp_rev_uint32", H5T_NATIVE_UINT32, sid, H5P_DEFAULT, plist, H5P_DEFAULT), "H5Dcreate2");
+  CHECK(H5Dwrite(dset, H5T_NATIVE_UINT32, H5S_ALL, H5S_ALL, H5P_DEFAULT, data), "H5Dwrite");
+  CHECK(dset = reopen_dset(fid, dset, "/zfp_rev_uint32"), "reopen");
+  CHECK(H5Dread(dset, H5T_NATIVE_UINT32, H5S_ALL, H5S_ALL, H5P_DEFAULT, data_out), "H5Dread");
+
+  hsize_t offset[1], size;
+  unsigned mask;
+  haddr_t addr;
+  CHECK(H5Dget_chunk_info(dset, H5S_ALL, 0, offset, &mask, &addr, &size), "H5Dget_chunk_info");
+  if (mask != 0) {
+    Rprintf("\n      -> Reversible ZFP declined uint32");
+    goto cleanup;
+  }
+  if (memcmp(data, data_out, sizeof(data)) != 0) {
+    Rprintf("\n      -> Reversible ZFP changed uint32 values");
+    goto cleanup;
+  }
+  ret = 0;
+
+cleanup:
   CLOSE_DSET(dset);
   if (plist >= 0) H5Pclose(plist);
   if (sid >= 0) H5Sclose(sid);
@@ -1347,6 +1482,91 @@ cleanup:
   if (cmp8 >= 0) H5Tclose(cmp8);
   if (cmp12 >= 0) H5Tclose(cmp12);
   if (arr >= 0) H5Tclose(arr);
+  return errors ? -1 : 0;
+}
+
+/* 18b. Blosc2 Truncation Ahead of Delta */
+
+/* c-blosc2's delta encodes each block after a chunk's first against the first
+   block.  It used to take that block as handed over, before trunc-prec, while
+   decoding takes it truncated; and with shuffle or bitshuffle as a third
+   pre-filter it wrote over the chunk while compressing it.  Either way every
+   block after the first came back wrong.  The truncation tests above use
+   chunks of a single block, so here each pipeline writes doubles in chunks of
+   many, 1-D and 2-D (B2ND), with one and two threads, and must read back
+   exactly the truncated values.  Returns 0, or -1 on any failure. */
+#define TD_N 262144  /* 2 MB of doubles: two 1-D chunks, or one of 512 x 512 */
+
+static int b2_trunc_delta_case(hid_t fid, unsigned int mask, int rank, int nthreads,
+                               const double *data, const double *want, double *out) {
+  hsize_t dims[2] = {TD_N, 1}, chunk[2] = {TD_N / 2, 1};
+  if (rank == 2) { dims[0] = dims[1] = chunk[0] = chunk[1] = 512; }
+  unsigned int cd[7] = {B2_SETTINGS(mask, 30), 0, 0, 0, 5, 0, 1};
+  unsigned int vals[32], flags;
+  size_t nelmts = 32;
+  hid_t sid = -1, plist = -1, dset = -1, dcpl = -1;
+  int old_nthreads = hdf5lib_set_blosc_nthreads(nthreads);
+  int ret = -1;
+  char name[64];
+
+  snprintf(name, sizeof(name), "/b2trunc_delta_%u_%dd_%dt", mask, rank, nthreads);
+  CHECK(sid = H5Screate_simple(rank, dims, NULL), "H5Screate_simple");
+  CHECK(plist = H5Pcreate(H5P_DATASET_CREATE), "H5Pcreate");
+  CHECK(H5Pset_chunk(plist, rank, chunk), "H5Pset_chunk");
+  CHECK(H5Pset_filter(plist, H5Z_FILTER_BLOSC2, H5Z_FLAG_MANDATORY, 7, cd), "H5Pset_filter");
+  CHECK(dset = H5Dcreate2(fid, name, H5T_NATIVE_DOUBLE, sid, H5P_DEFAULT, plist, H5P_DEFAULT), "H5Dcreate2");
+  CHECK(H5Dwrite(dset, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT, data), "H5Dwrite");
+  if (H5Dclose(dset) < 0) { dset = -1; Rprintf("\n      -> %s: H5Dclose failed", name); goto cleanup; }
+  CHECK(dset = H5Dopen2(fid, name, H5P_DEFAULT), "H5Dopen2");
+  CHECK(H5Dread(dset, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT, out), "H5Dread");
+  CHECK(dcpl = H5Dget_create_plist(dset), "H5Dget_create_plist");
+  CHECK(H5Pget_filter_by_id(dcpl, H5Z_FILTER_BLOSC2, &flags, &nelmts, vals, 0, NULL, NULL), "H5Pget_filter_by_id");
+
+  if (((vals[0] >> 16) & 0xF) != mask) {
+    Rprintf("\n      -> %s: stored pre-filters %u", name, (vals[0] >> 16) & 0xF);
+    goto cleanup;
+  }
+  for (int i = 0; i < TD_N; i++) {
+    if (memcmp(&out[i], &want[i], sizeof(double)) != 0) {
+      Rprintf("\n      -> %s: index %d is %.17g, not %.17g", name, i, out[i], want[i]);
+      goto cleanup;
+    }
+  }
+  ret = 0;
+
+cleanup:
+  hdf5lib_set_blosc_nthreads(old_nthreads);
+  if (dcpl >= 0) H5Pclose(dcpl);
+  CLOSE_DSET(dset);
+  if (plist >= 0) H5Pclose(plist);
+  if (sid >= 0) H5Sclose(sid);
+  return ret;
+}
+
+static int test_blosc2_trunc_delta(hid_t fid) {
+  double *data = malloc(TD_N * sizeof(double)), *want = malloc(TD_N * sizeof(double));
+  double *out = malloc(TD_N * sizeof(double));
+  unsigned int masks[3] = {8 | 4, 8 | 4 | 1, 8 | 4 | 2};  /* then nothing, shuffle, or bitshuffle */
+  int errors = 0;
+
+  if (!data || !want || !out) { errors++; goto cleanup; }
+  for (int i = 0; i < TD_N; i++) {
+    uint64_t bits;
+    data[i] = sin(i / 20.0) * 1000.0;
+    memcpy(&bits, &data[i], sizeof(bits));
+    bits &= ~((UINT64_C(1) << 22) - 1);  /* keeping 30 of the 52 mantissa bits */
+    memcpy(&want[i], &bits, sizeof(bits));
+  }
+
+  for (int m = 0; m < 3; m++)
+    for (int rank = 1; rank <= 2; rank++)
+      for (int nthreads = 1; nthreads <= 2; nthreads++)
+        if (b2_trunc_delta_case(fid, masks[m], rank, nthreads, data, want, out) < 0) errors++;
+
+cleanup:
+  if (data) free(data);
+  if (want) free(want);
+  if (out) free(out);
   return errors ? -1 : 0;
 }
 
@@ -2671,6 +2891,34 @@ cleanup:
 }
 
 /* =========================================================================
+ * VERSION MACROS
+ * ========================================================================= */
+/* hdf5lib's version starts with the version of HDF5 it bundles */
+#if HDF5LIB_VERSION_MAJOR != H5_VERS_MAJOR || HDF5LIB_VERSION_MINOR != H5_VERS_MINOR || \
+    HDF5LIB_VERSION_PATCH != H5_VERS_RELEASE
+#error "hdf5lib.h: HDF5LIB_VERSION does not start with HDF5's version"
+#endif
+
+/* Returns list(HDF5LIB_VERSION_STRING, c(major, minor, patch, revision,
+   HDF5LIB_VERSION)) for test-hdf5.r to check against DESCRIPTION */
+SEXP C_hdf5lib_version(void) {
+  SEXP sexp_result = PROTECT(Rf_allocVector(VECSXP, 2));
+  int *nums;
+
+  SET_VECTOR_ELT(sexp_result, 0, Rf_mkString(HDF5LIB_VERSION_STRING));
+  SET_VECTOR_ELT(sexp_result, 1, Rf_allocVector(INTSXP, 5));
+  nums    = INTEGER(VECTOR_ELT(sexp_result, 1));
+  nums[0] = HDF5LIB_VERSION_MAJOR;
+  nums[1] = HDF5LIB_VERSION_MINOR;
+  nums[2] = HDF5LIB_VERSION_PATCH;
+  nums[3] = HDF5LIB_VERSION_REVISION;
+  nums[4] = HDF5LIB_VERSION;
+
+  UNPROTECT(1);
+  return sexp_result;
+}
+
+/* =========================================================================
  * MAIN R INVOCATION
  * ========================================================================= */
 SEXP C_smoke_test(SEXP sexp_filename) {
@@ -2728,6 +2976,7 @@ SEXP C_smoke_test(SEXP sexp_filename) {
     {"blosc_snappy",H5Z_FILTER_BLOSC,   7, {0, 0, 0, 0, 5, 1, 3},         TEST_ALL | TEST_THR},
     {"blosc_zlib",  H5Z_FILTER_BLOSC,   7, {0, 0, 0, 0, 5, 1, 4},         TEST_ALL | TEST_THR},
     {"blosc_zstd",  H5Z_FILTER_BLOSC,   7, {0, 0, 0, 0, 5, 1, 5},         TEST_ALL | TEST_THR},
+    {"blosc_bitshuf",H5Z_FILTER_BLOSC,  7, {0, 0, 0, 0, 5, 2, 1},         TEST_ALL | TEST_THR},
     {"blosc2_lz",   H5Z_FILTER_BLOSC2,  7, {B2_SETTINGS(1, 0), 0, 0, 0, 5, 1, 0},     TEST_ALL | TEST_THR},
     {"blosc2_lz4",  H5Z_FILTER_BLOSC2,  7, {B2_SETTINGS(1, 0), 0, 0, 0, 5, 1, 1},     TEST_ALL | TEST_THR},
     {"blosc2_lz4hc",H5Z_FILTER_BLOSC2,  7, {B2_SETTINGS(1, 0), 0, 0, 0, 5, 1, 2},     TEST_ALL | TEST_THR},
@@ -2809,11 +3058,25 @@ SEXP C_smoke_test(SEXP sexp_filename) {
 
   Rprintf("  Testing %-15s", "zfp_unsupported");
   int unsupported_errors = 0;
-  for (int which = 0; which < 4; which++) {
+  for (int which = 0; which < 5; which++) {
     if (test_zfp_unsupported(file_id, which, H5Z_FLAG_OPTIONAL)  < 0) unsupported_errors++;
     if (test_zfp_unsupported(file_id, which, H5Z_FLAG_MANDATORY) < 0) unsupported_errors++;
   }
   if (unsupported_errors > 0) {
+    Rprintf(" [FAILED]\n");
+    total_errors++;
+  } else {
+    Rprintf(" [OK]\n");
+  }
+
+  Rprintf("  Testing %-15s", "zfp_int_range");
+  int range_errors = 0;
+  for (int use64 = 0; use64 <= 1; use64++) {
+    if (test_zfp_wide_ints(file_id, use64, H5Z_FLAG_OPTIONAL)  < 0) range_errors++;
+    if (test_zfp_wide_ints(file_id, use64, H5Z_FLAG_MANDATORY) < 0) range_errors++;
+  }
+  if (test_zfp_unsigned_reversible(file_id) < 0) range_errors++;
+  if (range_errors > 0) {
     Rprintf(" [FAILED]\n");
     total_errors++;
   } else {
@@ -2838,6 +3101,14 @@ SEXP C_smoke_test(SEXP sexp_filename) {
 
   Rprintf("  Testing %-15s", "blosc2_trunc");
   if (test_blosc2_trunc_types(file_id) < 0) {
+    Rprintf(" [FAILED]\n");
+    total_errors++;
+  } else {
+    Rprintf(" [OK]\n");
+  }
+
+  Rprintf("  Testing %-15s", "b2_trunc_delta");
+  if (test_blosc2_trunc_delta(file_id) < 0) {
     Rprintf(" [FAILED]\n");
     total_errors++;
   } else {

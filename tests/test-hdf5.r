@@ -35,7 +35,22 @@ local({
   
   # Load the shared object
   dyn.load(so_file)
-  
+
+  # The version macros in hdf5lib.h match DESCRIPTION
+  hdr_version <- .Call("C_hdf5lib_version")
+  pkg_version <- packageVersion("hdf5lib")
+  pkg_parts   <- unlist(pkg_version)
+
+  if (!identical(hdr_version[[1]], as.character(pkg_version)))
+    stop("HDF5LIB_VERSION_STRING is ", hdr_version[[1]], ", but DESCRIPTION has ", pkg_version)
+
+  if (!identical(hdr_version[[2]][1:4], pkg_parts))
+    stop("HDF5LIB_VERSION_{MAJOR,MINOR,PATCH,REVISION} are ",
+         paste(hdr_version[[2]][1:4], collapse = "."), ", but DESCRIPTION has ", pkg_version)
+
+  if (hdr_version[[2]][5] != sum(pkg_parts * c(1000000L, 10000L, 100L, 1L)))
+    stop("HDF5LIB_VERSION is ", hdr_version[[2]][5], ", which does not encode ", pkg_version)
+
   # Call the C function (from smoke_test.c)
   version_str <- .Call("C_smoke_test", tmp_h5)
   

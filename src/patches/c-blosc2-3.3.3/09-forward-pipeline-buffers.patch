@@ -1,0 +1,45 @@
+diff -ru src/c-blosc2-orig/blosc/blosc2.c src/c-blosc2-3.3.3/blosc/blosc2.c
+--- src/c-blosc2-orig/blosc/blosc2.c
++++ src/c-blosc2-3.3.3/blosc/blosc2.c
+@@ -1055,12 +1055,22 @@
+   *tmp = tmp2;
+ }
+ 
++/* hdf5lib: pipeline_forward() cycled its buffers with _cycle_buffers(), which
++   hands the caller's source out as the third filter's destination.  Three
++   filters (trunc-prec, delta and shuffle, say) then wrote over the chunk being
++   compressed, including the first block, which delta takes as its reference
++   for every later one.  Take turns with the two scratch buffers instead: the
++   source is only read.  One or two filters use the same buffers as before. */
++static void _next_buffers(uint8_t **src, uint8_t **dest, uint8_t *dest1, uint8_t *dest2) {
++  *src = *dest;
++  *dest = (*src == dest1) ? dest2 : dest1;
++}
++
+ uint8_t* pipeline_forward(struct thread_context* thread_context, const int32_t bsize,
+                           const uint8_t* src, const int32_t offset,
+                           uint8_t* dest, uint8_t* tmp) {
+   blosc2_context* context = thread_context->parent_context;
+   uint8_t* _src = (uint8_t*)src + offset;
+-  uint8_t* _tmp = tmp;
+   uint8_t* _dest = dest;
+   int32_t typesize = context->typesize;
+   uint8_t* filters = context->filters;
+@@ -1109,7 +1119,7 @@
+       // No more filters are required
+       return _dest;
+     }
+-    _cycle_buffers(&_src, &_dest, &_tmp);
++    _next_buffers(&_src, &_dest, dest, tmp);
+   }
+ 
+   /* Process the filter pipeline */
+@@ -1176,7 +1186,7 @@
+ 
+     // Cycle buffers when required
+     if (filters[i] != BLOSC_NOFILTER) {
+-      _cycle_buffers(&_src, &_dest, &_tmp);
++      _next_buffers(&_src, &_dest, dest, tmp);
+     }
+   }
+   return _src;

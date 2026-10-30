@@ -36,3 +36,33 @@ The `api` argument accepts the following values:
 * `1.6` (HDF5 1.6.x)
 
 > **Note:** You must choose from the explicit list above. There is no `api = 2.2` option, as the HDF5 library does not utilize an `H5_USE_210_API_DEFAULT` macro internally. To build against the 2.2.x series, use `api = 2.0` or simply omit the argument.
+
+## Checking the `hdf5lib` Version
+
+The `api` argument pins HDF5's functions. To use something a later `hdf5lib` release added, such as `hdf5lib_set_blosc_nthreads()`, while still building against earlier releases, test the version that `hdf5lib.h` defines:
+
+```c
+#include <hdf5lib.h>
+
+#if defined(HDF5LIB_VERSION) && HDF5LIB_VERSION >= 2020001   /* 2.2.0.1 or later */
+  hdf5lib_set_blosc_nthreads(4);
+#endif
+```
+
+`hdf5lib`'s version is the version of HDF5 it bundles followed by a revision of the package, and `hdf5lib.h` defines:
+
+| Macro | Value in 2.2.0.1 |
+|----|----|
+| `HDF5LIB_VERSION_MAJOR`, `HDF5LIB_VERSION_MINOR`, `HDF5LIB_VERSION_PATCH` | `2`, `2`, `0` (HDF5's version) |
+| `HDF5LIB_VERSION_REVISION` | `1` |
+| `HDF5LIB_VERSION_STRING` | `"2.2.0.1"` |
+| `HDF5LIB_VERSION` | `2020001`: major × 1000000 + minor × 10000 + patch × 100 + revision |
+| `HDF5LIB_VERSION_NUMBER(major, minor, patch, revision)` | Packs any version the same way |
+
+These macros first appear in 2.2.0.1. In earlier headers `HDF5LIB_VERSION` is undefined, so the test above is false. Compare against a plain number, as above: an `#if` that calls `HDF5LIB_VERSION_NUMBER()` is a syntax error against those headers, even behind `defined()`. For the version of HDF5 itself, `hdf5.h` provides `H5_VERSION_GE(2, 2, 0)`.
+
+If your package simply requires a newer `hdf5lib`, a version requirement is simpler than `#if` tests. R checks it when your package is installed:
+
+```yaml
+LinkingTo: hdf5lib (>= 2.2.0.1)
+```

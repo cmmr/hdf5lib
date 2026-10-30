@@ -1,0 +1,17 @@
+diff -ru src/c-blosc-orig/blosc/shuffle.c src/c-blosc-1.21.6/blosc/shuffle.c
+--- src/c-blosc-orig/blosc/shuffle.c	2026-10-30 20:25:46.309544400 +0000
++++ src/c-blosc-1.21.6/blosc/shuffle.c	2026-10-30 20:26:18.137243900 +0000
+@@ -42,8 +42,11 @@
+ /*  Define function pointer types for shuffle/unshuffle routines. */
+ typedef void(*shuffle_func)(const size_t, const size_t, const uint8_t*, uint8_t*);
+ typedef void(*unshuffle_func)(const size_t, const size_t, const uint8_t*, uint8_t*);
+-typedef int64_t(*bitshuffle_func)(void*, void*, const size_t, const size_t, void*);
+-typedef int64_t(*bitunshuffle_func)(void*, void*, const size_t, const size_t, void*);
++/*  hdf5lib: match the bundled generic routines, which take `const void* in`;
++    calling a function through a pointer to a different function type is
++    undefined behaviour, which UBSan's -fsanitize=function reports. */
++typedef int64_t(*bitshuffle_func)(const void*, void*, const size_t, const size_t, void*);
++typedef int64_t(*bitunshuffle_func)(const void*, void*, const size_t, const size_t, void*);
+ 
+ /* An implementation of shuffle/unshuffle routines. */
+ typedef struct shuffle_implementation {
