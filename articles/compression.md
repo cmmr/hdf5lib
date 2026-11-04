@@ -318,8 +318,24 @@ and compression level. Zstd and zlib at Blosc level 9 (`cd_values[4]`),
 for example, use 1 MB blocks, so a 1 MB chunk is a single block and
 gains nothing from extra threads, while at level 5 the same chunk splits
 into four 256 KB blocks. Larger chunks or lower levels leave more room
-for parallelism. The worker threads are started on first use and kept
-between chunks, so they cost nothing per chunk once running.
+for parallelism.
+
+The worker threads are started on first use and kept between chunks, so
+they cost nothing per chunk once running. They are joined when HDF5
+shuts down (at `H5close()` or when the process exits) or by
+`hdf5lib_destroy_all_filters()`, although lowering the thread count to 1
+can leave some idle until then. The filters start threads again:
+
+- when the thread count changes to another number above 1;
+- in Blosc2, for a chunk written with different settings, or of a
+  different size, from the last one written, as when writes alternate
+  between two datasets set up differently. On Linux and macOS the
+  threads already running are kept if Blosc2 has also read a chunk since
+  the thread count last changed;
+- in Blosc (v1), for every chunk written while any of `BLOSC_CLEVEL`,
+  `BLOSC_SHUFFLE`, `BLOSC_TYPESIZE`, `BLOSC_COMPRESSOR`,
+  `BLOSC_BLOCKSIZE`, or `BLOSC_SPLITMODE` is set, and for every chunk
+  read or written while `BLOSC_NOLOCK` is set.
 
 Keep in mind that CRAN does not allow package examples, tests, or
 vignettes to use more than two threads. On Linux and macOS, a process
