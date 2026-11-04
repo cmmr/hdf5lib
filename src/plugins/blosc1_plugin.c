@@ -27,10 +27,12 @@
    Only its global context keeps a pool alive between calls, so use that when
    more than one thread is wanted.  blosc_compress() lets the variables below
    override the clevel, shuffle, codec, etc. it is given, so compress through
-   the global context only while none of them is set; blosc_decompress() takes
-   nothing from the environment but BLOSC_NTHREADS.  (HDF5 makes every filter
-   call under its global lock, so the global compressor setting cannot change
-   under a call in progress.) */
+   the global context only while none of them is set; blosc_decompress() reads
+   only BLOSC_NTHREADS and BLOSC_NOLOCK.  BLOSC_NOLOCK sends both functions to
+   the *_ctx() ones, so while it is set the threads start and stop on every
+   call whichever path is taken here.  (HDF5 makes every filter call under its
+   global lock, so the global compressor setting cannot change under a call in
+   progress.) */
 static int use_global_pool(int nthreads, int compressing) {
   static const char *overrides[] = {
     "BLOSC_CLEVEL", "BLOSC_SHUFFLE", "BLOSC_TYPESIZE",

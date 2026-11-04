@@ -161,13 +161,16 @@ herr_t hdf5lib_set_blosc2(hid_t plist, unsigned int flags, unsigned int codec,
 /* =========================================================================
  * CONTEXT CACHE
  * =========================================================================
- * c-blosc2 starts a context's worker threads the first time the context does
- * any work and joins them when the context is freed.  Building a context per
- * chunk therefore starts and stops the whole pool for every chunk, which with
- * chunks of a megabyte or so costs more than the threads save, and also
- * throws away each worker's codec state (a Zstd context, for one).  Instead,
- * keep one compression and one decompression context alive across filter
- * calls and lend them to each chunk's super-chunk in place of its own.
+ * c-blosc2 starts worker threads the first time a context with more than one
+ * thread does any work.  On Windows each context starts threads of its own
+ * and joins them when it is freed; elsewhere, contexts asking for the same
+ * number of threads share one pool, joined when the last of them is freed.
+ * Building a context per chunk therefore starts and stops the whole pool for
+ * every chunk, which with chunks of a megabyte or so costs more than the
+ * threads save, and also throws away each worker's codec state (a Zstd
+ * context, for one).  Instead, keep one compression and one decompression
+ * context alive across filter calls and lend them to each chunk's super-chunk
+ * in place of its own.
  *
  * HDF5 makes every filter call under its global lock (the bundled library is
  * built thread-safe), so the cache needs no lock of its own. */
@@ -308,7 +311,8 @@ static void return_contexts(blosc2_schunk *schunk, const own_ctxs_t *own) {
   schunk->dctx = own->dctx;
 }
 
-/* Called by hdf5lib_destroy_all_filters() before blosc2_destroy(). */
+/* Called by hdf5lib_destroy_all_filters() before blosc2_destroy(), and as HDF5
+   shuts down (release_blosc_threads() in hdf5lib.c). */
 void blosc2_plugin_free_contexts(void) {
 #ifndef _WIN32
   drop_if_forked(&cctx_cache);
