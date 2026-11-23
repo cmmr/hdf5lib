@@ -321,10 +321,14 @@ into four 256 KB blocks. Larger chunks or lower levels leave more room
 for parallelism.
 
 The worker threads are started on first use and kept between chunks, so
-they cost nothing per chunk once running. They are joined when HDF5
-shuts down (at `H5close()` or when the process exits) or by
-`hdf5lib_destroy_all_filters()`, although lowering the thread count to 1
-can leave some idle until then. The filters start threads again:
+they cost nothing per chunk once running. `H5close()` and
+`hdf5lib_destroy_all_filters()` join them, and so does HDF5 as it shuts
+down when the process exits, so packages need not free them before R
+exits. (Windows ends a process’s threads before HDF5 shuts down, so
+there they are left to the system, and any chunks HDF5 still writes
+then, for files left open, are compressed on one thread.) Lowering the
+thread count to 1 can leave some threads idle until then. The filters
+start threads again:
 
 - when the thread count changes to another number above 1;
 - in Blosc2, for a chunk written with different settings, or of a

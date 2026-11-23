@@ -1,6 +1,17 @@
 # Changelog
 
+## hdf5lib 2.2.0.2
+
+- Fixed R never exiting on Windows once the Blosc or Blosc2 filter had
+  used more than one thread. Windows ends the worker threads before HDF5
+  shuts down, and freeing them then waited forever; now they are left to
+  the system, and chunks HDF5 writes during shutdown are compressed on
+  one thread. Packages no longer need to free the threads themselves
+  before R exits.
+
 ## hdf5lib 2.2.0.1
+
+CRAN release: 2026-11-04
 
 - Fixed silent data corruption: ZFP with `NaN`/`NA`/`Inf` or non-native
   byte order, Blosc2’s ZFP codecs and truncate-precision pre-filter on
