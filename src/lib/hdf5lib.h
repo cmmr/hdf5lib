@@ -14,8 +14,8 @@
 #define HDF5LIB_VERSION_MAJOR     2
 #define HDF5LIB_VERSION_MINOR     2
 #define HDF5LIB_VERSION_PATCH     0
-#define HDF5LIB_VERSION_REVISION  1
-#define HDF5LIB_VERSION_STRING    "2.2.0.1"
+#define HDF5LIB_VERSION_REVISION  2
+#define HDF5LIB_VERSION_STRING    "2.2.0.2"
 
 #define HDF5LIB_VERSION_NUMBER(major, minor, patch, revision) \
   ((major) * 1000000 + (minor) * 10000 + (patch) * 100 + (revision))
@@ -38,7 +38,11 @@ herr_t hdf5lib_destroy_all_filters(void);
    bookkeeping contexts it makes for every chunk, which on Windows start and
    stop threads of their own.  The setter takes values from 1 to 256, or 0 to
    drop back to the default, and returns the previous setting (0 if none was
-   made).  The getter returns the number of threads the filters will use. */
+   made).  The getter returns the number of threads the filters will use: 1
+   once a Windows process has begun to exit, which ends all its other threads.
+   The filters keep their worker threads between chunks, until H5close(),
+   hdf5lib_destroy_all_filters(), or the end of the process; nothing need free
+   them before R exits. */
 int hdf5lib_set_blosc_nthreads(int nthreads);
 int hdf5lib_get_blosc_nthreads(void);
 

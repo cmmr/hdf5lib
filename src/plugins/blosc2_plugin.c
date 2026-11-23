@@ -206,12 +206,35 @@ static void drop_if_forked(ctx_cache_t *cache) {
     inherited_dead_pool = 1;
   }
 }
+#else
+/* While a Windows process exits, HDF5 can still write chunks through this
+   filter (closing files left open), but the cached contexts' worker threads
+   are gone by then (see hdf5lib.c).  So, as in a forked child, abandon the
+   contexts that started any -- freeing them would wait on those threads
+   forever -- and run single-threaded, as hdf5lib_get_blosc_nthreads() then
+   asks. */
+extern int hdf5lib_blosc_threads_gone(void);
+
+static void drop_if_exiting(ctx_cache_t *cache) {
+  if (cache->ctx && cache->nthreads > 1 && hdf5lib_blosc_threads_gone())
+    memset(cache, 0, sizeof(*cache));
+}
 #endif
 
-static int16_t blosc2_nthreads(void) {
+/* Abandon the cached contexts whose worker threads no longer exist. */
+static void drop_dead_contexts(void) {
 #ifndef _WIN32
   drop_if_forked(&cctx_cache);
   drop_if_forked(&dctx_cache);
+#else
+  drop_if_exiting(&cctx_cache);
+  drop_if_exiting(&dctx_cache);
+#endif
+}
+
+static int16_t blosc2_nthreads(void) {
+  drop_dead_contexts();
+#ifndef _WIN32
   if (inherited_dead_pool) return 1;
 #endif
   return (int16_t)hdf5lib_get_blosc_nthreads();
@@ -312,12 +335,11 @@ static void return_contexts(blosc2_schunk *schunk, const own_ctxs_t *own) {
 }
 
 /* Called by hdf5lib_destroy_all_filters() before blosc2_destroy(), and as HDF5
-   shuts down (release_blosc_threads() in hdf5lib.c). */
+   shuts down (release_blosc_threads() in hdf5lib.c).  Neither calls it in a
+   Windows process that is exiting, but abandoning dead contexts first keeps
+   it safe there too. */
 void blosc2_plugin_free_contexts(void) {
-#ifndef _WIN32
-  drop_if_forked(&cctx_cache);
-  drop_if_forked(&dctx_cache);
-#endif
+  drop_dead_contexts();
   cache_free(&cctx_cache);
   cache_free(&dctx_cache);
 }

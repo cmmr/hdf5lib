@@ -32,7 +32,8 @@
    the *_ctx() ones, so while it is set the threads start and stop on every
    call whichever path is taken here.  (HDF5 makes every filter call under its
    global lock, so the global compressor setting cannot change under a call in
-   progress.) */
+   progress.)  While a Windows process exits, the pool's threads are gone and
+   hdf5lib_get_blosc_nthreads() returns 1, so the pool is left alone. */
 static int use_global_pool(int nthreads, int compressing) {
   static const char *overrides[] = {
     "BLOSC_CLEVEL", "BLOSC_SHUFFLE", "BLOSC_TYPESIZE",

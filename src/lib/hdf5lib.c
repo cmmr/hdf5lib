@@ -1,3 +1,9 @@
+#ifdef _WIN32
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
+#endif
 #include <R_ext/Error.h>
 #include <stdlib.h>
 #include <hdf5.h>
@@ -34,6 +40,30 @@ extern int register_codec_private(blosc2_codec *codec);
 extern void blosc2_plugin_free_contexts(void);
 
 
+/* --- Windows Process Exit --- */
+
+/* A Windows process exits by killing every thread but the one exiting, and
+   only then running each DLL's atexit handlers -- HDF5's among them, as
+   hdf5lib is linked into the consumer's DLL.  By the time HDF5 shuts down
+   there, the Blosc worker threads are gone, and freeing their pools would wait
+   on them forever (winpthreads' pthread_cond_destroy() waits for the workers a
+   broadcast woke; c-blosc's pool waits at a barrier for its workers); nor can
+   a new thread start.  ntdll's RtlDllShutdownInProgress() tells this stage
+   apart.  It is looked up at registration, so consumers link nothing new. */
+#ifdef _WIN32
+typedef BOOLEAN (WINAPI *dll_shutdown_fn)(void);
+static dll_shutdown_fn dll_shutdown_in_progress = NULL;
+#endif
+
+int hdf5lib_blosc_threads_gone(void) {
+#ifdef _WIN32
+  return dll_shutdown_in_progress != NULL && dll_shutdown_in_progress();
+#else
+  return 0;
+#endif
+}
+
+
 /* --- Blosc Thread Count --- */
 
 /* c-blosc1 cannot run more threads than this. */
@@ -53,6 +83,10 @@ int hdf5lib_set_blosc_nthreads(int nthreads) {
 }
 
 int hdf5lib_get_blosc_nthreads(void) {
+  /* HDF5 may still write chunks while a Windows process exits, but only on
+     the one thread left. */
+  if (hdf5lib_blosc_threads_gone()) return 1;
+
   /* c-blosc lets BLOSC_NTHREADS override the thread count its callers ask for,
      so honour it the same way rather than have it win in some code paths only. */
   const char *env = getenv("BLOSC_NTHREADS");
@@ -95,9 +129,12 @@ static int shim_registered[N_SHIMS] = {0};
    keep worker threads between chunks: c-blosc in its global pool, the Blosc2
    plugin in its cached contexts.  Join them here, so that a process does not end
    with them still running (valgrind reports their thread-local storage as
-   "possibly lost").  Both calls are safe in a forked child, which has none. */
+   "possibly lost").  Both calls are safe in a forked child, which has none.  A
+   Windows process that is exiting has no threads left to join, and returns
+   their memory to the system itself. */
 static void release_blosc_threads(void *ctx) {
   (void)ctx;
+  if (hdf5lib_blosc_threads_gone()) return;
   blosc2_plugin_free_contexts();
   blosc_free_resources();
 }
@@ -106,6 +143,13 @@ static void release_blosc_threads(void *ctx) {
 /* --- Registration Function --- */
 herr_t hdf5lib_register_all_filters(void) {
     herr_t err = 0;
+
+#ifdef _WIN32
+    HMODULE ntdll = GetModuleHandleW(L"ntdll.dll");
+    if (ntdll != NULL)
+        dll_shutdown_in_progress = (dll_shutdown_fn)(void (*)(void))
+            GetProcAddress(ntdll, "RtlDllShutdownInProgress");
+#endif
 
     /* Initialize Blosc engines globally */
     blosc_init();
@@ -168,10 +212,14 @@ herr_t hdf5lib_destroy_all_filters(void) {
   }
 
   /* Safely tear down the Blosc thread pools and TLS memory.  The Blosc2 plugin's
-     cached contexts hold worker threads of their own, so release them first. */
-  blosc2_plugin_free_contexts();
-  blosc_destroy();
-  blosc2_destroy();
-  
+     cached contexts hold worker threads of their own, so release them first.
+     Skip it all in a Windows process that is exiting (see above), should a
+     consumer call this from its own atexit handler or a static destructor. */
+  if (!hdf5lib_blosc_threads_gone()) {
+    blosc2_plugin_free_contexts();
+    blosc_destroy();
+    blosc2_destroy();
+  }
+
   return 0;
 }
