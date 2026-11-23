@@ -15,6 +15,7 @@
 ^docs$
 ^Meta$
 ^vignettes$
+^tests/interop$
 ^rhub_check\.r$
 ^\.Rproj\.user$
 ^\.positai$
