@@ -2,7 +2,8 @@
 # more than one thread: HDF5 shuts down after Windows has killed the worker
 # threads, and freeing them waited on those threads forever.  Run that in a
 # child R process, which must exit, and check what HDF5 wrote on its way out.
-# Not on CRAN (see test-hdf5.r).
+# It runs only where NOT_CRAN is true -- the GitHub workflows and
+# devtools::check() -- and not on CRAN, since it may have to kill that process.
 if (.Platform$OS.type == "windows" && isTRUE(as.logical(Sys.getenv("NOT_CRAN", "false")))) local({
 
   tmp_dir <- normalizePath(tempfile("hdf5lib_exit_"), winslash = "/", mustWork = FALSE)
