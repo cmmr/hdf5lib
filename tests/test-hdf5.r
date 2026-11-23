@@ -1,5 +1,8 @@
-local({
-  
+# The full smoke test, compiled against hdf5lib.  It runs only where NOT_CRAN
+# is true -- the GitHub workflows and devtools::check() -- and not on CRAN,
+# which runs only test-flags.r.
+if (isTRUE(as.logical(Sys.getenv("NOT_CRAN", "false")))) local({
+
   tmp_dir <- tempfile("hdf5lib_smoke_")
   dir.create(tmp_dir)
   file.copy("smoke_test.c", file.path(tmp_dir, "smoke_test.c"))

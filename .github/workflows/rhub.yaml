@@ -23,6 +23,11 @@ on:
         description: 'Unique ID. You can leave this empty now.'
         type: string
 
+# R-hub leaves NOT_CRAN unset, as CRAN does, which skips all but the simplest
+# tests (see tests/).  Run the full suite here.
+env:
+  NOT_CRAN: true
+
 jobs:
 
   setup:
